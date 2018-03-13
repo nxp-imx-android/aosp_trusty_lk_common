@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2009 Corey Tabaka
- * Copyright (c) 2015 Intel Corporation
+ * Copyright (c) 2015-2018 Intel Corporation
  * Copyright (c) 2016 Travis Geiselbrecht
  *
  * Permission is hereby granted, free of charge, to any person obtaining
@@ -719,9 +719,9 @@ void x86_mmu_early_init(void)
     x86_set_cr4(cr4);
 
     /* Set NXE bit in MSR_EFER*/
-    efer_msr = read_msr(x86_MSR_EFER);
-    efer_msr |= x86_EFER_NXE;
-    write_msr(x86_MSR_EFER, efer_msr);
+    efer_msr = read_msr(X86_MSR_EFER);
+    efer_msr |= X86_EFER_NXE;
+    write_msr(X86_MSR_EFER, efer_msr);
 
     /* getting the address width from CPUID instr */
     /* Bits 07-00: Physical Address width info */

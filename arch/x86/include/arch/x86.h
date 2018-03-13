@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2009 Corey Tabaka
- * Copyright (c) 2015 Intel Corporation
+ * Copyright (c) 2015-2018 Intel Corporation
  * Copyright (c) 2016 Travis Geiselbrecht
  *
  * Permission is hereby granted, free of charge, to any person obtaining
@@ -136,24 +136,24 @@ typedef tss_32_t tss_t;
 typedef tss_64_t tss_t;
 #endif
 
-#define X86_CR0_PE 0x00000001 /* protected mode enable */
-#define X86_CR0_MP 0x00000002 /* monitor coprocessor */
-#define X86_CR0_EM 0x00000004 /* emulation */
-#define X86_CR0_TS 0x00000008 /* task switched */
-#define X86_CR0_NE 0x00000020 /* enable x87 exception */
-#define X86_CR0_WP 0x00010000 /* supervisor write protect */
-#define X86_CR0_NW 0x20000000 /* not write-through */
-#define X86_CR0_CD 0x40000000 /* cache disable */
-#define X86_CR0_PG 0x80000000 /* enable paging */
-#define X86_CR4_PAE 0x00000020 /* PAE paging */
-#define X86_CR4_OSFXSR 0x00000200 /* os supports fxsave */
-#define X86_CR4_OSXMMEXPT 0x00000400 /* os supports xmm exception */
-#define X86_CR4_OSXSAVE 0x00040000 /* os supports xsave */
-#define X86_CR4_SMEP 0x00100000 /* SMEP protection enabling */
-#define X86_CR4_SMAP 0x00200000 /* SMAP protection enabling */
-#define x86_EFER_NXE 0x00000800 /* to enable execute disable bit */
-#define x86_MSR_EFER 0xc0000080 /* EFER Model Specific Register id */
-#define X86_CR4_PSE 0xffffffef /* Disabling PSE bit in the CR4 */
+#define X86_CR0_PE              0x00000001 /* protected mode enable */
+#define X86_CR0_MP              0x00000002 /* monitor coprocessor */
+#define X86_CR0_EM              0x00000004 /* emulation */
+#define X86_CR0_TS              0x00000008 /* task switched */
+#define X86_CR0_NE              0x00000020 /* enable x87 exception */
+#define X86_CR0_WP              0x00010000 /* supervisor write protect */
+#define X86_CR0_NW              0x20000000 /* not write-through */
+#define X86_CR0_CD              0x40000000 /* cache disable */
+#define X86_CR0_PG              0x80000000 /* enable paging */
+#define X86_CR4_PAE             0x00000020 /* PAE paging */
+#define X86_CR4_OSFXSR          0x00000200 /* os supports fxsave */
+#define X86_CR4_OSXMMEXPT       0x00000400 /* os supports xmm exception */
+#define X86_CR4_OSXSAVE         0x00040000 /* os supports xsave */
+#define X86_CR4_SMEP            0x00100000 /* SMEP protection enabling */
+#define X86_CR4_SMAP            0x00200000 /* SMAP protection enabling */
+#define X86_CR4_PSE             0xffffffef /* Disabling PSE bit in the CR4 */
+#define X86_EFER_NXE            0x00000800 /* to enable execute disable bit */
+#define X86_MSR_EFER            0xc0000080 /* EFER Model Specific Register id */
 
 #if ARCH_X86_32
 static inline void set_in_cr0(uint32_t mask)
