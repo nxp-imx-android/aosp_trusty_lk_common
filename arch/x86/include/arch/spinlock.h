@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015 Travis Geiselbrecht
+ * Copyright (c) 2018 Intel Corporation
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files
@@ -27,6 +28,11 @@
 #include <stdbool.h>
 
 #define SPIN_LOCK_INITIAL_VALUE (0)
+
+/* flags are unused on x86 */
+#define ARCH_DEFAULT_SPIN_LOCK_FLAG_INTERRUPTS  0
+#define SPIN_LOCK_FLAG_IRQ          ARCH_DEFAULT_SPIN_LOCK_FLAG_INTERRUPTS
+#define SPIN_LOCK_FLAG_IRQ_FIQ      ARCH_DEFAULT_SPIN_LOCK_FLAG_INTERRUPTS
 
 typedef unsigned long spin_lock_t;
 
@@ -58,9 +64,6 @@ static inline void arch_spin_unlock(spin_lock_t *lock)
 {
     *lock = 0;
 }
-
-/* flags are unused on x86 */
-#define ARCH_DEFAULT_SPIN_LOCK_FLAG_INTERRUPTS  0
 
 static inline void
 arch_interrupt_save(spin_lock_saved_state_t *statep, spin_lock_save_flags_t flags)
