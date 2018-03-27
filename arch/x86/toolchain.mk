@@ -29,6 +29,23 @@ ifeq ($(FOUNDTOOL),)
 $(error cannot find toolchain, please set ARCH_x86_64_TOOLCHAIN_PREFIX or add it to your path)
 endif
 
+ifeq ($(call TOBOOL,$(CLANGBUILD)),true)
+
+CLANG_X86_64_TARGET_SYS ?= linux
+CLANG_X86_64_TARGET_ABI ?= gnu
+
+CLANG_X86_64_AS_DIR := $(shell dirname $(shell dirname $(ARCH_x86_64_TOOLCHAIN_PREFIX)))
+
+AS_PATH := $(wildcard $(CLANG_X86_64_AS_DIR)/*/bin/as)
+ifeq ($(AS_PATH),)
+	$(error Could not find $(CLANG_X86_64_AS_DIR)/*/bin/as, did the directory structure change?)
+endif
+
+ARCH_x86_COMPILEFLAGS += -target x86_64-$(CLANG_X86_64_TARGET_SYS)-$(CLANG_X86_64_TARGET_ABI) \
+				--gcc-toolchain=$(CLANG_X86_64_AS_DIR)/
+
+endif
+
 endif
 endif
 
