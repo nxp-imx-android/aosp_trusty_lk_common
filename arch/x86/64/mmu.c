@@ -43,6 +43,8 @@
 uint8_t g_vaddr_width = 0;
 uint8_t g_paddr_width = 0;
 
+paddr_t x86_kernel_page_table = 0;
+
 /*
  * Page table 1:
  *
@@ -625,10 +627,24 @@ status_t x86_mmu_unmap(map_addr_t pml4, vaddr_t vaddr, uint count)
 int arch_mmu_unmap(arch_aspace_t *aspace, vaddr_t vaddr, uint count)
 {
     addr_t current_cr3_val;
+    vmm_aspace_t *kernel_aspace = vmm_get_kernel_aspace();
 
     LTRACEF("aspace %p, vaddr 0x%lx, count %u\n", aspace, vaddr, count);
 
-    DEBUG_ASSERT(aspace);
+    ASSERT(aspace);
+
+    /*
+     * Kernel level page table is mapped in user level space for syscall
+     * and interrupt handling.
+     *
+     * Add check here to make sure supervisor page would never be unmapped
+     * in user level aspace accidentally.
+     */
+    if (&kernel_aspace->arch_aspace != aspace) {
+        if (is_kernel_address(vaddr)) {
+            return ERR_INVALID_ARGS;
+        }
+    }
 
     if (!(x86_mmu_check_vaddr(vaddr)))
         return ERR_INVALID_ARGS;
@@ -636,8 +652,8 @@ int arch_mmu_unmap(arch_aspace_t *aspace, vaddr_t vaddr, uint count)
     if (count == 0)
         return NO_ERROR;
 
-    DEBUG_ASSERT(x86_get_cr3());
-    current_cr3_val = (addr_t)x86_get_cr3();
+    current_cr3_val = aspace->page_table;
+    ASSERT(current_cr3_val);
 
     return (x86_mmu_unmap(X86_PHYS_TO_VIRT(current_cr3_val), vaddr, count));
 }
@@ -693,13 +709,13 @@ status_t arch_mmu_query(arch_aspace_t *aspace, vaddr_t vaddr, paddr_t *paddr, ui
 
     LTRACEF("aspace %p, vaddr 0x%lx, paddr %p, flags %p\n", aspace, vaddr, paddr, flags);
 
-    DEBUG_ASSERT(aspace);
+    ASSERT(aspace);
 
     if (!paddr)
         return ERR_INVALID_ARGS;
 
-    DEBUG_ASSERT(x86_get_cr3());
-    current_cr3_val = (addr_t)x86_get_cr3();
+    current_cr3_val = aspace->page_table;
+    ASSERT(current_cr3_val);
 
     stat = x86_mmu_get_mapping(X86_PHYS_TO_VIRT(current_cr3_val), vaddr, &ret_level, &ret_flags, &last_valid_entry);
     if (stat)
@@ -733,8 +749,8 @@ int arch_mmu_map(arch_aspace_t *aspace, vaddr_t vaddr, paddr_t paddr, uint count
     if (count == 0)
         return NO_ERROR;
 
-    DEBUG_ASSERT(x86_get_cr3());
-    current_cr3_val = (addr_t)x86_get_cr3();
+    current_cr3_val = aspace->page_table;
+    ASSERT(current_cr3_val);
 
     range.start_vaddr = vaddr;
     range.start_paddr = paddr;
@@ -769,6 +785,8 @@ void x86_mmu_early_init(void)
 
     LTRACEF("paddr_width %u vaddr_width %u\n", g_paddr_width, g_vaddr_width);
 
+    x86_kernel_page_table = x86_get_cr3();
+
     /* tlb flush */
     x86_set_cr3(x86_get_cr3());
 }
@@ -777,16 +795,44 @@ void x86_mmu_init(void)
 {
 }
 
+static paddr_t x86_create_page_table(void)
+{
+    addr_t *new_table = NULL;
+
+    new_table = (addr_t *)_map_alloc_page();
+    ASSERT(new_table);
+
+    /*
+     * Copy kernel level mapping to user level mapping to support syscall and
+     * interrupt handling in user level.
+     *
+     * TODO:
+     * Update to Kernel page-table isolation (KPTI) to mitigates Meltdown
+     * security vulnerabilty.
+     */
+    new_table[511] = pml4[511];
+
+    return (paddr_t)X86_VIRT_TO_PHYS(new_table);
+}
+
 /*
  * x86-64 does not support multiple address spaces at the moment, so fail if these apis
  * are used for it.
  */
 status_t arch_mmu_init_aspace(arch_aspace_t *aspace, vaddr_t base, size_t size, uint flags)
 {
-    DEBUG_ASSERT(aspace);
+    ASSERT(aspace);
 
-    if ((flags & ARCH_ASPACE_FLAG_KERNEL) == 0) {
-        return ERR_NOT_SUPPORTED;
+    ASSERT(size > PAGE_SIZE);
+    ASSERT(base + size - 1 > base);
+
+    aspace->size = size;
+    aspace->base = base;
+
+    if ((flags & ARCH_ASPACE_FLAG_KERNEL)) {
+        aspace->page_table = x86_kernel_page_table;
+    } else {
+        aspace->page_table = x86_create_page_table();
     }
 
     return NO_ERROR;
@@ -794,13 +840,26 @@ status_t arch_mmu_init_aspace(arch_aspace_t *aspace, vaddr_t base, size_t size, 
 
 status_t arch_mmu_destroy_aspace(arch_aspace_t *aspace)
 {
+    ASSERT(aspace);
+
+    pmm_free_page(paddr_to_vm_page(aspace->page_table));
+
+    aspace->size = 0;
+    aspace->base = 0;
+    aspace->page_table = 0;
+
     return NO_ERROR;
 }
 
 void arch_mmu_context_switch(arch_aspace_t *aspace)
 {
-    if (aspace != NULL) {
-        PANIC_UNIMPLEMENTED;
+    if (NULL == aspace) {
+        x86_set_cr3(x86_kernel_page_table);
+    } else {
+        vmm_aspace_t *kernel_aspace = vmm_get_kernel_aspace();
+        ASSERT(&kernel_aspace->arch_aspace != aspace);
+
+        x86_set_cr3(aspace->page_table);
     }
 }
 

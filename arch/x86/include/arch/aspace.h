@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2016 Travis Geiselbrecht
+ * Copyright (c) 2018 Intel Corporation
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files
@@ -23,11 +24,14 @@
 #pragma once
 
 #include <compiler.h>
+#include <sys/types.h>
 
 __BEGIN_CDECLS
 
 struct arch_aspace {
-    // nothing for now, does not support address spaces other than the kernel
+    paddr_t page_table;
+    vaddr_t base;
+    size_t  size;
 };
 
 __END_CDECLS
