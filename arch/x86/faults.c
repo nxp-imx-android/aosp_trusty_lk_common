@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2009 Corey Tabaka
- * Copyright (c) 2015 Intel Corporation
+ * Copyright (c) 2015-2018 Intel Corporation
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files
@@ -77,7 +77,7 @@ static void dump_fault_frame(x86_iframe_t *frame)
 
 static void exception_die(x86_iframe_t *frame, const char *msg)
 {
-    dprintf(CRITICAL, msg);
+    dprintf(CRITICAL, "%s", msg);
     dump_fault_frame(frame);
 
     for (;;) {
