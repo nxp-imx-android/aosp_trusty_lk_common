@@ -106,6 +106,15 @@ GLOBAL_DEFINES += \
 ARCH_OPTFLAGS := -O2
 WITH_LINKER_GC ?= 1
 
+# Set ARM_MERGE_FIQ_IRQ to remove separation between IRQs and FIQs. This is
+# for GICv3 or GICv4 when running in trustzone as the non-secure interrupts
+# will be delivered as FIQs instead of IRQs.
+ARM_MERGE_FIQ_IRQ ?= false
+
+ifeq (true,$(call TOBOOL,$(ARM_MERGE_FIQ_IRQ)))
+GLOBAL_DEFINES += ARM_MERGE_FIQ_IRQ=1
+endif
+
 # we have a mmu and want the vmm/pmm
 WITH_KERNEL_VM ?= 1
 

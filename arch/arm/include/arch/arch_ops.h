@@ -24,6 +24,7 @@
 
 #ifndef ASSEMBLY
 
+#include <assert.h>
 #include <stdbool.h>
 #include <compiler.h>
 #include <reg.h>
@@ -35,6 +36,27 @@
 
 __BEGIN_CDECLS;
 
+#if ARM_MERGE_FIQ_IRQ
+
+#define CPS_MASK_INTS "if"
+#define FIQ_CHANGE(x)
+
+static inline void check_irq_fiq_state(unsigned long state)
+{
+    ASSERT(((state >> 6) & 1) == ((state >> 7) & 1));
+}
+
+#else
+
+#define CPS_MASK_INTS "i"
+#define FIQ_CHANGE(x) x
+
+static inline void check_irq_fiq_state(unsigned long state)
+{
+}
+
+#endif
+
 #if ARM_ISA_ARMV7 || (ARM_ISA_ARMV6 && !__thumb__)
 #define USE_GCC_ATOMICS 0
 #define ENABLE_CYCLE_COUNTER 1
@@ -43,12 +65,12 @@ __BEGIN_CDECLS;
 static inline void arch_enable_ints(void)
 {
     CF;
-    __asm__ volatile("cpsie i");
+    __asm__ volatile("cpsie " CPS_MASK_INTS);
 }
 
 static inline void arch_disable_ints(void)
 {
-    __asm__ volatile("cpsid i");
+    __asm__ volatile("cpsid " CPS_MASK_INTS);
     CF;
 }
 
@@ -61,6 +83,7 @@ static inline bool arch_ints_disabled(void)
     state &= 0x1;
 #else
     __asm__ volatile("mrs %0, cpsr" : "=r"(state));
+    check_irq_fiq_state(state);
     state &= (1<<7);
 #endif
 
@@ -70,12 +93,12 @@ static inline bool arch_ints_disabled(void)
 static inline void arch_enable_fiqs(void)
 {
     CF;
-    __asm__ volatile("cpsie f");
+    FIQ_CHANGE(__asm__ volatile("cpsie f"));
 }
 
 static inline void arch_disable_fiqs(void)
 {
-    __asm__ volatile("cpsid f");
+    FIQ_CHANGE(__asm__ volatile("cpsid f"));
     CF;
 }
 
@@ -84,6 +107,7 @@ static inline bool arch_fiqs_disabled(void)
     unsigned int state;
 
     __asm__ volatile("mrs %0, cpsr" : "=r"(state));
+    check_irq_fiq_state(state);
     state &= (1<<6);
 
     return !!state;

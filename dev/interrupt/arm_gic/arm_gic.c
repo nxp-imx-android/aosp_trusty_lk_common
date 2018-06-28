@@ -53,6 +53,7 @@
 #define IFRAME_PC(frame) ((frame)->elr)
 #endif
 
+void platform_fiq(struct iframe *frame);
 static status_t arm_gic_set_secure_locked(u_int irq, bool secure);
 
 static spin_lock_t gicd_lock;
@@ -412,6 +413,17 @@ enum handler_return platform_irq(struct iframe *frame)
     uint32_t pending_irq = ahppir & 0x3ff;
     struct int_handler_struct *h;
     uint cpu = arch_curr_cpu_num();
+
+#if ARM_MERGE_FIQ_IRQ
+    {
+        uint32_t hppir = GICREG(0, GICC_HPPIR);
+        uint32_t pending_fiq = hppir & 0x3ff;
+        if (pending_fiq < MAX_INT) {
+            platform_fiq(frame);
+            return INT_NO_RESCHEDULE;
+        }
+    }
+#endif
 
     LTRACEF("ahppir %d\n", ahppir);
     if (pending_irq < MAX_INT && get_int_handler(pending_irq, cpu)->handler) {

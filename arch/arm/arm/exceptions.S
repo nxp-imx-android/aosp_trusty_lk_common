@@ -75,7 +75,11 @@
     srsdb   #0x13!
 
     /* switch to svc mode, interrupts disabled */
+#if ARM_MERGE_FIQ_IRQ
+    cpsid   if,#0x13
+#else
     cpsid   i,#0x13
+#endif
 
     /* save callee trashed regs and lr */
     push    { r0-r3, r12, lr }
@@ -127,7 +131,11 @@
     srsdb   #0x13!
 
     /* switch to svc mode, interrupts disabled */
+#if ARM_MERGE_FIQ_IRQ
+    cpsid   if,#0x13
+#else
     cpsid   i,#0x13
+#endif
 
     /* save all regs */
     push    { r0-r12, lr }
@@ -239,12 +247,16 @@ FUNCTION(arm_irq)
     restore
 
 FUNCTION(arm_fiq)
+#if ARM_MERGE_FIQ_IRQ
+    b arm_irq
+#else
     save_offset #4
     /* r0 now holds pointer to iframe */
 
     bl  platform_fiq
 
     restore
+#endif
 
 .ltorg
 
