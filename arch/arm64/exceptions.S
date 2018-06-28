@@ -126,14 +126,29 @@ add sp, sp, #32
 
 .macro irq_exception
     regsave_short
+#if !ARM_MERGE_FIQ_IRQ
     msr daifclr, #1 /* reenable fiqs once elr and spsr have been saved */
+#endif
     mov x0, sp
     bl  platform_irq
     cbz x0, .Lirq_exception_no_preempt\@
     bl  thread_preempt
 .Lirq_exception_no_preempt\@:
+#if !ARM_MERGE_FIQ_IRQ
     msr daifset, #1 /* disable fiqs to protect elr and spsr restore */
+#endif
     b   arm64_exc_shared_restore_short
+.endm
+
+.macro fiq_exception
+#if ARM_MERGE_FIQ_IRQ
+    irq_exception
+#else
+    regsave_short
+    mov x0, sp
+    bl  platform_fiq
+    b  arm64_exc_shared_restore_short
+#endif
 .endm
 
 FUNCTION(arm64_exception_base)
@@ -168,10 +183,7 @@ LOCAL_FUNCTION(arm64_irq_current_el_SPx)
 
 .org 0x300
 LOCAL_FUNCTION(arm64_fiq_current_el_SPx)
-    regsave_short
-    mov x0, sp
-    bl  platform_fiq
-    b  arm64_exc_shared_restore_short
+    fiq_exception
 
 .org 0x380
 LOCAL_FUNCTION(arm64_err_exc_current_el_SPx)
@@ -191,10 +203,7 @@ LOCAL_FUNCTION(arm64_irq_lower_el_64)
 
 .org 0x500
 LOCAL_FUNCTION(arm64_fiq_lower_el_64)
-    regsave_short
-    mov x0, sp
-    bl  platform_fiq
-    b  arm64_exc_shared_restore_short
+    fiq_exception
 
 .org 0x580
 LOCAL_FUNCTION(arm64_err_exc_lower_el_64)
@@ -214,10 +223,7 @@ LOCAL_FUNCTION(arm64_irq_lower_el_32)
 
 .org 0x700
 LOCAL_FUNCTION(arm64_fiq_lower_el_32)
-    regsave_short
-    mov x0, sp
-    bl  platform_fiq
-    b  arm64_exc_shared_restore_short
+    fiq_exception
 
 .org 0x780
 LOCAL_FUNCTION(arm64_err_exc_lower_el_32)

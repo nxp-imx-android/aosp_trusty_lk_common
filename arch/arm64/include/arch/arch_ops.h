@@ -24,6 +24,7 @@
 
 #ifndef ASSEMBLY
 
+#include <assert.h>
 #include <stdbool.h>
 #include <compiler.h>
 #include <reg.h>
@@ -32,16 +33,37 @@
 #define USE_GCC_ATOMICS 1
 #define ENABLE_CYCLE_COUNTER 1
 
+#if ARM_MERGE_FIQ_IRQ
+
+#define DAIF_MASK_INTS "3"
+#define DAIF_MASK_FIQS "0"
+
+static inline void check_irq_fiq_state(unsigned long state)
+{
+    ASSERT(((state >> 6) & 1) == ((state >> 7) & 1));
+}
+
+#else
+
+#define DAIF_MASK_INTS "2"
+#define DAIF_MASK_FIQS "1"
+
+static inline void check_irq_fiq_state(unsigned long state)
+{
+}
+
+#endif
+
 // override of some routines
 static inline void arch_enable_ints(void)
 {
     CF;
-    __asm__ volatile("msr daifclr, #2" ::: "memory");
+    __asm__ volatile("msr daifclr, #" DAIF_MASK_INTS ::: "memory");
 }
 
 static inline void arch_disable_ints(void)
 {
-    __asm__ volatile("msr daifset, #2" ::: "memory");
+    __asm__ volatile("msr daifset, #" DAIF_MASK_INTS ::: "memory");
     CF;
 }
 
@@ -50,6 +72,7 @@ static inline bool arch_ints_disabled(void)
     unsigned long state;
 
     __asm__ volatile("mrs %0, daif" : "=r"(state));
+    check_irq_fiq_state(state);
     state &= (1<<7);
 
     return !!state;
@@ -58,12 +81,12 @@ static inline bool arch_ints_disabled(void)
 static inline void arch_enable_fiqs(void)
 {
     CF;
-    __asm__ volatile("msr daifclr, #1" ::: "memory");
+    __asm__ volatile("msr daifclr, #" DAIF_MASK_FIQS ::: "memory");
 }
 
 static inline void arch_disable_fiqs(void)
 {
-    __asm__ volatile("msr daifset, #1" ::: "memory");
+    __asm__ volatile("msr daifset, #" DAIF_MASK_FIQS ::: "memory");
     CF;
 }
 
@@ -73,6 +96,7 @@ static inline bool arch_fiqs_disabled(void)
     unsigned long state;
 
     __asm__ volatile("mrs %0, daif" : "=r"(state));
+    check_irq_fiq_state(state);
     state &= (1<<6);
 
     return !!state;
