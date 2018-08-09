@@ -37,12 +37,12 @@
 
 /* int _atomic_and(int *ptr, int val); */
 FUNCTION(_atomic_and)
-    movq (%rdi), %rax
+    mov (%rdi), %eax
 0:
-    movq %rax, %rcx
-    andq %rsi, %rcx
+    mov %eax, %ecx
+    and %esi, %ecx
     lock
-    cmpxchgq %rcx, (%rdi)
+    cmpxchg %ecx, (%rdi)
     jnz 1f                  /* static prediction: branch forward not taken */
     ret
 1:
@@ -52,12 +52,12 @@ FUNCTION(_atomic_and)
 /* int _atomic_or(int *ptr, int val); */
 FUNCTION(_atomic_or)
 
-    movq (%rdi), %rax
+    mov (%rdi), %eax
 0:
-    movq %rax, %rcx
-    orq %rsi, %rcx
+    mov %eax, %ecx
+    or  %esi, %ecx
     lock
-    cmpxchgq %rcx, (%rdi)
+    cmpxchg %ecx, (%rdi)
     jnz 1f                  /* static prediction: branch forward not taken */
     ret
 1:
