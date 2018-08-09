@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2009 Corey Tabaka
- * Copyright (c) 2015 Intel Corporation
+ * Copyright (c) 2015-2018 Intel Corporation
  * Copyright (c) 2016 Travis Geiselbrecht
  *
  * Permission is hereby granted, free of charge, to any person obtaining
@@ -25,21 +25,22 @@
 #include <asm.h>
 #include <arch/x86/descriptor.h>
 
-#define NUM_INT 0x31
+#define NUM_INT 0x100
 #define NUM_EXC 0x14
 
 .text
 
 /* interrupt service routine stubs */
+.align 16
+
+/* Maxium lenth is 12 */
+.set isr_stub_len, 12
 _isr:
 .set i, 0
 .rept NUM_INT
 
-.set isr_stub_start, .
-
+.org _isr + i * isr_stub_len
 .if i == 8 || (i >= 10 && i <= 14) || i == 17
-        nop                                     /* error code pushed by exception */
-        nop                                     /* 2 nops are the same length as push byte */
         pushq $i                                /* interrupt number */
         jmp interrupt_common
 .else
@@ -48,9 +49,6 @@ _isr:
         jmp interrupt_common
 .endif
 
-/* figure out the length of a single isr stub (usually 6 or 9 bytes) */
-.set isr_stub_len, . - isr_stub_start
-
 .set i, i + 1
 .endr
 
@@ -58,7 +56,12 @@ _isr:
 .fill 256
 
 interrupt_common:
+    /* Check if from user space */
+    testb $3, 0x18(%rsp)
+    jz .Lskip_swapgs_in
+    swapgs
 
+.Lskip_swapgs_in:
     /* save general purpose registers */
     pushq %r15
     pushq %r14
@@ -97,6 +100,12 @@ interrupt_common:
     popq %r14
     popq %r15
 
+    /* check if back to user space */
+    testb $3, 0x18(%rsp)
+    jz .Lskip_swapgs_out
+    swapgs
+
+.Lskip_swapgs_out:
     /* drop vector number and error code*/
     addq $16, %rsp
     iretq
@@ -137,7 +146,7 @@ DATA(_idtr)
 DATA(_idt)
 
 .set i, 0
-.rept NUM_INT-1
+.rept NUM_INT
     .short 0        /* low 16 bits of ISR offset (_isr#i & 0FFFFh) */
     .short CODE_64_SELECTOR   /* selector */
     .byte  0
