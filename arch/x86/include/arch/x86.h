@@ -38,11 +38,16 @@ __BEGIN_CDECLS
 #define PFEX_RSV 0x08
 #define PFEX_I 0x10
 #define X86_8BYTE_MASK 0xFFFFFFFF
+#define X86_CPUID_VERSION_INFO   0x1
 #define X86_CPUID_EXTEND_FEATURE 0x7
 #define X86_CPUID_ADDR_WIDTH     0x80000008
 
 #define X86_SMEP_BIT    7
 #define X86_SMAP_BIT    20
+
+#define X86_CPUID_CLFLUSH_BIT    19
+#define X86_CPUID_CLFLUSHOPT_BIT 23
+#define X86_CPUID_CLWS_BIT       24
 
 struct x86_32_iframe {
     uint32_t di, si, bp, sp, bx, dx, cx, ax;            // pushed by common handler using pusha
