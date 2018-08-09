@@ -153,6 +153,7 @@ typedef tss_64_t tss_t;
 #define X86_CR4_PAE             0x00000020 /* PAE paging */
 #define X86_CR4_OSFXSR          0x00000200 /* os supports fxsave */
 #define X86_CR4_OSXMMEXPT       0x00000400 /* os supports xmm exception */
+#define X86_CR4_FSGSBASE        0x00010000 /* FSGSBASE enable bit */
 #define X86_CR4_OSXSAVE         0x00040000 /* os supports xsave */
 #define X86_CR4_SMEP            0x00100000 /* SMEP protection enabling */
 #define X86_CR4_SMAP            0x00200000 /* SMAP protection enabling */
@@ -846,6 +847,21 @@ static inline uint32_t x86_get_address_width(void)
      Bits 15-08: #Linear Address Bits
     */
     return (reg_a & 0x0000ffff);
+}
+
+static inline bool check_fsgsbase_avail(void)
+{
+    uint32_t reg_b;
+    uint32_t unused;
+
+    cpuid_count(X86_CPUID_EXTEND_FEATURE,
+            0x0,
+            &unused,
+            &reg_b,
+            &unused,
+            &unused);
+
+    return (reg_b & 0x1);
 }
 
 static inline uint64_t x86_read_gs_with_offset(uintptr_t offset)

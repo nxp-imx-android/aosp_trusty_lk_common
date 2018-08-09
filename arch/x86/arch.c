@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2009 Corey Tabaka
- * Copyright (c) 2015 Intel Corporation
+ * Copyright (c) 2015-2018 Intel Corporation
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files
@@ -43,28 +43,58 @@ uint8_t _kstack[PAGE_SIZE] __ALIGNED(8);
 __SECTION(".data") void *_multiboot_info;
 
 /* main tss */
-static tss_t system_tss;
+tss_t system_tss[SMP_MAX_CPUS];
 x86_per_cpu_states_t per_cpu_states[SMP_MAX_CPUS];
+
+volatile int cpu_woken_up = 0;
+
+static void init_per_cpu_state(uint cpu)
+{
+    x86_per_cpu_states_t states;
+
+    /*
+     * At this point, BSP has already set up current thread in global state,
+     * init global states of AP(s) only.
+     */
+    if (0 != cpu) {
+        states = per_cpu_states[cpu];
+
+        states.cur_thread    = NULL;
+        states.syscall_stack = 0;
+
+        write_msr(X86_MSR_GS_BASE, (uint64_t)&states);
+    }
+}
 
 void arch_early_init(void)
 {
+    seg_sel_t sel = 0;
+    uint cpu_id = 1;
+
+    cpu_id = atomic_add(&cpu_woken_up, cpu_id);
+
+    init_per_cpu_state(cpu_id);
+
+    if (check_fsgsbase_avail()) {
+        x86_set_cr4(x86_get_cr4() | X86_CR4_FSGSBASE);
+    }
+
+    sel = (seg_sel_t)(cpu_id << 4);
+    sel += TSS_SELECTOR;
+
     /* enable caches here for now */
     clear_in_cr0(X86_CR0_NW | X86_CR0_CD);
 
-    memset(&system_tss, 0, sizeof(system_tss));
-
-#if ARCH_X86_32
-    system_tss.esp0 = 0;
-    system_tss.ss0 = DATA_SELECTOR;
-    system_tss.ss1 = 0;
-    system_tss.ss2 = 0;
-    system_tss.eflags = 0x00003002;
-    system_tss.bitmap = offsetof(tss_32_t, tss_bitmap);
-    system_tss.trace = 1; // trap on hardware task switch
-#endif
-
-    set_global_desc(TSS_SELECTOR, &system_tss, sizeof(system_tss), 1, 0, 0, SEG_TYPE_TSS, 0, 0);
-    x86_ltr(TSS_SELECTOR);
+    set_global_desc(sel,
+            &system_tss[cpu_id],
+            sizeof(tss_t),
+            1,
+            0,
+            0,
+            SEG_TYPE_TSS,
+            0,
+            0);
+    x86_ltr(sel);
 
     x86_mmu_early_init();
     platform_init_mmu_mappings();
