@@ -224,12 +224,12 @@ static void gic_set_enable(uint vector, bool enable)
 static void arm_gic_init_percpu(uint level)
 {
 #if WITH_LIB_SM
-    GICREG(0, GICC_CTLR) = 0xb; // enable GIC0 and select fiq mode for secure
+    GICCREG_WRITE(0, GICC_CTLR, 0xb); // enable GIC0 and select fiq mode for secure
     GICREG(0, GICD_IGROUPR(0)) = ~0U; /* GICD_IGROUPR0 is banked */
 #else
-    GICREG(0, GICC_CTLR) = 1; // enable GIC0
+    GICCREG_WRITE(0, GICC_CTLR, 1); // enable GIC0
 #endif
-    GICREG(0, GICC_PMR) = 0xFF; // unmask interrupts at all priority levels
+    GICCREG_WRITE(0, GICC_PMR, 0xFF); // unmask interrupts at all priority levels
 }
 
 LK_INIT_HOOK_FLAGS(arm_gic_init_percpu,
@@ -407,7 +407,7 @@ static
 enum handler_return __platform_irq(struct iframe *frame)
 {
     // get the current vector
-    uint32_t iar = GICREG(0, GICC_IAR);
+    uint32_t iar = GICCREG_READ(0, GICC_IAR);
     unsigned int vector = iar & 0x3ff;
 
     if (vector >= 0x3fe) {
@@ -431,7 +431,7 @@ enum handler_return __platform_irq(struct iframe *frame)
     if (handler->handler)
         ret = handler->handler(handler->arg);
 
-    GICREG(0, GICC_EOIR) = iar;
+    GICCREG_WRITE(0, GICC_EOIR, iar);
 
     LTRACEF_LEVEL(2, "cpu %u exit %d\n", cpu, ret);
 
@@ -443,14 +443,14 @@ enum handler_return __platform_irq(struct iframe *frame)
 enum handler_return platform_irq(struct iframe *frame)
 {
 #if WITH_LIB_SM
-    uint32_t ahppir = GICREG(0, GICC_AHPPIR);
+    uint32_t ahppir = GICCREG_READ(0, GICC_AHPPIR);
     uint32_t pending_irq = ahppir & 0x3ff;
     struct int_handler_struct *h;
     uint cpu = arch_curr_cpu_num();
 
 #if ARM_MERGE_FIQ_IRQ
     {
-        uint32_t hppir = GICREG(0, GICC_HPPIR);
+        uint32_t hppir = GICCREG_READ(0, GICC_HPPIR);;
         uint32_t pending_fiq = hppir & 0x3ff;
         if (pending_fiq < MAX_INT) {
             platform_fiq(frame);
@@ -475,7 +475,7 @@ enum handler_return platform_irq(struct iframe *frame)
         old_priority = arm_gic_get_priority(pending_irq);
         arm_gic_set_priority_locked(pending_irq, 0);
         DSB;
-        irq = GICREG(0, GICC_AIAR) & 0x3ff;
+        irq = GICCREG_READ(0, GICC_AIAR) & 0x3ff;
         arm_gic_set_priority_locked(pending_irq, old_priority);
 
         spin_unlock_restore(&gicd_lock, state, GICD_LOCK_FLAGS);
@@ -485,7 +485,7 @@ enum handler_return platform_irq(struct iframe *frame)
             ret = h->handler(h->arg);
         else
             TRACEF("unexpected irq %d != %d may get lost\n", irq, pending_irq);
-        GICREG(0, GICC_AEOIR) = irq;
+        GICCREG_WRITE(0, GICC_AEOIR, irq);
         return ret;
     }
     return sm_handle_irq();
@@ -622,7 +622,7 @@ static void suspend_resume_fiq(bool resume_gicc, bool resume_gicd)
 status_t sm_intc_fiq_enter(void)
 {
     u_int cpu = arch_curr_cpu_num();
-    u_int irq = GICREG(0, GICC_IAR) & 0x3ff;
+    u_int irq = GICCREG_READ(0, GICC_IAR) & 0x3ff;
     bool fiq_enabled;
 
     ASSERT(cpu < 8);
@@ -635,7 +635,7 @@ status_t sm_intc_fiq_enter(void)
     }
 
     fiq_enabled = update_fiq_targets(cpu, false, irq, false);
-    GICREG(0, GICC_EOIR) = irq;
+    GICCREG_WRITE(0, GICC_EOIR, irq);
 
     if (current_fiq[cpu] != 0x3ff) {
         dprintf(INFO, "more than one fiq active: cpu %d, old %d, new %d\n", cpu, current_fiq[cpu], irq);
