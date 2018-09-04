@@ -136,6 +136,11 @@ ifeq ($(AS_PATH),)
 $(error Could not find $(CLANG_ARM_AS_DIR)/*/bin/as, did the directory structure change?)
 endif
 
+ARCH_arm_THUMBCFLAGS :=
+ifeq ($(ENABLE_THUMB),true)
+ARCH_arm_THUMBCFLAGS := -mthumb -D__thumb__
+endif
+
 ARCH_arm_COMPILEFLAGS += -target arm-$(CLANG_ARM_TARGET_SYS)-$(CLANG_ARM_TARGET_ABI) \
 			   --gcc-toolchain=$(CLANG_ARM_AS_DIR)/
 
