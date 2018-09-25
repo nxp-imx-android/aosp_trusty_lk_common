@@ -74,6 +74,7 @@ $(warning ARCH_x86_TOOLCHAIN_PREFIX = $(ARCH_x86_TOOLCHAIN_PREFIX))
 $(warning ARCH_x86_64_TOOLCHAIN_PREFIX = $(ARCH_x86_64_TOOLCHAIN_PREFIX))
 $(warning TOOLCHAIN_PREFIX = $(TOOLCHAIN_PREFIX))
 
+ARCH_COMPILEFLAGS += $(ARCH_$(ARCH)_COMPILEFLAGS)
 
 cc-option = $(shell if test -z "`$(1) $(2) -S -o /dev/null -xc /dev/null 2>&1`"; \
 	then echo "$(2)"; else echo "$(3)"; fi ;)
@@ -85,6 +86,10 @@ GLOBAL_COMPILEFLAGS += -fasynchronous-unwind-tables
 GLOBAL_COMPILEFLAGS += -gdwarf-2
 GLOBAL_COMPILEFLAGS += -fno-pic
 GLOBAL_LDFLAGS += -z max-page-size=4096
+
+# do no use FPU/MMX/SSE/SSE2/SSE3/SSSE3/SSE4 instruction in kernel
+# this flag influences kernel part only
+ARCH_COMPILEFLAGS += -msoft-float
 
 ifeq ($(SUBARCH),x86-64)
 GLOBAL_COMPILEFLAGS += -fno-stack-protector
