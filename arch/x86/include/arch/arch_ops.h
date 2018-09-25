@@ -119,4 +119,12 @@ static inline uint arch_curr_cpu_num(void)
     return 0;
 }
 
+#define mb()        __asm__ volatile ("mfence":::"memory");
+#define wmb()       __asm__ volatile ("sfence":::"memory");
+#define rmb()       __asm__ volatile ("lfence":::"memory");
+
+#define smp_mb()    mb()
+#define smp_wmb()   wmb()
+#define smp_rmb()   rmb()
+
 #endif // !ASSEMBLY
