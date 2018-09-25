@@ -39,8 +39,9 @@
 /* The magic number passed by a Multiboot-compliant boot loader. */
 #define MULTIBOOT_BOOTLOADER_MAGIC 0x2BADB002
 
-#define MSR_EFER 0xc0000080
-#define EFER_LME 0x00000100
+#define MSR_EFER    0xc0000080
+#define EFER_LME    0x00000100
+#define MSR_GS_BASE 0xc0000101
 
 #define PHYS_LOAD_ADDRESS (MEMBASE + KERNEL_LOAD_OFFSET)
 #define PHYS_ADDR_DELTA (KERNEL_BASE + KERNEL_LOAD_OFFSET - PHYS_LOAD_ADDRESS)
@@ -223,6 +224,20 @@ highaddr:
 
     /* reload the gdtr */
     lgdt _gdtr
+
+    /* set up gs base */
+    leaq per_cpu_states(%rip), %rax
+
+    movq %rax, %rdx
+    shrq $32, %rdx
+    movq $MSR_GS_BASE, %rcx
+    /*
+     * RCX - MSR index (MSR_GS_BASE)
+     * EDX - high 32 bits value to write
+     * EAX - low 32 bits value to write
+     * MSR(RCX)(MSR_GS_BSSE) = EDX:EAX
+     */
+    wrmsr
 
     /* set up the idt */
     call setup_idt

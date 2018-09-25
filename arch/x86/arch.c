@@ -27,6 +27,7 @@
 #include <arch/ops.h>
 #include <arch/x86.h>
 #include <arch/x86/mmu.h>
+#include <arch/x86/mp.h>
 #include <arch/x86/descriptor.h>
 #include <arch/fpu.h>
 #include <arch/mmu.h>
@@ -43,6 +44,7 @@ __SECTION(".data") void *_multiboot_info;
 
 /* main tss */
 static tss_t system_tss;
+x86_per_cpu_states_t per_cpu_states[SMP_MAX_CPUS];
 
 void arch_early_init(void)
 {

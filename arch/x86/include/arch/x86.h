@@ -159,6 +159,8 @@ typedef tss_64_t tss_t;
 #define X86_CR4_PSE             0xffffffef /* Disabling PSE bit in the CR4 */
 #define X86_EFER_NXE            0x00000800 /* to enable execute disable bit */
 #define X86_MSR_EFER            0xc0000080 /* EFER Model Specific Register id */
+#define X86_MSR_GS_BASE         0xc0000101 /* Map of base address of GS */
+#define X86_MSR_KRNL_GS_BASE    0xc0000102 /* Swap target of base address of GS */
 
 static inline void cpuid(uint32_t leaf,
         uint32_t *eax,
@@ -844,6 +846,25 @@ static inline uint32_t x86_get_address_width(void)
      Bits 15-08: #Linear Address Bits
     */
     return (reg_a & 0x0000ffff);
+}
+
+static inline uint64_t x86_read_gs_with_offset(uintptr_t offset)
+{
+    uint64_t ret;
+    __asm__ __volatile__ (
+        "movq  %%gs:%1, %0"
+        :"=r" (ret)
+        :"m" (*(uint64_t *)offset));
+    return ret;
+}
+
+static inline void x86_write_gs_with_offset(uint64_t offset, uint64_t val)
+{
+    __asm__ __volatile__ (
+        "movq  %0, %%gs:%1"
+        :
+        :"ir" (val), "m" (*(uint64_t *)offset)
+        :"memory");
 }
 #endif // ARCH_X86_64
 
