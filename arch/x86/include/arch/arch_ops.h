@@ -62,7 +62,6 @@ static inline bool arch_ints_disabled(void)
 
 int _atomic_and(volatile int *ptr, int val);
 int _atomic_or(volatile int *ptr, int val);
-int _atomic_cmpxchg(volatile int *ptr, int oldval, int newval);
 
 static inline int atomic_add(volatile int *ptr, int val)
 {
@@ -91,7 +90,11 @@ static inline int atomic_swap(volatile int *ptr, int val)
 
 static inline int atomic_and(volatile int *ptr, int val) { return _atomic_and(ptr, val); }
 static inline int atomic_or(volatile int *ptr, int val) { return _atomic_or(ptr, val); }
-static inline int atomic_cmpxchg(volatile int *ptr, int oldval, int newval) { return _atomic_cmpxchg(ptr, oldval, newval); }
+static inline int atomic_cmpxchg(volatile int *ptr, int oldval, int newval)
+{
+    __atomic_compare_exchange_n(ptr, &oldval, newval, false, __ATOMIC_RELAXED, __ATOMIC_RELAXED);
+    return oldval;
+}
 
 static inline uint32_t arch_cycle_count(void)
 {
