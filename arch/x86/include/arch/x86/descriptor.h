@@ -54,9 +54,14 @@
 
 #ifndef ASSEMBLY
 
+#include <arch/x86.h>
 #include <sys/types.h>
 
 typedef uint16_t seg_sel_t;
+
+extern tss_t system_tss[SMP_MAX_CPUS];
+
+tss_t *get_tss_base(void);
 
 void set_global_desc(seg_sel_t sel, void *base, uint32_t limit,
                      uint8_t present, uint8_t ring, uint8_t sys, uint8_t type, uint8_t gran, uint8_t bits);

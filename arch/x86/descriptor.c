@@ -22,8 +22,10 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#include <compiler.h>
+#include <arch/arch_ops.h>
 #include <arch/x86/descriptor.h>
+#include <compiler.h>
+#include <debug.h>
 
 /*
  * Descriptors are always 64-bit except TSS (or LDT) Descriptor in 64-bit mode.
@@ -98,4 +100,15 @@ void set_global_desc(seg_sel_t sel,
         /* update high bits of 64-bit TSS now */
         _gdt[index + 1].tss_high.base_32_63 = (uint64_t)base >> 32;
     }
+}
+
+tss_t *get_tss_base(void)
+{
+    volatile uint cpu = arch_curr_cpu_num();
+
+    if (cpu >= SMP_MAX_CPUS) {
+        panic("Invalid CPU ID\n");
+    }
+
+    return &system_tss[cpu];
 }
