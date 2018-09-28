@@ -569,6 +569,11 @@ status_t x86_mmu_unmap(map_addr_t pml4, vaddr_t vaddr, uint count)
     next_aligned_v_addr = vaddr;
     while (count > 0) {
         x86_mmu_unmap_entry(next_aligned_v_addr, X86_PAGING_LEVELS, pml4);
+        /*
+         * Flush page mapping in TLB when unmapping pages,
+         * need to invalid page to avoid data loss.
+         */
+        __asm__ __volatile__ ("invlpg (%0)": : "r" (next_aligned_v_addr) : "memory");
         next_aligned_v_addr += PAGE_SIZE;
         count--;
     }
