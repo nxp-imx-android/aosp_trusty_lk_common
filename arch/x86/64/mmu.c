@@ -146,7 +146,12 @@ static inline uint64_t get_pfn_from_pte(uint64_t pte)
 {
     uint64_t pfn;
 
+    /* Clear low 12 bits */
     pfn = (pte & X86_PG_FRAME);
+
+    /* Clear high 12 bits */
+    pfn &= X86_PG_PHY_ADDR_MASK;
+
     return pfn;
 }
 
