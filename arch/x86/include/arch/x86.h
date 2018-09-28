@@ -25,6 +25,7 @@
 #pragma once
 
 #include <compiler.h>
+#include <cpuid.h>
 #include <sys/types.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -37,7 +38,11 @@ __BEGIN_CDECLS
 #define PFEX_RSV 0x08
 #define PFEX_I 0x10
 #define X86_8BYTE_MASK 0xFFFFFFFF
-#define X86_CPUID_ADDR_WIDTH 0x80000008
+#define X86_CPUID_EXTEND_FEATURE 0x7
+#define X86_CPUID_ADDR_WIDTH     0x80000008
+
+#define X86_SMEP_BIT    7
+#define X86_SMAP_BIT    20
 
 struct x86_32_iframe {
     uint32_t di, si, bp, sp, bx, dx, cx, ax;            // pushed by common handler using pusha
@@ -154,6 +159,55 @@ typedef tss_64_t tss_t;
 #define X86_CR4_PSE             0xffffffef /* Disabling PSE bit in the CR4 */
 #define X86_EFER_NXE            0x00000800 /* to enable execute disable bit */
 #define X86_MSR_EFER            0xc0000080 /* EFER Model Specific Register id */
+
+static inline void cpuid(uint32_t leaf,
+        uint32_t *eax,
+        uint32_t *ebx,
+        uint32_t *ecx,
+        uint32_t *edx)
+{
+    __cpuid(leaf, *eax, *ebx, *ecx, *ebx);
+}
+
+static inline void cpuid_count(uint32_t leaf,
+        uint32_t sub_leaf,
+        uint32_t *eax,
+        uint32_t *ebx,
+        uint32_t *ecx,
+        uint32_t *edx)
+{
+    __cpuid_count(leaf, sub_leaf, *eax, *ebx, *ecx, *ebx);
+}
+
+static inline bool check_smep_avail(void)
+{
+    uint32_t reg_b;
+    uint32_t unused;
+
+    cpuid_count(X86_CPUID_EXTEND_FEATURE,
+            0x0,
+            &unused,
+            &reg_b,
+            &unused,
+            &unused);
+
+    return !!((reg_b >> X86_SMEP_BIT) & 0x1);
+}
+
+static inline bool check_smap_avail(void)
+{
+    uint32_t reg_b;
+    uint32_t unused;
+
+    cpuid_count(X86_CPUID_EXTEND_FEATURE,
+            0x0,
+            &unused,
+            &reg_b,
+            &unused,
+            &unused);
+
+    return !!((reg_b >> X86_SMAP_BIT) & 0x1);
+}
 
 #if ARCH_X86_32
 static inline void set_in_cr0(uint32_t mask)
@@ -458,15 +512,13 @@ static inline void x86_set_cr4(uint32_t in_val)
 
 static inline uint32_t x86_get_address_width(void)
 {
-    uint32_t rv;
+    uint32_t reg_a;
+    uint32_t unused;
 
-    __asm__ __volatile__ (
-        "cpuid \n\t"
-        :"=a" (rv)
-        :"a" (X86_CPUID_ADDR_WIDTH));
+    cpuid(X86_CPUID_ADDR_WIDTH, &reg_a, &unused, &unused, &unused);
 
     /* Extracting bit 15:8 from eax register */
-    return ((rv >> 8) & 0x0ff);
+    return ((reg_a >> 8) & 0x0ff);
 }
 
 static inline bool x86_is_paging_enabled(void)
@@ -488,29 +540,6 @@ static inline uint32_t x86_is_PAE_enabled(void)
     return true;
 }
 
-static inline uint32_t check_smep_avail(void)
-{
-    uint32_t reg_a = 0x07;
-    uint32_t reg_b = 0x0;
-    uint32_t reg_c = 0x0;
-    __asm__ __volatile__ (
-        "cpuid \n\t"
-        :"=b" (reg_b)
-        :"a" (reg_a),"c" (reg_c));
-    return ((reg_b>>0x06) & 0x1);
-}
-
-static inline uint32_t check_smap_avail(void)
-{
-    uint32_t reg_a = 0x07;
-    uint32_t reg_b = 0x0;
-    uint32_t reg_c = 0x0;
-    __asm__ __volatile__ (
-        "cpuid \n\t"
-        :"=b" (reg_b)
-        :"a" (reg_a),"c" (reg_c));
-    return ((reg_b>>0x13) & 0x1);
-}
 #endif // ARCH_X86_32
 
 #if ARCH_X86_64
@@ -804,45 +833,18 @@ static inline void x86_set_cr0(uint64_t in_val)
 
 static inline uint32_t x86_get_address_width(void)
 {
-    uint32_t rv;
+    uint32_t reg_a;
+    uint32_t unused;
 
-    __asm__ __volatile__ (
-        "cpuid \n\t"
-        :"=a" (rv)
-        :"a" (X86_CPUID_ADDR_WIDTH));
+    cpuid(X86_CPUID_ADDR_WIDTH, &reg_a, &unused, &unused, &unused);
 
     /*
      Extracting bit 15:0 from eax register
      Bits 07-00: #Physical Address Bits
      Bits 15-08: #Linear Address Bits
     */
-    return (rv & 0x0000ffff);
+    return (reg_a & 0x0000ffff);
 }
-
-static inline uint64_t check_smep_avail(void)
-{
-    uint64_t reg_a = 0x07;
-    uint64_t reg_b = 0x0;
-    uint64_t reg_c = 0x0;
-    __asm__ __volatile__ (
-        "cpuid \n\t"
-        :"=b" (reg_b)
-        :"a" (reg_a),"c" (reg_c));
-    return ((reg_b>>0x06) & 0x1);
-}
-
-static inline uint64_t check_smap_avail(void)
-{
-    uint64_t reg_a = 0x07;
-    uint64_t reg_b = 0x0;
-    uint64_t reg_c = 0x0;
-    __asm__ __volatile__ (
-        "cpuid \n\t"
-        :"=b" (reg_b)
-        :"a" (reg_a),"c" (reg_c));
-    return ((reg_b>>0x13) & 0x1);
-}
-
 #endif // ARCH_X86_64
 
 __END_CDECLS
