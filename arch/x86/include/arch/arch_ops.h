@@ -28,6 +28,7 @@
 #ifndef ASSEMBLY
 
 #include <arch/x86.h>
+#include <arch/x86/mp.h>
 
 /* override of some routines */
 static inline void arch_enable_ints(void)
@@ -104,17 +105,14 @@ static inline uint32_t arch_cycle_count(void)
     return timestamp;
 }
 
-/* use a global pointer to store the current_thread */
-extern struct thread *_current_thread;
-
 static inline struct thread *get_current_thread(void)
 {
-    return _current_thread;
+    return (struct thread *)x86_read_gs_with_offset(CUR_THREAD_OFF);
 }
 
 static inline void set_current_thread(struct thread *t)
 {
-    _current_thread = t;
+    x86_write_gs_with_offset(CUR_THREAD_OFF, (uint64_t)t);
 }
 
 static inline uint arch_curr_cpu_num(void)

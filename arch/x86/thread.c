@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2009 Corey Tabaka
  * Copyright (c) 2014 Travis Geiselbrecht
- * Copyright (c) 2015 Intel Corporation
+ * Copyright (c) 2015-2018 Intel Corporation
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files
@@ -32,19 +32,17 @@
 #include <arch/x86/descriptor.h>
 #include <arch/fpu.h>
 
-/* we're uniprocessor at this point for x86, so store a global pointer to the current thread */
-struct thread *_current_thread;
-
 static void initial_thread_func(void) __NO_RETURN;
 static void initial_thread_func(void)
 {
     int ret;
+    thread_t *current_thread = get_current_thread();
 
     /* release the thread lock that was implicitly held across the reschedule */
     spin_unlock(&thread_lock);
     arch_enable_ints();
 
-    ret = _current_thread->entry(_current_thread->arg);
+    ret = current_thread->entry(current_thread->arg);
 
     thread_exit(ret);
 }
