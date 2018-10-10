@@ -140,6 +140,8 @@ override CLANGBUILD := $(call TOBOOL,$(CLANGBUILD))
 ifeq ($(call TOBOOL,$(CLANGBUILD)), true)
 GLOBAL_COMPILEFLAGS += -Wimplicit-fallthrough
 endif
+# VLAs can have subtle security bugs and assist exploits, so ban them.
+GLOBAL_COMPILEFLAGS += -Wvla
 
 # try to include the project file
 -include project/$(PROJECT).mk
