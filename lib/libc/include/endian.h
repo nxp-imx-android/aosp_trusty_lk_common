@@ -63,6 +63,12 @@
 #define BE32SWAP(var) (var) = BE32(var);
 #define BE16SWAP(var) (var) = BE16(var);
 
+/* standard endian.h stuff */
+#define htobe16(n) BE16(n)
+#define be16toh(n) BE16(n)
+#define htobe32(n) BE32(n)
+#define be32toh(n) BE32(n)
+
 /* classic network byte swap stuff */
 #define ntohs(n) BE16(n)
 #define htons(h) BE16(h)
