@@ -24,14 +24,12 @@
 #define __LIST_H
 
 #include <lk/compiler.h>
+#include <lk/macros.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
 
 __BEGIN_CDECLS;
-
-#define containerof(ptr, type, member) \
-    ((type *)((uintptr_t)(ptr) - offsetof(type, member)))
 
 struct list_node {
     struct list_node *prev;

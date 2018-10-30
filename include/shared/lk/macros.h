@@ -34,5 +34,8 @@
 #define ALIGN(a, b) ROUNDUP(a, b)
 #define IS_ALIGNED(a, b) (!(((uintptr_t)(a)) & (((uintptr_t)(b))-1)))
 
+#define containerof(ptr, type, member) \
+    ((type *)((uintptr_t)(ptr) - offsetof(type, member)))
+
 #endif
 
