@@ -26,8 +26,21 @@
 
 #include <sys/types.h>
 
-//TODO: Add support for 64-bit user_addr_t
+#if IS_64BIT && USER_32BIT
 typedef uint32_t user_addr_t;
+typedef uint32_t user_size_t;
+
+#define PRIxPTR_USER "x"
+#define PRIxSIZE_USER "x"
+#define PRIuSIZE_USER "u"
+#else
+typedef vaddr_t user_addr_t;
+typedef size_t user_size_t;
+
+#define PRIxPTR_USER "lx"
+#define PRIxSIZE_USER "zx"
+#define PRIuSIZE_USER "zu"
+#endif
 
 status_t arch_copy_from_user(void *kdest, user_addr_t usrc, size_t len);
 status_t arch_copy_to_user(user_addr_t udest, const void *ksrc, size_t len);
