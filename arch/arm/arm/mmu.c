@@ -222,15 +222,13 @@ void arm_mmu_init(void)
 
 #if KERNEL_ASPACE_BASE != 0
     /* bounce the ttbr over to ttbr1 and leave 0 unmapped */
-    uint32_t n = __builtin_clz(KERNEL_ASPACE_BASE) + 1;
+    uint32_t n = __builtin_clz(KERNEL_ASPACE_BASE - 1);
     DEBUG_ASSERT(n <= 7);
 
-    /*
-     * TODO: support other sizes, arch_mmu_init_aspace below allocates a
-     * page table for a 1GB user address space, so ttbcr should match.
-     */
-    DEBUG_ASSERT(n <= 2);
-    n = 2;
+    /* KERNEL_ASPACE_BASE has to be a power of 2, 32MB..2GB in size */
+    STATIC_ASSERT(KERNEL_ASPACE_BASE >= 32*MB);
+    STATIC_ASSERT(KERNEL_ASPACE_BASE <= 2*GB);
+    STATIC_ASSERT(((KERNEL_ASPACE_BASE - 1) & KERNEL_ASPACE_BASE) == 0);
 
     uint32_t ttbcr = (1<<4) | n; /* disable TTBCR0 and set the split between TTBR0 and TTBR1 */
 
@@ -245,6 +243,7 @@ void arm_mmu_init(void)
 
 static void arm_secondary_mmu_init(uint level)
 {
+    uint32_t n = __builtin_clz(KERNEL_ASPACE_BASE - 1);
     uint32_t cur_ttbr0;
 
     cur_ttbr0 = arm_read_ttbr0();
@@ -252,12 +251,8 @@ static void arm_secondary_mmu_init(uint level)
     /* push out kernel mappings to ttbr1 */
     arm_write_ttbr1(cur_ttbr0);
 
-    /*
-     * TODO: support other sizes, arch_mmu_init_aspace below allocates a
-     * page table for a 1GB user address space, so ttbcr should match.
-     */
     /* setup a user-kernel split */
-    arm_write_ttbcr(2);
+    arm_write_ttbcr(n);
 
     arm_invalidate_tlb_global();
 }
@@ -755,15 +750,23 @@ status_t arch_mmu_init_aspace(arch_aspace_t *aspace, vaddr_t base, size_t size, 
         aspace->tt_virt = arm_kernel_translation_table;
         aspace->tt_phys = vaddr_to_paddr(aspace->tt_virt);
     } else {
+        uint32_t *va = NULL;
+        uint32_t tt_sz = 1 << (14 - __builtin_clz(KERNEL_ASPACE_BASE - 1));
 
-        // XXX at the moment we can only really deal with 1GB user space, and thus
-        // needing only a single page for the top level translation table
-        DEBUG_ASSERT(base < GB && (base + size) <= GB);
+        DEBUG_ASSERT(base + size - 1 < KERNEL_ASPACE_BASE);
 
         aspace->base = base;
         aspace->size = size;
 
-        uint32_t *va = pmm_alloc_kpages(1, &aspace->pt_page_list);
+        if (tt_sz < PAGE_SIZE) {
+            va = memalign(tt_sz, tt_sz);
+        } else {
+            paddr_t pa;
+            if (pmm_alloc_contiguous(tt_sz / PAGE_SIZE, __builtin_ctz(tt_sz),
+                                     &pa, &aspace->pt_page_list)) {
+                va = paddr_to_kvaddr(pa);
+            }
+        }
         if (!va)
             return ERR_NO_MEMORY;
 
@@ -771,8 +774,7 @@ status_t arch_mmu_init_aspace(arch_aspace_t *aspace, vaddr_t base, size_t size, 
         aspace->tt_phys = vaddr_to_paddr(aspace->tt_virt);
 
         /* zero the top level translation table */
-        /* XXX remove when PMM starts returning pre-zeroed pages */
-        memset(aspace->tt_virt, 0, PAGE_SIZE);
+        memset(aspace->tt_virt, 0, tt_sz);
     }
 
     LTRACEF("tt_phys 0x%lx tt_virt %p\n", aspace->tt_phys, aspace->tt_virt);
@@ -782,15 +784,18 @@ status_t arch_mmu_init_aspace(arch_aspace_t *aspace, vaddr_t base, size_t size, 
 
 status_t arch_mmu_destroy_aspace(arch_aspace_t *aspace)
 {
+    uint32_t tt_sz = 1 << (14 - __builtin_clz(KERNEL_ASPACE_BASE - 1));
+
     LTRACEF("aspace %p\n", aspace);
 
-    // XXX free all of the pages allocated in aspace->pt_page_list
-    vm_page_t *p;
-    while ((p = list_remove_head_type(&aspace->pt_page_list, vm_page_t, node)) != NULL) {
-        LTRACEF("freeing page %p\n", p);
-        pmm_free_page(p);
+    if (aspace->tt_virt != arm_kernel_translation_table) {
+        /* Assume that this is user address space */
+        if (tt_sz < PAGE_SIZE)
+            free(aspace->tt_virt);
     }
 
+    // XXX free all of the pages allocated in aspace->pt_page_list
+    pmm_free(&aspace->pt_page_list);
     return NO_ERROR;
 }
 
