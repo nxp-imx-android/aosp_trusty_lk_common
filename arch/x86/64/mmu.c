@@ -711,9 +711,6 @@ status_t arch_mmu_query(arch_aspace_t *aspace, vaddr_t vaddr, paddr_t *paddr, ui
 
     ASSERT(aspace);
 
-    if (!paddr)
-        return ERR_INVALID_ARGS;
-
     current_cr3_val = aspace->page_table;
     ASSERT(current_cr3_val);
 
@@ -721,7 +718,10 @@ status_t arch_mmu_query(arch_aspace_t *aspace, vaddr_t vaddr, paddr_t *paddr, ui
     if (stat)
         return stat;
 
-    *paddr = (paddr_t)(last_valid_entry);
+    if (paddr) {
+        *paddr = (paddr_t)(last_valid_entry);
+    }
+
     LTRACEF("paddr 0x%llx\n", last_valid_entry);
 
     /* converting x86 arch specific flags to arch mmu flags */
