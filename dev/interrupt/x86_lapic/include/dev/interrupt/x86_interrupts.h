@@ -23,4 +23,27 @@
 
 #pragma once
 
+#include <platform/interrupts.h>
+
+#define INT_VECTORS 0x100
+
+#ifndef INT_PIT
+#define INT_PIT 0x30
+#endif
+
+#define PIC1_BASE_INTR INT_PIT
+#define PIC1 0x20
+#define PIC2 0xA0
+#define ICW1 0x13 /* SINGLE mode, ICW4 needed */
+#define ICW4 0x5  /* Non buffered mode, 8086 mode */
+#define PIC_EOI 0x20
+
+struct int_handler_struct {
+    int_handler handler;
+    void* arg;
+};
+
+extern struct int_handler_struct int_handler_table[INT_VECTORS];
+
 void x86_init_interrupts(void);
+enum handler_return default_isr(unsigned int vector);
