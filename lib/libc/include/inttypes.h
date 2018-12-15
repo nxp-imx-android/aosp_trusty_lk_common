@@ -47,6 +47,12 @@
 #define PRIx64 "llx"
 #define PRIX64 "llX"
 
+#define PRIdPTR "ld"
+#define PRIiPTR "li"
+#define PRIuPTR "lu"
+#define PRIxPTR "lx"
+#define PRIXPTR "lX"
+
 #include <stdint.h>
 
 #endif
