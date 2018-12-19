@@ -43,16 +43,53 @@
 uint8_t g_vaddr_width = 0;
 uint8_t g_paddr_width = 0;
 
-/* top level kernel page tables, initialized in start.S */
+/*
+ * Page table 1:
+ *
+ * This page table is used for bootstrap code
+ * VA - start, size                       : PA - start, size
+ * MEMBASE+KERNEL_LOAD_OFFSET, 1 PAGE     : MEMBASE+KERNEL_LOAD_OFFSET, 1 PAGE
+ * PHYS(_gdt),  1 PAGE                    : PHYS(_gdt), 1 PAGE
+ * KERNEL_BASE+KERNEL_LOAD_OFFSET, 1 PAGE : MEMBASE+KERNEL_LOAD_OFFSET, 1 PAGE
+ *
+ * 4-level paging is used to cover bootstrap code:
+ * entry in pml4(Page Map Level 4) covers 512GB,
+ * entry in pdpt(Page-directory-pointer table) covers 1GB,
+ * entry in pd(Page directory) covers 2MB,
+ * entry in pt(Page table) covers 4KB.
+ *
+ * pml4_trampoline->pdpt_trampoline_low->pd_trampoline_low->pt_trampoline
+ * covers VA (from ~ end):
+ *   MEMBASE+KERNEL_LOAD_OFFSET ~ MEMBASE+KERNEL_LOAD_OFFSET + 1 PAGE
+ * and
+ *   PHYS(_gdt) ~ PHYS(_gdt) + 1 PAGE
+ *
+ * pml4_trampoline->pdpt_trampoline_high->pd_trampoline_high->pt_trampoline
+ * covers VA (from ~ end):
+ *   KERNEL_BASE+KERNEL_LOAD_OFFSET ~ KERNEL_BASE+KERNEL_LOAD_OFFSET+1 PAGE
+ * and
+ *   PHYS(_gdt) ~ PHYS(_gdt) + 1 PAGE
+ */
+map_addr_t pml4_trampoline[NO_OF_PT_ENTRIES] __ALIGNED(PAGE_SIZE);
+map_addr_t pdpt_trampoline_low[NO_OF_PT_ENTRIES] __ALIGNED(PAGE_SIZE);
+map_addr_t pd_trampoline_low[NO_OF_PT_ENTRIES] __ALIGNED(PAGE_SIZE);
+map_addr_t pdpt_trampoline_high[NO_OF_PT_ENTRIES] __ALIGNED(PAGE_SIZE);
+map_addr_t pd_trampoline_high[NO_OF_PT_ENTRIES] __ALIGNED(PAGE_SIZE);
+map_addr_t pt_trampoline[NO_OF_PT_ENTRIES] __ALIGNED(PAGE_SIZE);
+
+/*
+ * Page table 2:
+ * This page table is used at run time in 64bit
+ * (memsize equals to upper memory passed in by bootloader minus
+ *  physical start address of lk binary, if memsize is larger than 1GB,
+ *  more page directories for this page table will be allocated in boot mem)
+ * VA  start, size      : PA  start, size
+ * KERNEL_BASE, memsize : MEMBASE, memsize
+ */
 map_addr_t pml4[NO_OF_PT_ENTRIES] __ALIGNED(PAGE_SIZE);
-map_addr_t pdp[NO_OF_PT_ENTRIES] __ALIGNED(PAGE_SIZE); /* temporary */
-map_addr_t pte[NO_OF_PT_ENTRIES] __ALIGNED(PAGE_SIZE);
-
-/* top level pdp needed to map the -512GB..0 space */
-map_addr_t pdp_high[NO_OF_PT_ENTRIES] __ALIGNED(PAGE_SIZE);
-
-/* a big pile of page tables needed to map 64GB of memory into kernel space using 2MB pages */
-map_addr_t linear_map_pdp[(64ULL*GB) / (2*MB)];
+map_addr_t pdpt[NO_OF_PT_ENTRIES] __ALIGNED(PAGE_SIZE);
+map_addr_t pd[NO_OF_PT_ENTRIES] __ALIGNED(PAGE_SIZE);
+map_addr_t pt[NO_OF_PT_ENTRIES][NO_OF_PT_ENTRIES] __ALIGNED(PAGE_SIZE);
 
 /**
  * @brief  check if the virtual address is aligned and canonical
@@ -708,7 +745,7 @@ int arch_mmu_map(arch_aspace_t *aspace, vaddr_t vaddr, paddr_t paddr, uint count
 
 void x86_mmu_early_init(void)
 {
-    volatile uint64_t efer_msr, cr0, cr4;
+    volatile uint64_t cr0, cr4;
 
     /* Set WP bit in CR0*/
     cr0 = x86_get_cr0();
@@ -723,11 +760,6 @@ void x86_mmu_early_init(void)
         cr4 |=X86_CR4_SMAP;
     x86_set_cr4(cr4);
 
-    /* Set NXE bit in MSR_EFER*/
-    efer_msr = read_msr(X86_MSR_EFER);
-    efer_msr |= X86_EFER_NXE;
-    write_msr(X86_MSR_EFER, efer_msr);
-
     /* getting the address width from CPUID instr */
     /* Bits 07-00: Physical Address width info */
     /* Bits 15-08: Linear Address width info */
@@ -736,9 +768,6 @@ void x86_mmu_early_init(void)
     g_vaddr_width = (uint8_t)((addr_width >> 8) & 0xFF);
 
     LTRACEF("paddr_width %u vaddr_width %u\n", g_paddr_width, g_vaddr_width);
-
-    /* unmap the lower identity mapping */
-    pml4[0] = 0;
 
     /* tlb flush */
     x86_set_cr3(x86_get_cr3());

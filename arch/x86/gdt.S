@@ -25,9 +25,7 @@
 #include <asm.h>
 #include <arch/x86/descriptor.h>
 
-#define PHYS_LOAD_ADDRESS (MEMBASE + KERNEL_LOAD_OFFSET)
-#define PHYS_ADDR_DELTA (KERNEL_BASE + KERNEL_LOAD_OFFSET - PHYS_LOAD_ADDRESS)
-#define PHYS(x) ((x) - PHYS_ADDR_DELTA)
+#define PHYS(x) ((x) - KERNEL_BASE + MEMBASE)
 
 .section .rodata
 
@@ -46,7 +44,8 @@ DATA(_gdtr)
 #endif
 
 .data
-.align 8
+/* Keep it page alignment since we need to map this page */
+.align 4096
 DATA(_gdt)
     .int 0
     .int 0

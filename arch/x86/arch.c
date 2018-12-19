@@ -67,6 +67,7 @@ void arch_early_init(void)
     x86_ltr(TSS_SELECTOR);
 
     x86_mmu_early_init();
+    platform_init_mmu_mappings();
 }
 
 void arch_init(void)
