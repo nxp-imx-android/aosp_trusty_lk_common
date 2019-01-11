@@ -758,8 +758,6 @@ void vmm_set_active_aspace(vmm_aspace_t *aspace)
 {
     LTRACEF("aspace %p\n", aspace);
 
-    DEBUG_ASSERT(aspace);
-
     thread_t *t = get_current_thread();
     DEBUG_ASSERT(t);
 
