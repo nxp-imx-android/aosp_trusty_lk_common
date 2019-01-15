@@ -40,10 +40,12 @@ void spin(uint32_t usecs)
         ;
 }
 
-void _panic(void *caller, const char *fmt, ...)
+/*
+ * This function relies on the "panic" macro decorating the format string so
+ * that the message can be output using a single print statement.
+ */
+void _panic(const char *fmt, ...)
 {
-    printf("panic (caller %p): ", caller);
-
     va_list ap;
     va_start(ap, fmt);
     vprintf(fmt, ap);

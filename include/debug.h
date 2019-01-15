@@ -67,8 +67,8 @@ static inline void hexdump8(const void *ptr, size_t len)
 #define dprintf(level, x...) do { if ((level) <= LK_DEBUGLEVEL) { printf(x); } } while (0)
 
 /* systemwide halts */
-void _panic(void *caller, const char *fmt, ...) __PRINTFLIKE(2, 3) __NO_RETURN;
-#define panic(x...) _panic(__GET_CALLER(), x)
+void _panic(const char *fmt, ...) __PRINTFLIKE(1, 2) __NO_RETURN;
+#define panic(fmt, x...) _panic("panic (caller %p): " fmt, __GET_CALLER(), ##x)
 
 #define PANIC_UNIMPLEMENTED panic("%s unimplemented\n", __PRETTY_FUNCTION__)
 
