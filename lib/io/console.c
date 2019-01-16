@@ -81,6 +81,25 @@ static void out_count(const char *str, size_t len)
     }
 }
 
+/* Signal that the write operation is complete. */
+static void out_commit(void)
+{
+    print_callback_t *cb;
+
+    /* commit to any registered loggers */
+    if (!list_is_empty(&print_callbacks)) {
+        spin_lock_saved_state_t state;
+        spin_lock_save(&print_spin_lock, &state, PRINT_LOCK_FLAGS);
+
+        list_for_every_entry(&print_callbacks, cb, print_callback_t, entry) {
+            if (cb->commit)
+                cb->commit(cb);
+        }
+
+        spin_unlock_restore(&print_spin_lock, state, PRINT_LOCK_FLAGS);
+    }
+}
+
 void register_print_callback(print_callback_t *cb)
 {
     spin_lock_saved_state_t state;
@@ -105,6 +124,11 @@ static ssize_t __debug_stdio_write(io_handle_t *io, const char *s, size_t len)
 {
     out_count(s, len);
     return len;
+}
+
+static void __debug_stdio_write_commit(io_handle_t *io)
+{
+    out_commit();
 }
 
 static ssize_t __debug_stdio_read(io_handle_t *io, char *s, size_t len)
@@ -135,8 +159,9 @@ LK_INIT_HOOK(console, console_init_hook, LK_INIT_LEVEL_PLATFORM_EARLY - 1);
 
 /* global console io handle */
 static const io_handle_hooks_t console_io_hooks = {
-    .write  = __debug_stdio_write,
-    .read   = __debug_stdio_read,
+    .write         = __debug_stdio_write,
+    .write_commit  = __debug_stdio_write_commit,
+    .read          = __debug_stdio_read,
 };
 
 io_handle_t console_io = IO_HANDLE_INITIAL_VALUE(&console_io_hooks);
