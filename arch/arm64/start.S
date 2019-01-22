@@ -334,7 +334,7 @@ _start:
     isb
 
     /* Invalidate TLB */
-    tlbi    vmalle1
+    tlbi    vmalle1is
     isb
 
     /* We're no longer using the tagged identity map at this point, so

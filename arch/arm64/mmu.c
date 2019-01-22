@@ -431,9 +431,9 @@ static void arm64_mmu_unmap_pt(vaddr_t vaddr, vaddr_t vaddr_rel,
             page_table[index] = MMU_PTE_DESCRIPTOR_INVALID;
             CF;
             if (asid == MMU_ARM64_GLOBAL_ASID)
-                ARM64_TLBI(vaae1is, vaddr >> 12);
+		ARM64_TLBI_NOADDR(vmalle1is);
             else
-                ARM64_TLBI(vae1is, vaddr >> 12 | (vaddr_t)asid << 48);
+		ARM64_TLBI_NOADDR(vmalle1is);
         } else {
             LTRACEF("pte %p[0x%lx] already clear\n", page_table, index);
         }
@@ -814,7 +814,7 @@ void arch_mmu_context_switch(arch_aspace_t *aspace)
     ARM64_WRITE_SYSREG(tcr_el1, tcr); /* TODO: only needed when switching between kernel and user threads */
 
     if (flush_tlb) {
-        ARM64_TLBI_NOADDR(vmalle1);
+        ARM64_TLBI_NOADDR(vmalle1is);
         DSB;
     }
 }
