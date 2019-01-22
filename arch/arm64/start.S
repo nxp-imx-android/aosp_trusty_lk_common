@@ -330,7 +330,7 @@ arm_reset:
 
 
     /* Invalidate TLB */
-    tlbi    vmalle1
+    tlbi    vmalle1is
     isb
 
 #if WITH_SMP
