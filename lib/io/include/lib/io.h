@@ -48,6 +48,8 @@ typedef struct io_handle_hooks {
     ssize_t (*write)(struct io_handle *handle, const char *buf, size_t len);
     void (*write_commit)(struct io_handle *handle);
     ssize_t (*read)(struct io_handle *handle, char *buf, size_t len);
+    void (*lock)(struct io_handle *handle);
+    void (*unlock)(struct io_handle *handle);
 } io_handle_hooks_t;
 
 #define IO_HANDLE_MAGIC (0x696f6820)  // "ioh "
@@ -59,9 +61,13 @@ typedef struct io_handle {
 
 /* routines to call through the io handle */
 ssize_t io_write(io_handle_t *io, const char *buf, size_t len);
+ssize_t io_read(io_handle_t *io, char *buf, size_t len);
+
+/* lower-level io operations */
 ssize_t io_write_partial(io_handle_t *io, const char *buf, size_t len);
 void io_write_commit(io_handle_t *io);
-ssize_t io_read(io_handle_t *io, char *buf, size_t len);
+void io_lock(io_handle_t *io);
+void io_unlock(io_handle_t *io);
 
 /* initialization routine */
 #define IO_HANDLE_INITIAL_VALUE(_hooks) { .magic = IO_HANDLE_MAGIC, .hooks = _hooks }

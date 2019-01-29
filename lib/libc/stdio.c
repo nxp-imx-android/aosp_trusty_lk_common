@@ -37,10 +37,20 @@ __WEAK FILE __stdio_FILEs[3] = {
 };
 #undef DEFINE_STDIO_DESC
 
+static size_t lock_write_commit_unlock(FILE *fp, const char* s, size_t length)
+{
+    size_t bytes_written;
+    io_lock(fp->io);
+    bytes_written = io_write(fp->io, s, length);
+    io_write_commit(fp->io);
+    io_unlock(fp->io);
+    return bytes_written;
+}
+
 int fputc(int _c, FILE *fp)
 {
     unsigned char c = _c;
-    return io_write(fp->io, (char *)&c, 1);
+    return lock_write_commit_unlock(fp, (char *)&c, 1);
 }
 
 int putchar(int c)
@@ -59,8 +69,7 @@ int puts(const char *str)
 int fputs(const char *s, FILE *fp)
 {
     size_t len = strlen(s);
-
-    return io_write(fp->io, s, len);
+    return lock_write_commit_unlock(fp, s, len);
 }
 
 size_t fwrite(const void *ptr, size_t size, size_t count, FILE *fp)
@@ -72,10 +81,10 @@ size_t fwrite(const void *ptr, size_t size, size_t count, FILE *fp)
 
     // fast path for size == 1
     if (likely(size == 1)) {
-        return io_write(fp->io, ptr, count);
+        return lock_write_commit_unlock(fp, ptr, count);
     }
 
-    bytes_written = io_write(fp->io, ptr, size * count);
+    bytes_written = lock_write_commit_unlock(fp, ptr, size * count);
     return bytes_written / size;
 }
 
@@ -96,13 +105,15 @@ static int _fprintf_output_func(const char *str, size_t len, void *state)
 {
     FILE *fp = (FILE *)state;
 
-    return io_write_partial(fp->io, str, len);
+    return io_write(fp->io, str, len);
 }
 
 int vfprintf(FILE *fp, const char *fmt, va_list ap)
 {
+    io_lock(fp->io);
     int result = _printf_engine(&_fprintf_output_func, (void *)fp, fmt, ap);
     io_write_commit(fp->io);
+    io_unlock(fp->io);
     return result;
 }
 

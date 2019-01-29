@@ -28,13 +28,6 @@
 
 ssize_t io_write(io_handle_t *io, const char *buf, size_t len)
 {
-    size_t result = io_write_partial(io, buf, len);
-    io_write_commit(io);
-    return result;
-}
-
-ssize_t io_write_partial(io_handle_t *io, const char *buf, size_t len)
-{
     DEBUG_ASSERT(io->magic == IO_HANDLE_MAGIC);
 
     if (!io->hooks->write)
@@ -51,6 +44,21 @@ void io_write_commit(io_handle_t *io)
         io->hooks->write_commit(io);
 }
 
+void io_lock(io_handle_t *io)
+{
+    DEBUG_ASSERT(io->magic == IO_HANDLE_MAGIC);
+
+    if (io->hooks->lock)
+        io->hooks->lock(io);
+}
+
+void io_unlock(io_handle_t *io)
+{
+    DEBUG_ASSERT(io->magic == IO_HANDLE_MAGIC);
+
+    if (io->hooks->unlock)
+        io->hooks->unlock(io);
+}
 
 ssize_t io_read(io_handle_t *io, char *buf, size_t len)
 {
@@ -61,4 +69,3 @@ ssize_t io_read(io_handle_t *io, char *buf, size_t len)
 
     return io->hooks->read(io, buf, len);
 }
-
