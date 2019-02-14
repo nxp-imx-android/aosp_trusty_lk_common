@@ -20,7 +20,8 @@ MODULE_SRCS += \
 	$(LOCAL_DIR)/strtoll.c \
 	$(LOCAL_DIR)/stdio.c \
 	$(LOCAL_DIR)/qsort.c \
-	$(LOCAL_DIR)/eabi.c
+	$(LOCAL_DIR)/eabi.c \
+	$(LOCAL_DIR)/eabi_unwind_stubs.c
 
 ifeq ($(WITH_CPP_SUPPORT),true)
 MODULE_SRCS += \
