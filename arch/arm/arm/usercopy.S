@@ -25,6 +25,8 @@
 #include <arch/asm_macros.h>
 #include <err.h>
 
+.syntax unified
+
 /* status_t arch_copy_to_user(user_addr_t udest, const void *ksrc, size_t len) */
 FUNCTION(arch_copy_to_user)
 	cmp	r2, #0
@@ -69,8 +71,8 @@ FUNCTION(arch_strlcpy_from_user)
 	cmp	r2, #0
 	beq	.Larch_strlcpy_from_user_dst_full
 	subs	r2, r2, #1
-	streqb	r2, [r0], #1
-	strneb	r3, [r0], #1
+	strbeq	r2, [r0], #1
+	strbne	r3, [r0], #1
 .Larch_strlcpy_from_user_dst_full:
 	cmp	r3, #0
 	bne	.Larch_strlcpy_from_user_loop
