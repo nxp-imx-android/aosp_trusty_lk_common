@@ -24,20 +24,21 @@
 #ifndef __USERCOPY_H
 #define __USERCOPY_H
 
+#include <compiler.h>
 #include <sys/types.h>
 #include <arch/usercopy.h>
 
-static inline status_t copy_from_user(void *kdest, user_addr_t usrc, size_t len)
+static inline __WARN_UNUSED_RESULT status_t copy_from_user(void *kdest, user_addr_t usrc, size_t len)
 {
 	return arch_copy_from_user(kdest, usrc, len);
 }
 
-static inline status_t copy_to_user(user_addr_t udest, const void *ksrc, size_t len)
+static inline __WARN_UNUSED_RESULT status_t copy_to_user(user_addr_t udest, const void *ksrc, size_t len)
 {
 	return arch_copy_to_user(udest, ksrc, len);
 }
 
-static inline ssize_t  strlcpy_from_user(char *kdest, user_addr_t usrc, size_t len)
+static inline __WARN_UNUSED_RESULT ssize_t strlcpy_from_user(char *kdest, user_addr_t usrc, size_t len)
 {
 	return arch_strlcpy_from_user(kdest, usrc, len);
 }
