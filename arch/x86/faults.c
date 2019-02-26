@@ -26,6 +26,7 @@
 #include <arch/x86.h>
 #include <arch/fpu.h>
 #include <kernel/thread.h>
+#include <platform.h>
 
 /* exceptions */
 #define INT_DIVIDE_0        0x00
@@ -80,6 +81,7 @@ static void exception_die(x86_iframe_t *frame, const char *msg)
     dprintf(CRITICAL, "%s", msg);
     dump_fault_frame(frame);
 
+    platform_halt(HALT_ACTION_HALT, HALT_REASON_SW_PANIC);
     for (;;) {
         x86_cli();
         x86_hlt();
