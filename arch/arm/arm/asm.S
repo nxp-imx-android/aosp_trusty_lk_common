@@ -23,6 +23,8 @@
 #include <asm.h>
 #include <arch/arm/cores.h>
 
+.syntax unified
+
     /* context switch frame is as follows:
      * lr
      * r11
@@ -40,6 +42,11 @@ FUNCTION(arm_context_switch)
     /* spsr and user mode registers are saved and restored in the iframe by exceptions.S */
     push    { r4-r11, lr }
 
+    /* save user space TLS registers */
+    mrc p15,0,r5,c13,c0,3
+    mrc p15,0,r4,c13,c0,2
+    push { r4-r5 }
+
     /* save old sp */
     str     sp, [r0]
 
@@ -55,6 +62,12 @@ FUNCTION(arm_context_switch)
 
     /* load new regs */
     mov     sp, r1
+
+    /* load user space TLS registers */
+    pop { r4-r5 }
+    mcr p15,0,r4,c13,c0,2
+    mcr p15,0,r5,c13,c0,3
+
     pop     { r4-r11, lr }
     bx      lr
 

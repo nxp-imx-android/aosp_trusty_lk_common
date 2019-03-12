@@ -29,6 +29,8 @@
 #include <arch/arm.h>
 
 struct context_switch_frame {
+    vaddr_t tpidrurw;
+    vaddr_t tpidruro;
     vaddr_t r4;
     vaddr_t r5;
     vaddr_t r6;
@@ -102,4 +104,3 @@ void arch_dump_thread(thread_t *t)
         dprintf(INFO, "sp 0x%lx\n", t->arch.sp);
     }
 }
-
