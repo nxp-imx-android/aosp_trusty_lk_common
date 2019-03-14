@@ -192,3 +192,17 @@ void arm64_secondary_entry(ulong asm_cpu_num)
 }
 #endif
 
+void arch_set_user_tls(vaddr_t tls_ptr)
+{
+    /*
+     * Note arm32 user space uses the ro TLS register and arm64 uses rw.
+     * This matches existing ABIs.
+     */
+#ifdef USER_32BIT
+    /* Lower bits of tpidrro_el0 aliased with arm32 tpidruro. */
+    __asm__ volatile("msr tpidrro_el0, %0" :: "r" (tls_ptr));
+#else
+    /* Can also set from user space. Implemented here for uniformity. */
+    __asm__ volatile("msr tpidr_el0, %0" :: "r" (tls_ptr));
+#endif
+}

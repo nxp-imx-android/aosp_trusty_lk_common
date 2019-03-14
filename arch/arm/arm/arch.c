@@ -460,3 +460,12 @@ void arch_enter_uspace(vaddr_t entry_point, vaddr_t user_stack_top, uint32_t fla
         : "r0", "memory");
     __UNREACHABLE;
 }
+
+void arch_set_user_tls(vaddr_t tls_ptr)
+{
+    /*
+     * tpidruro, to match existing ABIs.
+     * Using tpidrurw would require compiler patches.
+     */
+    __asm__ volatile("mcr p15, 0, %0, c13, c0, 3" :: "r" (tls_ptr));
+}
