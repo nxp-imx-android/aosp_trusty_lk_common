@@ -150,3 +150,11 @@ void arch_enter_uspace(vaddr_t entry_point, vaddr_t user_stack_top, uint32_t fla
     __UNREACHABLE;
 #endif
 }
+
+void arch_set_user_tls(vaddr_t tls_ptr)
+{
+    thread_t *cur_thread = get_current_thread();
+
+    cur_thread->arch.fs_base = tls_ptr;
+    write_msr(X86_MSR_FS_BASE, tls_ptr);
+}

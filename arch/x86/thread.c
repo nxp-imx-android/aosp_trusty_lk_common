@@ -154,6 +154,10 @@ void arch_context_switch(thread_t *oldthread, thread_t *newthread)
     fpu_context_switch(oldthread, newthread);
 #endif
 
+    /* Switch fs base which used to store tls */
+    oldthread->arch.fs_base = read_msr(X86_MSR_FS_BASE);
+    write_msr(X86_MSR_FS_BASE, newthread->arch.fs_base);
+
     x86_64_context_switch(&oldthread->arch.sp, newthread->arch.sp);
 }
 #endif
