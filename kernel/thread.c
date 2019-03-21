@@ -291,14 +291,28 @@ static mp_cpu_mask_t thread_get_mp_reschedule_target(thread_t *current_thread, t
 
     target_cpu = (uint)t->pinned_cpu;
 
-    if (t->priority < cpu_priority[target_cpu])
+    if (t->priority < cpu_priority[target_cpu]) {
+        /*
+         * The thread is pinned to a cpu that is already running, or has already
+         * been signalled to run, a higher priority thread. No ipi is needed.
+         */
+#ifdef DEBUG_THREAD_CPU_WAKE
+        dprintf(ALWAYS, "%s: cpu %d, don't wake cpu %d, priority %d for priority %d thread (current priority %d)\n",
+            __func__, cpu, target_cpu, cpu_priority[target_cpu], t->priority, current_thread->priority);
+#endif
         return 0;
+    }
 
 #ifdef DEBUG_THREAD_CPU_WAKE
     dprintf(ALWAYS, "%s: cpu %d, wake cpu %d, priority %d for priority %d thread (current priority %d)\n",
         __func__, cpu, target_cpu, cpu_priority[target_cpu], t->priority, current_thread->priority);
-    cpu_priority[target_cpu] = t->priority;
 #endif
+    /*
+     * Pretend the target CPU is already running the thread so we don't send it
+     * another ipi for a lower priority thread. This is most important if that
+     * thread can run on another CPU instead.
+     */
+    cpu_priority[target_cpu] = t->priority;
 
     return 1UL << target_cpu;
 #else
@@ -588,8 +602,24 @@ void thread_resched(void)
 
     oldthread = current_thread;
 
-    if (newthread == oldthread)
+    if (newthread == oldthread) {
+        if (cpu_priority[cpu] != oldthread->priority) {
+            /*
+             * When we try to wake up a CPU to run a specific thread, we record
+             * the priority of that thread so we don't request the same CPU
+             * again for a lower priority thread. If another CPU picks up that
+             * thread before the CPU we sent the wake-up IPI gets to the
+             * scheduler it will may to the early return path here. Reset this
+             * priority value before returning.
+             */
+#ifdef DEBUG_THREAD_CPU_WAKE
+            dprintf(ALWAYS, "%s: cpu %d, reset cpu priority %d -> %d\n",
+                __func__, cpu, cpu_priority[cpu], newthread->priority);
+#endif
+            cpu_priority[cpu] = newthread->priority;
+        }
         return;
+    }
 
     /* set up quantum for the new thread if it was consumed */
     if (newthread->remaining_quantum <= 0) {
