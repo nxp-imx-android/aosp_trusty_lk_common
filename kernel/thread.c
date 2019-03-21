@@ -510,8 +510,15 @@ static thread_t *get_top_thread(int cpu, bool unlink)
 
         local_run_queue_bitmap &= ~(1<<next_queue);
     }
-    /* no threads to run, select the idle thread for this cpu */
-    return idle_thread(cpu);
+
+    /* No threads to run */
+    if (cpu < 0) {
+        /* no CPU has been selected, so we don't have an idle thread */
+        return NULL;
+    } else {
+        /* select the idle thread for this cpu */
+        return idle_thread(cpu);
+    }
 }
 
 static void thread_cond_mp_reschedule(thread_t *current_thread, const char *caller)
@@ -535,7 +542,7 @@ static void thread_cond_mp_reschedule(thread_t *current_thread, const char *call
         }
     }
 
-    if (t->priority <= best_cpu_priority)
+    if (!t || (t->priority <= best_cpu_priority))
         return;
 
 #ifdef DEBUG_THREAD_CPU_WAKE
