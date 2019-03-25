@@ -74,7 +74,7 @@ static void insert_timer_in_queue(uint cpu, timer_t *timer)
     LTRACEF("timer %p, cpu %u, scheduled %u, periodic %u\n", timer, cpu, timer->scheduled_time, timer->periodic_time);
 
     list_for_every_entry(&timers[cpu].timer_queue, entry, timer_t, node) {
-        if (TIME_GT(entry->scheduled_time, timer->scheduled_time)) {
+        if (time_gt(entry->scheduled_time, timer->scheduled_time)) {
             list_add_before(&entry->node, &timer->node);
             return;
         }
@@ -199,7 +199,7 @@ void timer_cancel(timer_t *timer)
         lk_time_t delay;
         lk_time_t now = current_time();
 
-        if (TIME_LT(newhead->scheduled_time, now))
+        if (time_lt(newhead->scheduled_time, now))
             delay = 0;
         else
             delay = newhead->scheduled_time - now;
@@ -235,7 +235,7 @@ static enum handler_return timer_tick(void *arg, lk_time_t now)
         if (likely(timer == 0))
             break;
         LTRACEF("next item on timer queue %p at %u now %u (%p, arg %p)\n", timer, timer->scheduled_time, now, timer->callback, timer->arg);
-        if (likely(TIME_LT(now, timer->scheduled_time)))
+        if (likely(time_lt(now, timer->scheduled_time)))
             break;
 
         /* process it */
@@ -275,7 +275,7 @@ static enum handler_return timer_tick(void *arg, lk_time_t now)
     timer = list_peek_head_type(&timers[cpu].timer_queue, timer_t, node);
     if (timer) {
         /* has to be the case or it would have fired already */
-        DEBUG_ASSERT(TIME_GT(timer->scheduled_time, now));
+        DEBUG_ASSERT(time_gt(timer->scheduled_time, now));
 
         lk_time_t delay = timer->scheduled_time - now;
 

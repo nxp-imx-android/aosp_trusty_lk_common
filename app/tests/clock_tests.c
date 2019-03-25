@@ -56,7 +56,7 @@ void clock_tests(void)
         for (;;) {
             t = current_time();
             //printf("%lu %lu\n", last, t);
-            if (TIME_LT(t, last)) {
+            if (time_lt(t, last)) {
                 printf("WARNING: time ran backwards: %lu < %lu\n", t, last);
                 last = t;
                 continue;
