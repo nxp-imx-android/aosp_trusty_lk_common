@@ -61,7 +61,7 @@ static inline bool is_inside_aspace(const vmm_aspace_t *aspace, vaddr_t vaddr)
 {
     DEBUG_ASSERT(aspace);
 
-    return (vaddr >= aspace->base && vaddr <= aspace->base + aspace->size - 1);
+    return (vaddr >= aspace->base && vaddr <= aspace->base + (aspace->size - 1));
 }
 
 static bool is_region_inside_aspace(const vmm_aspace_t *aspace, vaddr_t vaddr, size_t size)
@@ -80,7 +80,7 @@ static bool is_region_inside_aspace(const vmm_aspace_t *aspace, vaddr_t vaddr, s
         return false;
 
     /* test to see if the end address is within the address space's */
-    if (vaddr + size - 1 > aspace->base + aspace->size - 1)
+    if (vaddr + size - 1 > aspace->base + (aspace->size - 1))
         return false;
 
     return true;

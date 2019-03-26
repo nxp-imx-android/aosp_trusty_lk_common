@@ -29,6 +29,7 @@
 #include <kernel/thread.h>
 #include <kernel/vm.h>
 #include <lib/heap.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
@@ -50,6 +51,12 @@ pte_t arm64_kernel_translation_table[MMU_KERNEL_PAGE_TABLE_ENTRIES_TOP]
     __ALIGNED(MMU_KERNEL_PAGE_TABLE_ENTRIES_TOP * 8)
     __SECTION(".bss.prebss.translation_table");
 
+/* This is explicitly a check for overflows, so don't sanitize it */
+__attribute__((no_sanitize("unsigned-integer-overflow")))
+static inline bool wrap_check(vaddr_t vaddr, size_t size) {
+    return vaddr + size - 1 > vaddr;
+}
+
 static uint64_t arch_mmu_asid(arch_aspace_t *aspace)
 {
     return aspace->asid & BIT_MASK(ARM64_ASID_BITS);
@@ -57,7 +64,7 @@ static uint64_t arch_mmu_asid(arch_aspace_t *aspace)
 
 static inline bool is_valid_vaddr(arch_aspace_t *aspace, vaddr_t vaddr)
 {
-    return (vaddr >= aspace->base && vaddr <= aspace->base + aspace->size - 1);
+    return (vaddr >= aspace->base && vaddr <= aspace->base + (aspace->size - 1));
 }
 
 /* convert user level mmu flags to flags that go in L1 descriptors */
@@ -607,7 +614,7 @@ status_t arch_mmu_init_aspace(arch_aspace_t *aspace, vaddr_t base, size_t size, 
 
     /* validate that the base + size is sane and doesn't wrap */
     DEBUG_ASSERT(size > PAGE_SIZE);
-    DEBUG_ASSERT(base + size - 1 > base);
+    DEBUG_ASSERT(wrap_check(base, size));
 
     aspace->flags = flags;
     if (flags & ARCH_ASPACE_FLAG_KERNEL) {
