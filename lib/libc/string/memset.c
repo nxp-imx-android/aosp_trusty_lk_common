@@ -57,7 +57,7 @@ memset(void *s, int c, size_t count)
 
     // write remaining bytes
     for ( ; count > 0; count-- )
-        *xs++ = c;
+        *xs++ = (char)c;
 
     return s;
 }
