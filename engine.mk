@@ -46,6 +46,7 @@ $(error No project specified. Use 'make list' for a list of projects or 'make he
 endif
 endif
 
+TEST_BUILD ?=
 DEBUG ?= 2
 
 BUILDDIR := $(BUILDROOT)/build-$(PROJECT)
@@ -184,6 +185,12 @@ GLOBAL_DEFINES += \
 ifneq ($(DEBUG),)
 GLOBAL_DEFINES += \
 	LK_DEBUGLEVEL=$(DEBUG)
+endif
+
+# test build?
+ifneq ($(TEST_BUILD),)
+GLOBAL_DEFINES += \
+	TEST_BUILD=1
 endif
 
 # allow additional defines from outside the build system
