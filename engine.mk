@@ -218,7 +218,6 @@ ifeq ($(CLANG_BINDIR),)
 $(error clang directory not specified, please set CLANG_BINDIR)
 endif
 CC := $(CCACHE) $(CLANG_BINDIR)/clang
-GLOBAL_COMPILEFLAGS += -no-integrated-as
 else
 CC := $(CCACHE) $(TOOLCHAIN_PREFIX)gcc
 endif
