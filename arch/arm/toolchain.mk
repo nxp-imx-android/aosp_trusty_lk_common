@@ -41,46 +41,8 @@ endif
 
 ARCH_arm_COMPILEFLAGS :=
 
-ifeq ($(ARM_CPU),cortex-m0)
-ARCH_arm_COMPILEFLAGS += -mcpu=$(ARM_CPU)
-ARCH_arm_COMPILEFLAGS += -mthumb -mfloat-abi=soft
-endif
-ifeq ($(ARM_CPU),cortex-m0plus)
-ARCH_arm_COMPILEFLAGS += -mcpu=$(ARM_CPU)
-ARCH_arm_COMPILEFLAGS += -mthumb -mfloat-abi=soft
-endif
-ifeq ($(ARM_CPU),cortex-m3)
-ARCH_arm_COMPILEFLAGS += -mcpu=$(ARM_CPU)
-endif
-ifeq ($(ARM_CPU),cortex-m4)
-ARCH_arm_COMPILEFLAGS += -mcpu=$(ARM_CPU)
-endif
-ifeq ($(ARM_CPU),cortex-m7)
-# use cortex-m4 for now until better general toolchain support
-ARCH_arm_COMPILEFLAGS += -mcpu=cortex-m4
-endif
-ifeq ($(ARM_CPU),cortex-m7-fpu-sp-d16)
-# use cortex-m4 for now until better general toolchain support
-ARCH_arm_COMPILEFLAGS += -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mfloat-abi=softfp
-endif
-ifeq ($(ARM_CPU),cortex-m4f)
-ARCH_arm_COMPILEFLAGS += -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mfloat-abi=softfp
-endif
 ifeq ($(ARM_CPU),cortex-a7)
 ARCH_arm_COMPILEFLAGS += -mcpu=$(ARM_CPU)
-ARCH_arm_COMPILEFLAGS += -mfpu=vfpv3 -mfloat-abi=softfp
-endif
-ifeq ($(ARM_CPU),cortex-a8)
-ARCH_arm_COMPILEFLAGS += -mcpu=$(ARM_CPU)
-ARCH_arm_COMPILEFLAGS += -mfpu=neon -mfloat-abi=softfp
-endif
-ifeq ($(ARM_CPU),cortex-a9)
-ARCH_arm_COMPILEFLAGS += -mcpu=$(ARM_CPU)
-endif
-ifeq ($(ARM_CPU),cortex-a9-neon)
-ARCH_arm_COMPILEFLAGS += -mcpu=cortex-a9
-# XXX cannot enable neon right now because compiler generates
-# neon code for 64bit integer ops
 ARCH_arm_COMPILEFLAGS += -mfpu=vfpv3 -mfloat-abi=softfp
 endif
 ifeq ($(ARM_CPU),cortex-a15)
@@ -90,15 +52,6 @@ ARCH_arm_COMPILEFLAGS += -mfpu=vfpv3 -mfloat-abi=softfp
 else
 ARCH_arm_COMPILEFLAGS += -mfloat-abi=soft
 endif
-endif
-ifeq ($(ARM_CPU),arm1136j-s)
-ARCH_arm_COMPILEFLAGS += -mcpu=$(ARM_CPU)
-endif
-ifeq ($(ARM_CPU),arm1176jzf-s)
-ARCH_arm_COMPILEFLAGS += -mcpu=$(ARM_CPU)
-endif
-ifeq ($(ARM_CPU),armemu)
-ARCH_arm_COMPILEFLAGS += -march=armv7-a
 endif
 ifeq ($(ARM_CPU),armv8-a)
 ARCH_arm_COMPILEFLAGS += -march=$(ARM_CPU)
