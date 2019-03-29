@@ -1,6 +1,3 @@
-ifndef ARCH_arm_TOOLCHAIN_INCLUDED
-ARCH_arm_TOOLCHAIN_INCLUDED := 1
-
 # try to find the toolchain
 ifndef ARCH_arm_TOOLCHAIN_PREFIX
 
@@ -32,20 +29,6 @@ endif
 ifeq ($(FOUNDTOOL),)
 ARCH_arm_TOOLCHAIN_PREFIX := arm-linux-gnueabi-
 FOUNDTOOL=$(shell which $(ARCH_arm_TOOLCHAIN_PREFIX)gcc)
-
-# Set no stack protection if we found our gnueabi toolchain. We don't
-# need it.
-#
-# Stack protection is default in this toolchain and we get such errors
-# final linking stage:
-#
-# undefined reference to `__stack_chk_guard'
-# undefined reference to `__stack_chk_fail'
-# undefined reference to `__stack_chk_guard'
-#
-ifneq (,$(findstring arm-linux-gnueabi-,$(FOUNDTOOL)))
-        ARCH_arm_COMPILEFLAGS += -fno-stack-protector
-endif
 endif # arm-linux-gnueabi-
 
 else
@@ -55,6 +38,8 @@ endif # ARCH_arm_TOOLCHAIN_PREFIX
 ifeq ($(FOUNDTOOL),)
 $(error cannot find toolchain, please set ARCH_arm_TOOLCHAIN_PREFIX or add it to your path)
 endif
+
+ARCH_arm_COMPILEFLAGS :=
 
 ifeq ($(ARM_CPU),cortex-m0)
 ARCH_arm_COMPILEFLAGS += -mcpu=$(ARM_CPU)
@@ -129,10 +114,10 @@ ifeq ($(call TOBOOL,$(CLANGBUILD)),true)
 CLANG_ARM_TARGET_SYS ?= linux
 CLANG_ARM_TARGET_ABI ?= gnu
 
-CLANG_ARM_AS_DIR := $(shell dirname $(shell dirname $(ARCH_arm_TOOLCHAIN_PREFIX)))
+CLANG_ARM_AS_DIR ?= $(shell dirname $(shell dirname $(ARCH_arm_TOOLCHAIN_PREFIX)))
 
-AS_PATH := $(wildcard $(CLANG_ARM_AS_DIR)/*/bin/as)
-ifeq ($(AS_PATH),)
+ARM_AS_PATH ?= $(wildcard $(CLANG_ARM_AS_DIR)/*/bin/as)
+ifeq ($(ARM_AS_PATH),)
 $(error Could not find $(CLANG_ARM_AS_DIR)/*/bin/as, did the directory structure change?)
 endif
 
@@ -143,7 +128,5 @@ endif
 
 ARCH_arm_COMPILEFLAGS += -target arm-$(CLANG_ARM_TARGET_SYS)-$(CLANG_ARM_TARGET_ABI) \
 			   --gcc-toolchain=$(CLANG_ARM_AS_DIR)/
-
-endif
 
 endif
