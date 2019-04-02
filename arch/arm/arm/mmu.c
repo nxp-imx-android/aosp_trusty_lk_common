@@ -566,7 +566,7 @@ int arch_mmu_map(arch_aspace_t *aspace, addr_t vaddr, paddr_t paddr, uint count,
         return NO_ERROR;
 
     /* see what kind of mapping we can use */
-    int mapped = 0;
+    uint mapped = 0;
     while (count > 0) {
         if (IS_SECTION_ALIGNED(vaddr) && IS_SECTION_ALIGNED(paddr) && count >= SECTION_SIZE / PAGE_SIZE) {
             /* we can use a section */
@@ -634,7 +634,11 @@ int arch_mmu_map(arch_aspace_t *aspace, addr_t vaddr, paddr_t paddr, uint count,
 
 done:
     DSB;
-    return mapped;
+    if (!count) {
+        return 0;
+    }
+    arch_mmu_unmap(aspace, vaddr - mapped * PAGE_SIZE, mapped);
+    return ERR_NO_MEMORY;
 }
 
 int arch_mmu_unmap(arch_aspace_t *aspace, vaddr_t vaddr, uint count)
