@@ -34,6 +34,20 @@ struct fault_handler_table_entry {
 extern struct fault_handler_table_entry __fault_handler_table_start[];
 extern struct fault_handler_table_entry __fault_handler_table_end[];
 
+static bool check_fault_handler_table(struct arm_fault_frame *frame)
+{
+    struct fault_handler_table_entry *fault_handler;
+    for (fault_handler = __fault_handler_table_start;
+            fault_handler < __fault_handler_table_end;
+            fault_handler++) {
+        if (fault_handler->pc == frame->pc) {
+            frame->pc = fault_handler->fault_handler;
+            return true;
+        }
+    }
+    return false;
+}
+
 static void dump_mode_regs(uint32_t spsr, uint32_t svc_r13, uint32_t svc_r14)
 {
     struct arm_mode_regs regs;
@@ -173,17 +187,13 @@ fpu:
 
 void arm_data_abort_handler(struct arm_fault_frame *frame)
 {
-    struct fault_handler_table_entry *fault_handler;
     uint32_t fsr = arm_read_dfsr();
     uint32_t far = arm_read_dfar();
 
     uint32_t fault_status = (BIT(fsr, 10) ? (1<<4) : 0) |  BITS(fsr, 3, 0);
 
-    for (fault_handler = __fault_handler_table_start; fault_handler < __fault_handler_table_end; fault_handler++) {
-        if (fault_handler->pc == frame->pc) {
-            frame->pc = fault_handler->fault_handler;
-            return;
-        }
+    if (check_fault_handler_table(frame)) {
+        return;
     }
 
     dprintf(CRITICAL, "\n\ncpu %u data abort, ", arch_curr_cpu_num());
@@ -244,6 +254,10 @@ void arm_prefetch_abort_handler(struct arm_fault_frame *frame)
     uint32_t far = arm_read_ifar();
 
     uint32_t fault_status = (BIT(fsr, 10) ? (1<<4) : 0) |  BITS(fsr, 3, 0);
+
+    if (check_fault_handler_table(frame)) {
+        return;
+    }
 
     dprintf(CRITICAL, "\n\ncpu %u prefetch abort, ", arch_curr_cpu_num());
 

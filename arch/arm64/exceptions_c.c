@@ -36,6 +36,20 @@ struct fault_handler_table_entry {
 extern struct fault_handler_table_entry __fault_handler_table_start[];
 extern struct fault_handler_table_entry __fault_handler_table_end[];
 
+static bool check_fault_handler_table(struct arm64_iframe_long *iframe)
+{
+    struct fault_handler_table_entry *fault_handler;
+    for (fault_handler = __fault_handler_table_start;
+            fault_handler < __fault_handler_table_end;
+            fault_handler++) {
+        if (fault_handler->pc == iframe->elr) {
+            iframe->elr = fault_handler->fault_handler;
+            return true;
+        }
+    }
+    return false;
+}
+
 static void dump_iframe(const struct arm64_iframe_long *iframe)
 {
     printf("iframe %p:\n", iframe);
@@ -58,7 +72,6 @@ __WEAK void arm64_syscall(struct arm64_iframe_long *iframe, bool is_64bit)
 
 void arm64_sync_exception(struct arm64_iframe_long *iframe)
 {
-    struct fault_handler_table_entry *fault_handler;
     uint32_t esr = ARM64_READ_SYSREG(esr_el1);
     uint32_t ec = BITS_SHIFT(esr, 31, 26);
     uint32_t il = BIT(esr, 25);
@@ -81,17 +94,15 @@ void arm64_sync_exception(struct arm64_iframe_long *iframe)
 #endif
         case 0b100000: /* instruction abort from lower level */
         case 0b100001: /* instruction abort from same level */
+            if (check_fault_handler_table(iframe)) {
+                return;
+            }
             printf("instruction abort: PC at 0x%llx\n", iframe->elr);
             break;
         case 0b100100: /* data abort from lower level */
         case 0b100101: { /* data abort from same level */
-            for (fault_handler = __fault_handler_table_start;
-                    fault_handler < __fault_handler_table_end;
-                    fault_handler++) {
-                if (fault_handler->pc == iframe->elr) {
-                    iframe->elr = fault_handler->fault_handler;
-                    return;
-                }
+            if (check_fault_handler_table(iframe)) {
+                return;
             }
 
             /* read the FAR register */
