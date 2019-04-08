@@ -90,11 +90,6 @@ GLOBAL_LDFLAGS += -z max-page-size=4096
 # this flag influences kernel part only
 ARCH_COMPILEFLAGS += -msoft-float
 
-# TODO remove this once x86 can build cleanly with Clang's assembler.
-ifeq ($(call TOBOOL,$(CLANGBUILD)), true)
-GLOBAL_COMPILEFLAGS += -no-integrated-as
-endif
-
 ifeq ($(SUBARCH),x86-64)
 GLOBAL_COMPILEFLAGS += -fno-stack-protector
 GLOBAL_COMPILEFLAGS += -mcmodel=kernel
