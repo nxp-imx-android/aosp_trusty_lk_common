@@ -122,10 +122,11 @@ __NO_INLINE static char *longlong_to_string(char *buf, unsigned long long n, siz
 {
     size_t pos = len;
     int negative = 0;
+    long long signed_n = (long long)n;
 
-    if ((flag & SIGNEDFLAG) && (long long)n < 0) {
+    if ((flag & SIGNEDFLAG) && signed_n < 0) {
         negative = 1;
-        n = -n;
+        n = -signed_n;
     }
 
     buf[--pos] = 0;
@@ -503,26 +504,26 @@ next_format:
                 goto next_format;
             case 'i':
             case 'd':
-                n = (flags & LONGLONGFLAG) ? va_arg(ap, long long) :
+                n = (unsigned long long)((flags & LONGLONGFLAG) ? va_arg(ap, long long) :
                     (flags & LONGFLAG) ? va_arg(ap, long) :
                     (flags & HALFHALFFLAG) ? (signed char)va_arg(ap, int) :
                     (flags & HALFFLAG) ? (short)va_arg(ap, int) :
                     (flags & SIZETFLAG) ? va_arg(ap, ssize_t) :
                     (flags & INTMAXFLAG) ? va_arg(ap, intmax_t) :
                     (flags & PTRDIFFFLAG) ? va_arg(ap, ptrdiff_t) :
-                    va_arg(ap, int);
+                    va_arg(ap, int));
                 flags |= SIGNEDFLAG;
                 s = longlong_to_string(num_buffer, n, sizeof(num_buffer), flags, &signchar);
                 goto _output_string;
             case 'u':
-                n = (flags & LONGLONGFLAG) ? va_arg(ap, unsigned long long) :
+                n = (unsigned long long)((flags & LONGLONGFLAG) ? va_arg(ap, unsigned long long) :
                     (flags & LONGFLAG) ? va_arg(ap, unsigned long) :
                     (flags & HALFHALFFLAG) ? (unsigned char)va_arg(ap, unsigned int) :
                     (flags & HALFFLAG) ? (unsigned short)va_arg(ap, unsigned int) :
                     (flags & SIZETFLAG) ? va_arg(ap, size_t) :
                     (flags & INTMAXFLAG) ? va_arg(ap, uintmax_t) :
                     (flags & PTRDIFFFLAG) ? (uintptr_t)va_arg(ap, ptrdiff_t) :
-                    va_arg(ap, unsigned int);
+                    va_arg(ap, unsigned int));
                 s = longlong_to_string(num_buffer, n, sizeof(num_buffer), flags, &signchar);
                 goto _output_string;
             case 'p':

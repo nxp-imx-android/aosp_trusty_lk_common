@@ -43,7 +43,9 @@ void rand_add_entropy(const void *buf, size_t len)
     randseed ^= enp;
 }
 
+/* This is expected to overflow sometimes */
+__attribute__((no_sanitize("unsigned-integer-overflow")))
 int rand(void)
 {
-    return (randseed = randseed * 1664525 + 1013904223);
+    return (int)(randseed = randseed * 1664525 + 1013904223);
 }

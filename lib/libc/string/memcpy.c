@@ -33,7 +33,7 @@
 typedef long word;
 
 #define lsize sizeof(word)
-#define lmask (lsize - 1)
+#define lmask ((long)((lsize) - 1))
 
 void *memcpy(void *dest, const void *src, size_t count)
 {
