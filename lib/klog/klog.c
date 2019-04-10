@@ -153,7 +153,7 @@ status_t klog_create(void *_ptr, size_t len, uint count)
     /* set up each buffer */
     uint bufsize = len - sizeof(struct klog_buffer_header) - sizeof(struct klog_header) * count;
     bufsize /= count;
-    bufsize = ROUNDDOWN(bufsize, 4);
+    bufsize = round_down(bufsize, 4);
     while (count > 0) {
         klog = (struct klog_header *)ptr;
         klog->magic = KLOG_HEADER_MAGIC;

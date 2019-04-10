@@ -55,7 +55,10 @@
 
 __BEGIN_CDECLS
 
-#define PAGE_ALIGN(x) ALIGN(x, PAGE_SIZE)
+static inline uintptr_t page_align(uintptr_t p) {
+    return align(p, PAGE_SIZE);
+}
+
 #define IS_PAGE_ALIGNED(x) IS_ALIGNED(x, PAGE_SIZE)
 
 struct mmu_initial_mapping {

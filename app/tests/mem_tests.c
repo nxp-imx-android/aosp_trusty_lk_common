@@ -38,7 +38,7 @@ static void mem_test_fail(void *ptr, uint32_t should, uint32_t is)
 {
     printf("ERROR at %p: should be 0x%x, is 0x%x\n", ptr, should, is);
 
-    ptr = (void *)ROUNDDOWN((uintptr_t)ptr, 64);
+    ptr = (void *)round_down((uintptr_t)ptr, 64);
     hexdump(ptr, 128);
 }
 
@@ -187,7 +187,7 @@ usage:
 
 #if WITH_KERNEL_VM
         /* rounding up len to the next page */
-        len = PAGE_ALIGN(len);
+        len = page_align(len);
         if (len == 0) {
             printf("invalid length\n");
             return -1;

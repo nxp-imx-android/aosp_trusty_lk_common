@@ -135,7 +135,7 @@ void fpu_init(void)
 
 void fpu_init_thread_states(thread_t *t)
 {
-    t->arch.fpu_states = (vaddr_t *)ROUNDUP(((vaddr_t)t->arch.fpu_buffer), 16);
+    t->arch.fpu_states = (vaddr_t *)round_up(((vaddr_t)t->arch.fpu_buffer), 16);
     memcpy(t->arch.fpu_states, fpu_init_states, sizeof(fpu_init_states));
 }
 

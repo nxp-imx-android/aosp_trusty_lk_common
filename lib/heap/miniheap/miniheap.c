@@ -208,7 +208,7 @@ void *miniheap_alloc(size_t size, unsigned int alignment)
         size = sizeof(struct free_heap_chunk);
 
     // round up size to a multiple of native pointer size
-    size = ROUNDUP(size, sizeof(void *));
+    size = round_up(size, sizeof(void *));
 
     // deal with nonzero alignments
     if (alignment > 0) {
@@ -263,7 +263,7 @@ retry:
 
             // align the output if requested
             if (alignment > 0) {
-                ptr = (void *)ROUNDUP((addr_t)ptr, (addr_t)alignment);
+                ptr = (void *)round_up((addr_t)ptr, (addr_t)alignment);
             }
 
             struct alloc_struct_begin *as = (struct alloc_struct_begin *)ptr;
@@ -382,8 +382,8 @@ void miniheap_trim(void)
         DEBUG_ASSERT(end > start); // make sure it doesn't wrap the address space and has a positive len
 
         // compute the page aligned region in this free block (if any)
-        uintptr_t start_page = ROUNDUP(start, PAGE_SIZE);
-        uintptr_t end_page = ROUNDDOWN(end, PAGE_SIZE);
+        uintptr_t start_page = round_up(start, PAGE_SIZE);
+        uintptr_t end_page = round_down(end, PAGE_SIZE);
         DEBUG_ASSERT(end_page <= end);
         DEBUG_ASSERT(start_page >= start);
 
@@ -484,7 +484,7 @@ void miniheap_get_stats(struct miniheap_stats *ptr)
 
 static ssize_t heap_grow(size_t size)
 {
-    size = ROUNDUP(size, PAGE_SIZE);
+    size = round_up(size, PAGE_SIZE);
     void *ptr = page_alloc(size / PAGE_SIZE, PAGE_ALLOC_ANY_ARENA);
     if (!ptr) {
         TRACEF("failed to grow kernel heap by 0x%zx bytes\n", size);

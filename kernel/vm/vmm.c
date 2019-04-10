@@ -183,10 +183,10 @@ static status_t add_region_to_aspace(vmm_aspace_t *aspace, vmm_region_t *r)
  */
 __WEAK vaddr_t arch_mmu_pick_spot(arch_aspace_t *aspace, vaddr_t base, uint prev_region_arch_mmu_flags,
                                   vaddr_t end,  uint next_region_arch_mmu_flags,
-                                  vaddr_t align, size_t size, uint arch_mmu_flags)
+                                  vaddr_t alignment, size_t size, uint arch_mmu_flags)
 {
     /* just align it by default */
-    return ALIGN(base, align);
+    return align(base, alignment);
 }
 
 /*
@@ -434,7 +434,7 @@ status_t vmm_alloc_contiguous(vmm_aspace_t *aspace, const char *name, size_t siz
 
     DEBUG_ASSERT(aspace);
 
-    size = ROUNDUP(size, PAGE_SIZE);
+    size = round_up(size, PAGE_SIZE);
     if (size == 0)
         return ERR_INVALID_ARGS;
 
@@ -509,7 +509,7 @@ status_t vmm_alloc(vmm_aspace_t *aspace, const char *name, size_t size, void **p
 
     DEBUG_ASSERT(aspace);
 
-    size = ROUNDUP(size, PAGE_SIZE);
+    size = round_up(size, PAGE_SIZE);
     if (size == 0)
         return ERR_INVALID_ARGS;
 

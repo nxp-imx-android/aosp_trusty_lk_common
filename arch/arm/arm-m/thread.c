@@ -136,7 +136,7 @@ void arch_thread_initialize(struct thread *t)
     LTRACEF("thread %p, stack %p\n", t, t->stack);
 
     /* find the top of the stack and align it on an 8 byte boundary */
-    uint32_t *sp = (void *)ROUNDDOWN((vaddr_t)t->stack + t->stack_size, 8);
+    uint32_t *sp = (void *)round_down((vaddr_t)t->stack + t->stack_size, 8);
 
     struct arm_cm_context_switch_frame *frame = (void *)sp;
     frame--;

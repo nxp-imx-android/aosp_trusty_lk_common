@@ -47,8 +47,8 @@ static void mark_pages_in_use(vaddr_t va, size_t len)
     list_initialize(&list);
 
     /* make sure we are inclusive of all of the pages in the address range */
-    len = PAGE_ALIGN(len + (va & (PAGE_SIZE - 1)));
-    va = ROUNDDOWN(va, PAGE_SIZE);
+    len = page_align(len + (va & (PAGE_SIZE - 1)));
+    va = round_down(va, PAGE_SIZE);
 
     LTRACEF("aligned va 0x%lx, len 0x%zx\n", va, len);
 

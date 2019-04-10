@@ -56,12 +56,12 @@ void arch_thread_initialize(thread_t *t)
 
 #if ARCH_X86_32
     // make sure the top of the stack is 8 byte aligned for ABI compliance
-    stack_top = ROUNDDOWN(stack_top, 8);
+    stack_top = round_down(stack_top, 8);
     struct x86_32_context_switch_frame *frame = (struct x86_32_context_switch_frame *)(stack_top);
 #endif
 #if ARCH_X86_64
     // make sure the top of the stack is 16 byte aligned for ABI compliance
-    stack_top = ROUNDDOWN(stack_top, 16);
+    stack_top = round_down(stack_top, 16);
 
     // make sure we start the frame 8 byte unaligned (relative to the 16 byte alignment) because
     // of the way the context switch will pop the return address off the stack. After the first

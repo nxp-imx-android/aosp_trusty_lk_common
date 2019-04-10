@@ -114,7 +114,7 @@ void hexdump(const void *ptr, size_t len)
             uint32_t buf[4];
             uint8_t  cbuf[16];
         } u;
-        size_t s = ROUNDUP(MIN(len - count, 16), 4);
+        size_t s = round_up(MIN(len - count, 16), 4);
         size_t i;
 
         printf("0x%08lx: ", address);

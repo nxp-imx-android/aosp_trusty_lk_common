@@ -103,8 +103,8 @@ static void novm_init_helper(struct novm_arena *n, const char *name,
                              uintptr_t arena_start, uintptr_t arena_size,
                              char *default_map, size_t default_map_size)
 {
-    uintptr_t start = ROUNDUP(arena_start, PAGE_SIZE);
-    uintptr_t size = ROUNDDOWN(arena_start + arena_size, PAGE_SIZE) - start;
+    uintptr_t start = round_up(arena_start, PAGE_SIZE);
+    uintptr_t size = round_down(arena_start + arena_size, PAGE_SIZE) - start;
 
     mutex_init(&n->lock);
 
@@ -121,9 +121,9 @@ static void novm_init_helper(struct novm_arena *n, const char *name,
             map_size--;
         }
 
-        if ((char *)start - (map + ROUNDUP(map_size, 4)) >= MINIMUM_USEFUL_UNALIGNED_SIZE) {
-            n->unaligned_area = map + ROUNDUP(map_size, 4);
-            n->unaligned_size = (char *)start - (map + ROUNDUP(map_size, 4));
+        if ((char *)start - (map + round_up(map_size, 4)) >= MINIMUM_USEFUL_UNALIGNED_SIZE) {
+            n->unaligned_area = map + round_up(map_size, 4);
+            n->unaligned_size = (char *)start - (map + round_up(map_size, 4));
         }
     } else if (start - arena_start >= MINIMUM_USEFUL_UNALIGNED_SIZE) {
         n->unaligned_area = (char *)arena_start;

@@ -355,7 +355,7 @@ void arch_chain_load(void *entry, ulong arg0, ulong arg1, ulong arg2, ulong arg3
     /* add the low bits of the virtual address back */
     loader_pa |= ((addr_t)&arm_chain_load & 0xfff);
 
-    paddr_t loader_pa_section = ROUNDDOWN(loader_pa, SECTION_SIZE);
+    paddr_t loader_pa_section = round_down(loader_pa, SECTION_SIZE);
 
     LTRACEF("loader address %p, phys 0x%lx, surrounding large page 0x%lx\n",
             &arm_chain_load, loader_pa, loader_pa_section);
@@ -420,12 +420,12 @@ static void spinlock_test_secondary(void)
 /* switch to user mode, set the user stack pointer to user_stack_top, put the svc stack pointer to the top of the kernel stack */
 void arch_enter_uspace(vaddr_t entry_point, vaddr_t user_stack_top, uint32_t flags, ulong arg0)
 {
-    user_stack_top = ROUNDDOWN(user_stack_top, 8);
+    user_stack_top = round_down(user_stack_top, 8);
 
     thread_t *ct = get_current_thread();
 
     vaddr_t kernel_stack_top = (uintptr_t)ct->stack + ct->stack_size;
-    kernel_stack_top = ROUNDDOWN(kernel_stack_top, 8);
+    kernel_stack_top = round_down(kernel_stack_top, 8);
 
     uint32_t spsr = CPSR_MODE_USR;
     spsr |= (entry_point & 1) ? CPSR_THUMB : 0;

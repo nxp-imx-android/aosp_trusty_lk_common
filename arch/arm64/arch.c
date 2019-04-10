@@ -101,12 +101,12 @@ void arch_chain_load(void *entry, ulong arg0, ulong arg1, ulong arg2, ulong arg3
 void arch_enter_uspace(vaddr_t entry_point, vaddr_t user_stack_top, uint32_t flags, ulong arg0)
 {
     bool is_32bit_uspace = (flags & ARCH_ENTER_USPACE_FLAG_32BIT);
-    user_stack_top = ROUNDDOWN(user_stack_top, is_32bit_uspace ? 8 : 16);
+    user_stack_top = round_down(user_stack_top, is_32bit_uspace ? 8 : 16);
 
     thread_t *ct = get_current_thread();
 
     vaddr_t kernel_stack_top = (uintptr_t)ct->stack + ct->stack_size;
-    kernel_stack_top = ROUNDDOWN(kernel_stack_top, 16);
+    kernel_stack_top = round_down(kernel_stack_top, 16);
 
     /* set up a default spsr to get into 64bit user space:
      * zeroed NZCV

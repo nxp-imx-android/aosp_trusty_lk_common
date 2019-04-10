@@ -187,7 +187,7 @@ static int size_to_index_helper(
 // Round up size to next bucket when allocating.
 static int size_to_index_allocating(size_t size, size_t *rounded_up_out)
 {
-    size_t rounded = ROUNDUP(size, 8);
+    size_t rounded = round_up(size, 8);
     return size_to_index_helper(rounded, rounded_up_out, -8, 1);
 }
 
@@ -234,7 +234,7 @@ static int find_nonempty_bucket(int index)
     mask = mask * 2 + 1;
     mask &= theheap.free_list_bits[index >> 5];
     if (mask != 0) return (index & ~0x1f) + __builtin_clz(mask);
-    for (index = ROUNDUP(index + 1, 32); index <= NUMBER_OF_BUCKETS; index += 32) {
+    for (index = round_up(index + 1, 32); index <= NUMBER_OF_BUCKETS; index += 32) {
         mask = theheap.free_list_bits[index >> 5];
         if (mask != 0u) return index + __builtin_clz(mask);
     }
@@ -465,7 +465,7 @@ static void cmpct_test_buckets(void)
     for (unsigned i = 1; i <= 128; i++) {
         // Round up when allocating.
         bucket = size_to_index_allocating(i, &rounded);
-        unsigned expected = (ROUNDUP(i, 8) >> 3) - 1;
+        unsigned expected = (round_up(i, 8) >> 3) - 1;
         ASSERT(bucket == expected);
         ASSERT(IS_ALIGNED(rounded, 8));
         ASSERT(rounded >= i);
@@ -487,7 +487,7 @@ static void cmpct_test_buckets(void)
         for (unsigned i = j * 8; i <= j * 16; i++) {
             // Round up to j multiple in this range when allocating.
             bucket = size_to_index_allocating(i, &rounded);
-            unsigned expected = bucket_base + ROUNDUP(i, j) / j;
+            unsigned expected = bucket_base + round_up(i, j) / j;
             ASSERT(bucket == expected);
             ASSERT(IS_ALIGNED(rounded, j));
             ASSERT(rounded >= i);
@@ -635,7 +635,7 @@ static void *large_alloc(size_t size)
 #ifdef CMPCT_DEBUG
     size_t requested_size = size;
 #endif
-    size = ROUNDUP(size, 8);
+    size = round_up(size, 8);
     free_t *free_area = NULL;
     lock();
     if (heap_grow(size, &free_area) < 0) {
@@ -675,10 +675,10 @@ void cmpct_trim(void)
             next = free_area->next;
             header_t *right = right_header(&free_area->header);
             if (is_end_of_os_allocation((char *)right)) {
-                char *old_os_allocation_end = (char *)ROUNDUP((uintptr_t)right, PAGE_SIZE);
+                char *old_os_allocation_end = (char *)round_up((uintptr_t)right, PAGE_SIZE);
                 // The page will end with a smaller free list entry and a header-sized sentinel.
                 char *new_os_allocation_end = (char *)
-                                              ROUNDUP((uintptr_t)free_area + sizeof(header_t) + sizeof(free_t), PAGE_SIZE);
+                                              round_up((uintptr_t)free_area + sizeof(header_t) + sizeof(free_t), PAGE_SIZE);
                 size_t freed_up = old_os_allocation_end - new_os_allocation_end;
                 DEBUG_ASSERT(IS_PAGE_ALIGNED(freed_up));
                 // Rare, because we only look at large freelist entries, but unlucky rounding
@@ -695,11 +695,11 @@ void cmpct_trim(void)
                 theheap.size -= freed_up;
             } else if (is_start_of_os_allocation(untag(free_area->header.left))) {
                 char *old_os_allocation_start =
-                    (char *)ROUNDDOWN((uintptr_t)free_area, PAGE_SIZE);
+                    (char *)round_down((uintptr_t)free_area, PAGE_SIZE);
                 // For the sentinel, we need at least one header-size of space between the page
                 // edge and the first allocation to the right of the free area.
                 char *new_os_allocation_start =
-                    (char *)ROUNDDOWN((uintptr_t)(right - 1), PAGE_SIZE);
+                    (char *)round_down((uintptr_t)(right - 1), PAGE_SIZE);
                 size_t freed_up = new_os_allocation_start - old_os_allocation_start;
                 DEBUG_ASSERT(IS_PAGE_ALIGNED(freed_up));
                 // This should not happen because we only look at the large free list buckets.
@@ -883,7 +883,7 @@ static ssize_t heap_grow(size_t size, free_t **bucket)
     // The new free list entry will have a header on each side (the
     // sentinels) so we need to grow the gross heap size by this much more.
     size += 2 * sizeof(header_t);
-    size = ROUNDUP(size, PAGE_SIZE);
+    size = round_up(size, PAGE_SIZE);
     void *ptr = page_alloc(size >> PAGE_SIZE_SHIFT, PAGE_ALLOC_ANY_ARENA);
     if (ptr == NULL) return -1;
     theheap.size += size;

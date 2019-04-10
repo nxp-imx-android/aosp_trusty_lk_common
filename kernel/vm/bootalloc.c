@@ -42,8 +42,8 @@ void *boot_alloc_mem(size_t len)
 {
     uintptr_t ptr;
 
-    ptr = ALIGN(boot_alloc_end, 8);
-    boot_alloc_end = (ptr + ALIGN(len, 8));
+    ptr = align(boot_alloc_end, 8);
+    boot_alloc_end = (ptr + align(len, 8));
 
     LTRACEF("len %zu, ptr %p\n", len, (void *)ptr);
 

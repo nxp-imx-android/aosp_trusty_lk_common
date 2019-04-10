@@ -187,7 +187,7 @@ size_t pmm_alloc_range(paddr_t address, uint count, struct list_node *list)
     if (count == 0)
         return 0;
 
-    address = ROUNDDOWN(address, PAGE_SIZE);
+    address = round_down(address, PAGE_SIZE);
 
     mutex_acquire(&lock);
 
@@ -327,7 +327,7 @@ size_t pmm_alloc_contiguous(uint count, uint8_t alignment_log2, paddr_t *pa, str
              * base address of the arena to handle the case where the arena
              * is not aligned on the same boundary requested.
              */
-            paddr_t rounded_base = ROUNDUP(a->base, 1UL << alignment_log2);
+            paddr_t rounded_base = round_up(a->base, 1UL << alignment_log2);
             if (rounded_base < a->base || rounded_base > a->base + a->size - 1)
                 continue;
 
@@ -347,7 +347,7 @@ retry:
                         /* this run is broken, break out of the inner loop.
                          * start over at the next alignment boundary
                          */
-                        start = ROUNDUP(start - aligned_offset + i + 1, 1UL << (alignment_log2 - PAGE_SIZE_SHIFT)) + aligned_offset;
+                        start = round_up(start - aligned_offset + i + 1, 1UL << (alignment_log2 - PAGE_SIZE_SHIFT)) + aligned_offset;
                         goto retry;
                     }
                     p++;

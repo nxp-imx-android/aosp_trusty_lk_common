@@ -249,7 +249,7 @@ ssize_t virtio_block_read_write(struct virtio_device *dev, void *buf, off_t offs
 
 #if WITH_KERNEL_VM
     /* see if we need to add more descriptors due to scatter gather */
-    paddr_t next_pa = PAGE_ALIGN(pa + 1);
+    paddr_t next_pa = page_align(pa + 1);
     desc->len = MIN(next_pa - pa, len);
     LTRACEF("first descriptor va 0x%lx desc->addr 0x%llx desc->len %u\n", va, desc->addr, desc->len);
     len -= desc->len;
@@ -258,7 +258,7 @@ ssize_t virtio_block_read_write(struct virtio_device *dev, void *buf, off_t offs
         size_t len_tohandle = MIN(len, PAGE_SIZE);
 
         /* translate the next page in the buffer */
-        va = PAGE_ALIGN(va + 1);
+        va = page_align(va + 1);
         pa = vaddr_to_paddr((void *)va);
         LTRACEF("va now 0x%lx, pa 0x%lx, next_pa 0x%lx, remaining len %zu\n", va, pa, next_pa, len);
 

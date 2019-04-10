@@ -23,15 +23,26 @@
 #ifndef __LK_MACROS_H
 #define __LK_MACROS_H
 
+#include <stddef.h>
+#include <stdint.h>
+
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
 
-#define ROUNDUP(a, b) (((a) + ((b)-1)) & ~((b)-1))
-#define ROUNDDOWN(a, b) ((a) & ~((b)-1))
+static inline uintptr_t round_up(uintptr_t val, size_t alignment) {
+    return (val + (alignment - 1)) & ~(alignment - 1);
+}
+
+static inline uintptr_t round_down(uintptr_t val, size_t alignment) {
+    return val & ~(alignment - 1);
+}
 
 #define DIV_ROUND_UP(n,d) (((n) + (d) - 1) / (d))
 
-#define ALIGN(a, b) ROUNDUP(a, b)
+static inline uintptr_t align(uintptr_t ptr, size_t alignment) {
+    return round_up(ptr, alignment);
+}
+
 #define IS_ALIGNED(a, b) (!(((uintptr_t)(a)) & (((uintptr_t)(b))-1)))
 
 #define containerof(ptr, type, member) \

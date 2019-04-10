@@ -70,7 +70,7 @@ void arch_thread_initialize(thread_t *t)
     vaddr_t stack_top = (vaddr_t)t->stack + t->stack_size;
 
     // make sure the top of the stack is 8 byte aligned for EABI compliance
-    stack_top = ROUNDDOWN(stack_top, 8);
+    stack_top = round_down(stack_top, 8);
 
     struct context_switch_frame *frame = (struct context_switch_frame *)(stack_top);
     frame--;

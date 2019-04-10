@@ -431,10 +431,10 @@ static status_t get_l2_table(arch_aspace_t *aspace, uint32_t l1_index, paddr_t *
 
     /* lookup an existing l2 pagetable */
     for (uint i = 0; i < L1E_PER_PAGE; i++) {
-        tt_entry = aspace->tt_virt[ROUNDDOWN(l1_index, L1E_PER_PAGE) + i];
+        tt_entry = aspace->tt_virt[round_down(l1_index, L1E_PER_PAGE) + i];
         if ((tt_entry & MMU_MEMORY_L1_DESCRIPTOR_MASK)
                 == MMU_MEMORY_L1_DESCRIPTOR_PAGE_TABLE) {
-            *ppa = (paddr_t)ROUNDDOWN(MMU_MEMORY_L1_PAGE_TABLE_ADDR(tt_entry), PAGE_SIZE)
+            *ppa = (paddr_t)round_down(MMU_MEMORY_L1_PAGE_TABLE_ADDR(tt_entry), PAGE_SIZE)
                    + (PAGE_SIZE / L1E_PER_PAGE) * (l1_index & (L1E_PER_PAGE-1));
             return NO_ERROR;
         }
@@ -469,7 +469,7 @@ static void put_l2_table(arch_aspace_t *aspace, uint32_t l1_index, paddr_t l2_pa
 
     /* check if any l1 entry points to this l2 table */
     for (uint i = 0; i < L1E_PER_PAGE; i++) {
-        uint32_t tt_entry = aspace->tt_virt[ROUNDDOWN(l1_index, L1E_PER_PAGE) + i];
+        uint32_t tt_entry = aspace->tt_virt[round_down(l1_index, L1E_PER_PAGE) + i];
         if ((tt_entry &  MMU_MEMORY_L1_DESCRIPTOR_MASK)
                 == MMU_MEMORY_L1_DESCRIPTOR_PAGE_TABLE) {
             return;
@@ -510,18 +510,18 @@ static inline bool are_regions_compatible(uint new_region_flags,
 vaddr_t arch_mmu_pick_spot(arch_aspace_t *aspace,
                            vaddr_t base, uint prev_region_flags,
                            vaddr_t end,  uint next_region_flags,
-                           vaddr_t align, size_t size, uint flags)
+                           vaddr_t alignment, size_t size, uint flags)
 {
     LTRACEF("base 0x%lx, end 0x%lx, align %ld, size %zd, flags 0x%x\n",
-            base, end, align, size, flags);
+            base, end, alignment, size, flags);
 
     vaddr_t spot;
 
-    if (align >= SECTION_SIZE ||
+    if (alignment >= SECTION_SIZE ||
             are_regions_compatible(flags, prev_region_flags)) {
-        spot = ALIGN(base, align);
+        spot = align(base, alignment);
     } else {
-        spot = ALIGN(base, SECTION_SIZE);
+        spot = align(base, SECTION_SIZE);
     }
 
     vaddr_t spot_end = spot + size - 1;
