@@ -55,7 +55,7 @@ typedef long long          int64_t;
 #endif
 
 #define UINT8_MAX   UCHAR_MAX
-#define UINT16_MAX  USHORT_MAX
+#define UINT16_MAX  USHRT_MAX
 #define UINT32_MAX  UINT_MAX
 
 #if defined(ULLONG_MAX)
