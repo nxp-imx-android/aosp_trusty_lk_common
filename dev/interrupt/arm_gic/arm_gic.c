@@ -239,8 +239,8 @@ void arm_gic_init(void)
     int i;
 
     for (i = 0; i < MAX_INT; i+= 32) {
-        GICREG(0, GICD_ICENABLER(i / 32)) = ~0;
-        GICREG(0, GICD_ICPENDR(i / 32)) = ~0;
+        GICREG(0, GICD_ICENABLER(i / 32)) = ~0U;
+        GICREG(0, GICD_ICPENDR(i / 32)) = ~0U;
     }
 
     if (arm_gic_max_cpu() > 0) {
@@ -315,7 +315,7 @@ static status_t arm_gic_set_priority_locked(u_int irq, uint8_t priority)
 {
     u_int reg = irq / 4;
     u_int shift = 8 * (irq % 4);
-    u_int mask = 0xff << shift;
+    u_int mask = 0xffU << shift;
     uint32_t regval;
 
     regval = GICREG(0, GICD_IPRIORITYR(reg));

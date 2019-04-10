@@ -72,12 +72,12 @@ enum thread_tls_list {
     MAX_TLS_ENTRY
 };
 
-#define THREAD_FLAG_DETACHED                  (1<<0)
-#define THREAD_FLAG_FREE_STACK                (1<<1)
-#define THREAD_FLAG_FREE_STRUCT               (1<<2)
-#define THREAD_FLAG_REAL_TIME                 (1<<3)
-#define THREAD_FLAG_IDLE                      (1<<4)
-#define THREAD_FLAG_DEBUG_STACK_BOUNDS_CHECK  (1<<5)
+#define THREAD_FLAG_DETACHED                  (1U<<0)
+#define THREAD_FLAG_FREE_STACK                (1U<<1)
+#define THREAD_FLAG_FREE_STRUCT               (1U<<2)
+#define THREAD_FLAG_REAL_TIME                 (1U<<3)
+#define THREAD_FLAG_IDLE                      (1U<<4)
+#define THREAD_FLAG_DEBUG_STACK_BOUNDS_CHECK  (1U<<5)
 
 #define THREAD_MAGIC (0x74687264) // 'thrd'
 

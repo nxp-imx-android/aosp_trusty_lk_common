@@ -302,11 +302,11 @@ static void test_time_conversions(uint32_t cntfrq)
     test_lk_time_to_cntpct(cntfrq, 1);
     test_lk_time_to_cntpct(cntfrq, INT_MAX);
     test_lk_time_to_cntpct(cntfrq, INT_MAX + 1U);
-    test_lk_time_to_cntpct(cntfrq, ~0);
+    test_lk_time_to_cntpct(cntfrq, ~0U);
     test_cntpct_to_lk_time(cntfrq, 0, 0);
     test_cntpct_to_lk_time(cntfrq, INT_MAX, 0);
     test_cntpct_to_lk_time(cntfrq, INT_MAX + 1U, 0);
-    test_cntpct_to_lk_time(cntfrq, ~0, 0);
+    test_cntpct_to_lk_time(cntfrq, ~0U, 0);
     test_cntpct_to_lk_time(cntfrq, 0, 1);
     test_cntpct_to_lk_time(cntfrq, 0, 7);
     test_cntpct_to_lk_time(cntfrq, 0, 70);

@@ -102,7 +102,7 @@ static void insert_in_run_queue_head(thread_t *t)
     DEBUG_ASSERT(spin_lock_held(&thread_lock));
 
     list_add_head(&run_queue[t->priority], &t->queue_node);
-    run_queue_bitmap |= (1<<t->priority);
+    run_queue_bitmap |= (1U<<t->priority);
 }
 
 static void insert_in_run_queue_tail(thread_t *t)
@@ -515,14 +515,14 @@ static thread_t *get_top_thread(int cpu, bool unlink)
                     list_delete(&newthread->queue_node);
 
                     if (list_is_empty(&run_queue[next_queue]))
-                        run_queue_bitmap &= ~(1<<next_queue);
+                        run_queue_bitmap &= ~(1U<<next_queue);
                 }
 
                 return newthread;
             }
         }
 
-        local_run_queue_bitmap &= ~(1<<next_queue);
+        local_run_queue_bitmap &= ~(1U<<next_queue);
     }
 
     /* No threads to run */

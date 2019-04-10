@@ -78,7 +78,7 @@ static inline void arm64_fpu_pre_context_switch(struct thread *thread)
     uint64_t cpacr = ARM64_READ_SYSREG(cpacr_el1);
     if ((cpacr >> 20) & 3) {
         arm64_fpu_save_state(thread);
-        cpacr &= ~(3 << 20);
+        cpacr &= ~(3U << 20);
         ARM64_WRITE_SYSREG(cpacr_el1, cpacr);
     }
 }
