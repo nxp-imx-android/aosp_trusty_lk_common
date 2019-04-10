@@ -192,8 +192,9 @@ void *miniheap_alloc(size_t size, unsigned int alignment)
     LTRACEF("size %zd, align %d\n", size, alignment);
 
     // alignment must be power of 2
-    if (alignment & (alignment - 1))
+    if (alignment && (alignment & (alignment - 1))) {
         return NULL;
+    }
 
     // we always put a size field + base pointer + magic in front of the allocation
     size += sizeof(struct alloc_struct_begin);

@@ -25,6 +25,7 @@
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
+#include <stdint.h>
 #include <string.h>
 #include <sys/types.h>
 
@@ -32,7 +33,9 @@ void *
 memset(void *s, int c, size_t count)
 {
     char *xs = (char *) s;
-    size_t len = (-(size_t)s) & (sizeof(size_t)-1);
+    size_t len_mask = sizeof(size_t) - 1;
+    size_t len_delta = (size_t)-(intptr_t)s;
+    size_t len = len_delta & len_mask;
     size_t cc = c & 0xff;
 
     if ( count > len ) {
