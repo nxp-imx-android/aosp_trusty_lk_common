@@ -252,18 +252,27 @@ static inline struct list_node *list_next_wrap(struct list_node *list, struct li
     node = temp_node, temp_node = (node)->next)
 
 // iterates over the list, entry should be the container structure type *
+//
+// Iterating over (entry) rather than the list can add UB when the list node is
+// not inside of the enclosing type, as may be the case for the list terminator.
+// We avoid this by iterating over the list node and only constructing the new
+// entry if it was not the list terminator.
 #define list_for_every_entry(list, entry, type, member) \
-    for((entry) = containerof((list)->next, type, member);\
-        &(entry)->member != (list);\
-        (entry) = containerof((entry)->member.next, type, member))
+    for (struct list_node *_list_for_every_cursor = (list)->next; \
+            (_list_for_every_cursor != (list)) && \
+            ((entry) = containerof(_list_for_every_cursor, type, member)); \
+            _list_for_every_cursor = _list_for_every_cursor->next)
+
 
 // iterates over the list in a safe way for deletion of current node
-// entry and temp_entry should be the container structure type *
-#define list_for_every_entry_safe(list, entry, temp_entry, type, member) \
-    for(entry = containerof((list)->next, type, member),\
-        temp_entry = containerof((entry)->member.next, type, member);\
-        &(entry)->member != (list);\
-        entry = temp_entry, temp_entry = containerof((temp_entry)->member.next, type, member))
+// entry should be the container structure type *
+// See list_for_every_entry to see why we don't iterate over entries
+#define list_for_every_entry_safe(list, entry, unused, type, member) \
+    (void) unused; \
+    for(struct list_node *_list_for_every_cursor = (list)->next; \
+            (_list_for_every_cursor != (list)) && \
+            ((entry) = containerof(_list_for_every_cursor, type, member)) && \
+            (_list_for_every_cursor = _list_for_every_cursor->next);)
 
 static inline bool list_is_empty(struct list_node *list)
 {
