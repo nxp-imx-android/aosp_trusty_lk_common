@@ -145,11 +145,11 @@
 #define MMU_MEMORY_SET_L2_OUTER(val)        (((val) & 0x3) << MMU_MEMORY_L2_TEX_SHIFT)
 #define MMU_MEMORY_SET_L2_CACHEABLE_MEM     (0x4 << MMU_MEMORY_L2_TEX_SHIFT)
 
-#define MMU_MEMORY_L1_SECTION_ADDR(x)       ((x) & ~((1<<20)-1))
-#define MMU_MEMORY_L1_PAGE_TABLE_ADDR(x)    ((x) & ~((1<<10)-1))
+#define MMU_MEMORY_L1_SECTION_ADDR(x)       ((x) & ~((1U<<20)-1))
+#define MMU_MEMORY_L1_PAGE_TABLE_ADDR(x)    ((x) & ~((1U<<10)-1))
 
-#define MMU_MEMORY_L2_SMALL_PAGE_ADDR(x)    ((x) & ~((1<<12)-1))
-#define MMU_MEMORY_L2_LARGE_PAGE_ADDR(x)    ((x) & ~((1<<16)-1))
+#define MMU_MEMORY_L2_SMALL_PAGE_ADDR(x)    ((x) & ~((1U<<12)-1))
+#define MMU_MEMORY_L2_LARGE_PAGE_ADDR(x)    ((x) & ~((1U<<16)-1))
 
 #define MMU_MEMORY_TTBR_RGN(x)              (((x) & 0x3) << 3)
 /* IRGN[1:0] is encoded as: IRGN[0] in TTBRx[6], and IRGN[1] in TTBRx[0] */

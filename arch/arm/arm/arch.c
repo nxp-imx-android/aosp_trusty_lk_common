@@ -80,7 +80,7 @@ void arch_early_init(void)
 #if WITH_SMP && ARM_CPU_CORTEX_A9
     /* enable snoop control */
     addr_t scu_base = arm_read_cbar();
-    *REG32(scu_base) |= (1<<0); /* enable SCU */
+    *REG32(scu_base) |= (1U<<0); /* enable SCU */
 #endif
 
 #if ARM_WITH_MMU
@@ -174,7 +174,7 @@ void arm_secondary_entry(uint asm_cpu_num)
     // XXX may not be safe, but just hard enable i and d cache here
     // at the moment cannot rely on arch_enable_cache not dumping the L2
     uint32_t sctlr = arm_read_sctlr();
-    sctlr |= (1<<12) | (1<<2); // enable i and dcache
+    sctlr |= (1U<<12) | (1U<<2); // enable i and dcache
     arm_write_sctlr(sctlr);
 
     /* run early secondary cpu init routines up to the threading level */
@@ -200,33 +200,33 @@ static void arm_basic_setup(void)
     uint32_t sctlr = arm_read_sctlr();
 
     /* ARMV7 bits */
-    sctlr &= ~(1<<10); /* swp disable */
-    sctlr |=  (1<<11); /* enable program flow prediction */
-    sctlr &= ~(1<<14); /* random cache/tlb replacement */
-    sctlr &= ~(1<<25); /* E bit set to 0 on exception */
-    sctlr &= ~(1<<30); /* no thumb exceptions */
-    sctlr |=  (1<<22); /* enable unaligned access */
-    sctlr &= ~(1<<1);  /* disable alignment abort */
+    sctlr &= ~(1U<<10); /* swp disable */
+    sctlr |=  (1U<<11); /* enable program flow prediction */
+    sctlr &= ~(1U<<14); /* random cache/tlb replacement */
+    sctlr &= ~(1U<<25); /* E bit set to 0 on exception */
+    sctlr &= ~(1U<<30); /* no thumb exceptions */
+    sctlr |=  (1U<<22); /* enable unaligned access */
+    sctlr &= ~(1U<<1);  /* disable alignment abort */
 
     arm_write_sctlr(sctlr);
 
     uint32_t actlr = arm_read_actlr();
 #if ARM_CPU_CORTEX_A9
-    actlr |= (1<<2); /* enable dcache prefetch */
+    actlr |= (1U<<2); /* enable dcache prefetch */
 #if WITH_DEV_CACHE_PL310
-    actlr |= (1<<7); /* L2 exclusive cache */
-    actlr |= (1<<3); /* L2 write full line of zeroes */
-    actlr |= (1<<1); /* L2 prefetch hint enable */
+    actlr |= (1U<<7); /* L2 exclusive cache */
+    actlr |= (1U<<3); /* L2 write full line of zeroes */
+    actlr |= (1U<<1); /* L2 prefetch hint enable */
 #endif
 #if WITH_SMP
     /* enable smp mode, cache and tlb broadcast */
-    actlr |= (1<<6) | (1<<0);
+    actlr |= (1U<<6) | (1U<<0);
 #endif
 #endif // ARM_CPU_CORTEX_A9
 #if ARM_CPU_CORTEX_A7
 #if WITH_SMP
     /* enable smp mode */
-    actlr |= (1<<6);
+    actlr |= (1U<<6);
 #endif
 #endif // ARM_CPU_CORTEX_A7
 
@@ -236,24 +236,24 @@ static void arm_basic_setup(void)
     /* enable the cycle count register */
     uint32_t en;
     __asm__ volatile("mrc	p15, 0, %0, c9, c12, 0" : "=r" (en));
-    en &= ~(1<<3); /* cycle count every cycle */
+    en &= ~(1U<<3); /* cycle count every cycle */
     en |= 1; /* enable all performance counters */
     __asm__ volatile("mcr	p15, 0, %0, c9, c12, 0" :: "r" (en));
 
     /* enable cycle counter */
-    en = (1<<31);
+    en = (1U<<31);
     __asm__ volatile("mcr	p15, 0, %0, c9, c12, 1" :: "r" (en));
 #endif
 
 #if ARM_WITH_VFP
     /* enable cp10 and cp11 */
     uint32_t val = arm_read_cpacr();
-    val |= (3<<22)|(3<<20);
+    val |= (3U<<22)|(3U<<20);
     arm_write_cpacr(val);
 
     /* set enable bit in fpexc */
     __asm__("vmrs %0, fpexc" : "=r" (val));
-    val |= (1<<30);
+    val |= (1U<<30);
     __asm__ volatile("vmsr fpexc, %0" :: "r" (val));
 
     /* make sure the fpu starts off disabled */

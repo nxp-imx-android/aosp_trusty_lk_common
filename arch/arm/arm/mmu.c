@@ -152,7 +152,7 @@ static uint32_t mmu_flags_to_l2_arch_flags_small_page(uint flags)
 
 static inline bool is_valid_vaddr(arch_aspace_t *aspace, vaddr_t vaddr)
 {
-    return (vaddr >= aspace->base && vaddr <= aspace->base + aspace->size - 1);
+    return (vaddr >= aspace->base && vaddr <= aspace->base + (aspace->size - 1));
 }
 
 static void arm_mmu_map_section(arch_aspace_t *aspace, addr_t paddr, addr_t vaddr, uint flags)
@@ -274,10 +274,10 @@ void arch_mmu_context_switch(arch_aspace_t *aspace)
     uint32_t ttbcr = arm_read_ttbcr();
     if (aspace) {
         ttbr = MMU_TTBRx_FLAGS | (aspace->tt_phys);
-        ttbcr &= ~(1<<4); // enable TTBR0
+        ttbcr &= ~(1U<<4); // enable TTBR0
     } else {
         ttbr = 0;
-        ttbcr |= (1<<4); // disable TTBR0
+        ttbcr |= (1U<<4); // disable TTBR0
     }
 
     if (LOCAL_TRACE && TRACE_CONTEXT_SWITCH)
@@ -744,7 +744,7 @@ status_t arch_mmu_init_aspace(arch_aspace_t *aspace, vaddr_t base, size_t size, 
 
     /* validate that the base + size is sane and doesn't wrap */
     DEBUG_ASSERT(size > PAGE_SIZE);
-    DEBUG_ASSERT(base + size - 1 > base);
+    DEBUG_ASSERT(base + (size - 1) > base);
 
     list_initialize(&aspace->pt_page_list);
 

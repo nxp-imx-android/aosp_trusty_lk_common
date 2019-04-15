@@ -25,6 +25,7 @@
 #include <arch/arm.h>
 #include <kernel/thread.h>
 #include <platform.h>
+#include <string.h>
 
 struct fault_handler_table_entry {
     uint32_t pc;
@@ -139,6 +140,7 @@ __WEAK void arm_syscall_handler(struct arm_fault_frame *frame)
 
 void arm_undefined_handler(struct arm_iframe *frame)
 {
+#if ARM_WITH_VFP
     /* look at the undefined instruction, figure out if it's something we can handle */
     bool in_thumb = frame->spsr & (1<<5);
     if (in_thumb) {
@@ -147,10 +149,10 @@ void arm_undefined_handler(struct arm_iframe *frame)
         frame->pc -= 4;
     }
 
-    __UNUSED uint32_t opcode = *(uint32_t *)frame->pc;
-    //dprintf(CRITICAL, "undefined opcode 0x%x\n", opcode);
+    // pc may be unaligned, need to construct uint32_t byte by byte
+    uint32_t opcode;
+    memcpy(&opcode, (uint8_t *)frame->pc, sizeof(opcode));
 
-#if ARM_WITH_VFP
     if (in_thumb) {
         /* look for a 32bit thumb instruction */
         if (opcode & 0x0000e800) {
@@ -163,7 +165,8 @@ void arm_undefined_handler(struct arm_iframe *frame)
                 ((opcode & 0xff100000) == 0xf9000000)) { // VLD
 
             //dprintf(CRITICAL, "vfp/neon thumb instruction 0x%08x at 0x%x\n", opcode, frame->pc);
-            goto fpu;
+            arm_fpu_undefined_instruction(frame);
+            return;
         }
     } else {
         /* look for arm vfp/neon coprocessor instructions */
@@ -171,18 +174,13 @@ void arm_undefined_handler(struct arm_iframe *frame)
                 ((opcode & 0xfe000000) == 0xf2000000) || // advanced simd data processing
                 ((opcode & 0xff100000) == 0xf4000000)) { // VLD
             //dprintf(CRITICAL, "vfp/neon arm instruction 0x%08x at 0x%x\n", opcode, frame->pc);
-            goto fpu;
+            arm_fpu_undefined_instruction(frame);
+            return;
         }
     }
 #endif
 
     exception_die_iframe(frame, "undefined abort, halting\n");
-    return;
-
-#if ARM_WITH_VFP
-fpu:
-    arm_fpu_undefined_instruction(frame);
-#endif
 }
 
 void arm_data_abort_handler(struct arm_fault_frame *frame)

@@ -24,7 +24,7 @@
 #define __ARCH_CPU_H
 
 /* arm specific stuff */
-#define PAGE_SIZE 4096
+#define PAGE_SIZE 4096U
 #define PAGE_SIZE_SHIFT 12
 
 #if ARM_CPU_ARM7
