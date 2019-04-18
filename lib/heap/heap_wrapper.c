@@ -50,15 +50,15 @@ spin_lock_t delayed_free_lock = SPIN_LOCK_INITIAL_VALUE;
 /* miniheap implementation */
 #include <lib/miniheap.h>
 
-static inline void *HEAP_MALLOC(size_t s) { return miniheap_alloc(s, 0); }
+static inline void *HEAP_MALLOC(size_t s) { return miniheap_malloc(s); }
 static inline void *HEAP_REALLOC(void *ptr, size_t s) { return miniheap_realloc(ptr, s); }
-static inline void *HEAP_MEMALIGN(size_t boundary, size_t s) { return miniheap_alloc(s, boundary); }
+static inline void *HEAP_MEMALIGN(size_t boundary, size_t s) { return miniheap_memalign(boundary, s); }
 #define HEAP_FREE miniheap_free
 static inline void *HEAP_CALLOC(size_t n, size_t s)
 {
     size_t realsize = n * s;
 
-    void *ptr = miniheap_alloc(realsize, 0);
+    void *ptr = miniheap_malloc(realsize);
     if (likely(ptr))
         memset(ptr, 0, realsize);
     return ptr;

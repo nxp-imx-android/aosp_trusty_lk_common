@@ -182,7 +182,18 @@ static struct free_heap_chunk *heap_create_free_chunk(void *ptr, size_t len, boo
     return chunk;
 }
 
-void *miniheap_alloc(size_t size, unsigned int alignment)
+void *miniheap_malloc(size_t size)
+{
+    // The maximum alignment that C needs is 8 bytes on the 32-bit platforms we
+    // care about and 16 bytes on the 64-bit platforms we care about. In
+    // practice, the kernel itself probally doesn't need 16 byte alignment, but
+    // be conservative. For smaller allocations we could potentially get away
+    // with smaller alignments, but miniheap_memalign currently rounds smaller
+    // alignments up to 16 bytes. So good enough.
+    return miniheap_memalign(sizeof(void *) * 2, size);
+}
+
+void *miniheap_memalign(unsigned int alignment, size_t size)
 {
     void *ptr;
 #if DEBUG_HEAP
@@ -311,14 +322,14 @@ void *miniheap_realloc(void *ptr, size_t size)
 {
     /* slow implementation */
     if (!ptr)
-        return miniheap_alloc(size, 0);
+        return miniheap_malloc(size);
     if (size == 0) {
         miniheap_free(ptr);
         return NULL;
     }
 
     // XXX better implementation
-    void *p = miniheap_alloc(size, 0);
+    void *p = miniheap_malloc(size);
     if (!p)
         return NULL;
 

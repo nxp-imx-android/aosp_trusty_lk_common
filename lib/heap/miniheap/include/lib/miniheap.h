@@ -36,7 +36,8 @@ struct miniheap_stats {
 
 void miniheap_get_stats(struct miniheap_stats *ptr);
 
-void *miniheap_alloc(size_t, unsigned int alignment);
+void *miniheap_malloc(size_t);
+void *miniheap_memalign(unsigned int, size_t);
 void *miniheap_realloc(void *, size_t);
 void miniheap_free(void *);
 
