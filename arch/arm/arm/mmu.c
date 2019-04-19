@@ -238,6 +238,7 @@ void arm_mmu_init(void)
     ISB;
     arm_write_ttbr0(0);
     ISB;
+    arm_invalidate_tlb_global();
 #endif
 }
 
