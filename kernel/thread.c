@@ -491,10 +491,15 @@ void thread_exit(int retcode)
     panic("somehow fell through thread_exit()\n");
 }
 
+__WEAK void platform_idle(void)
+{
+    arch_idle();
+}
+
 static void idle_thread_routine(void)
 {
     for (;;)
-        arch_idle();
+        platform_idle();
 }
 
 static thread_t *get_top_thread(int cpu, bool unlink)
