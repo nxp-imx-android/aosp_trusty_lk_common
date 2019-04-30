@@ -76,7 +76,7 @@ static void lapic_x1_write_reg(lapic_reg_id_t reg_id, uint32_t value)
     DEBUG_ASSERT(lapic_base_virtual_addr);
     vaddr_t addr = lapic_base_virtual_addr + (reg_id << LAPIC_REG_SHIFT);
 
-    writel(addr, value);
+    writel(value, addr);
 }
 
 /* Caller must make sure xAPIC mode. */
