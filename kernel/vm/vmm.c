@@ -192,6 +192,7 @@ __WEAK vaddr_t arch_mmu_pick_spot(arch_aspace_t *aspace, vaddr_t base, uint prev
 /*
  *  Returns true if the caller has to stop search
  */
+__attribute__((no_sanitize("unsigned-integer-overflow")))
 static inline bool check_gap(vmm_aspace_t *aspace,
                              vmm_region_t *prev, vmm_region_t *next,
                              vaddr_t *pva, vaddr_t align, size_t size,
