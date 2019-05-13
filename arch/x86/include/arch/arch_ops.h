@@ -31,10 +31,21 @@
 #include <arch/x86/mp.h>
 
 /* override of some routines */
+
+/*
+ * According to ISDM vol2, description of STI instruction:
+ *   If IF = 0, maskable hardware interrupts remain inhibited on the instruction
+ *   boundary following an execution of STI.
+ * To ensure interrupt can be recognized, NOP instruction follows immediately of
+ * STI instruction.
+ */
 static inline void arch_enable_ints(void)
 {
     CF;
-    __asm__ volatile("sti");
+    __asm__ volatile(
+            "sti\n"
+            "nop\n"
+    );
 }
 
 static inline void arch_disable_ints(void)
