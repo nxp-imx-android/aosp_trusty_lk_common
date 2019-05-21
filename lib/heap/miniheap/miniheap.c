@@ -231,7 +231,6 @@ void *miniheap_memalign(unsigned int alignment, size_t size)
         size += alignment;
     }
 
-    int retry_count = 0;
 retry:
     mutex_acquire(&theheap.lock);
 
@@ -305,10 +304,14 @@ retry:
     mutex_release(&theheap.lock);
 
     /* try to grow the heap if we can */
-    if (ptr == NULL && retry_count == 0) {
+    if (ptr == NULL) {
         ssize_t err = heap_grow(size);
+        /*
+         * Retry as long as heap_grow succeeds. This can happen multiple times
+         * if another thread is allocating at the same time and used new newly
+         * grown chunk before we get the heaplock again.
+         */
         if (err >= 0) {
-            retry_count++;
             goto retry;
         }
     }
