@@ -238,6 +238,31 @@ static inline vmm_aspace_t *vmm_get_kernel_aspace(void)
 /* virtual to container address space */
 struct vmm_aspace *vaddr_to_aspace(void *ptr);
 
+/**
+ * vmm_find_spot() - Finds a gap of the requested size in the address space
+ * @aspace: The address space to locate a gap in
+ * @size:   How large of a gap is sought
+ * @out:    Output parameter for the base of the gap
+ *
+ * Finds a gap of size @size in @aspace, and outputs its address. If ASLR is
+ * active, this location will be randomized.
+ *
+ * This function *DOES NOT* actually allocate anything, it merely locates a
+ * prospective location. It is intended for use in situations where a larger
+ * gap than an individual mapping is required, such as in the case of the ELF
+ * loader (where text, rodata, and data are all separate mappings, but must
+ * have fixed relative offsets).
+ *
+ * The address returned is suitable for use with vmm_alloc() and similar
+ * functions with the VMM_FLAG_VALLOC_SPECIFIC flag.
+ *
+ * On ARM32, this function assumes the request is for *secure* memory
+ * for the purposes of region compatiblity.
+ *
+ * Return: Whether a spot was successfully located
+ */
+bool vmm_find_spot(vmm_aspace_t *aspace, size_t size, vaddr_t *out);
+
 /* reserve a chunk of address space to prevent allocations from that space */
 status_t vmm_reserve_space(vmm_aspace_t *aspace, const char *name, size_t size, vaddr_t vaddr);
 

@@ -196,6 +196,12 @@ GLOBAL_DEFINES += \
 	TEST_BUILD=1
 endif
 
+# ASLR
+ifneq ($(ASLR),false)
+GLOBAL_DEFINES += \
+	ASLR=1
+endif
+
 # allow additional defines from outside the build system
 ifneq ($(EXTERNAL_DEFINES),)
 GLOBAL_DEFINES += $(EXTERNAL_DEFINES)

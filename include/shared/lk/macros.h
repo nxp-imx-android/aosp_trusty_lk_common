@@ -29,6 +29,7 @@
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
 
+__attribute__((no_sanitize("unsigned-integer-overflow")))
 static inline uintptr_t round_up(uintptr_t val, size_t alignment) {
     return (val + (alignment - 1)) & ~(alignment - 1);
 }

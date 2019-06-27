@@ -506,7 +506,8 @@ static inline bool are_regions_compatible(uint new_region_flags,
     return false;
 }
 
-
+/* Performs explicit wrapping checks, so allow overflow */
+__attribute__((no_sanitize("unsigned-integer-overflow")))
 vaddr_t arch_mmu_pick_spot(arch_aspace_t *aspace,
                            vaddr_t base, uint prev_region_flags,
                            vaddr_t end,  uint next_region_flags,
