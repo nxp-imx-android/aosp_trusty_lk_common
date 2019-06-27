@@ -42,8 +42,11 @@ typedef long long     off_t;
 typedef int status_t;
 
 typedef uintptr_t addr_t;
+#define ADDR_MAX UINTPTR_MAX
 typedef uintptr_t vaddr_t;
+#define VADDR_MAX UINTPTR_MAX
 typedef uintptr_t paddr_t;
+#define PADDR_MAX UINTPTR_MAX
 
 typedef int kobj_id;
 
