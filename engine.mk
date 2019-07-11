@@ -233,7 +233,16 @@ SIZE := $(TOOLCHAIN_PREFIX)size
 NM := $(TOOLCHAIN_PREFIX)nm
 STRIP := $(TOOLCHAIN_PREFIX)strip
 
-LIBGCC := $(shell $(CC) $(GLOBAL_COMPILEFLAGS) $(ARCH_COMPILEFLAGS) $(THUMBCFLAGS) -print-libgcc-file-name)
+# TODO: we could find the runtime like this.
+# LIBGCC := $(shell $(CC) $(GLOBAL_COMPILEFLAGS) $(ARCH_COMPILEFLAGS) $(THUMBCFLAGS) --rtlib=compiler-rt -print-libgcc-file-name)
+# However the compiler currently does not contain non-x86 prebuilts for the
+# linux-gnu ABI. We could either get those prebuilts added to the toolchain or
+# switch to the android ABI.
+# Note there are two copies of compiler-rt in the toolchain - framework and NDK.
+# We're using the NDK version because the path is more stable and the difference
+# should not matter for this library. (The main difference is which version of
+# libcxx they link against, and the builtins do not use C++.)
+LIBGCC := $(CLANG_BINDIR)/../runtimes_ndk_cxx/libclang_rt.builtins-$(STANDARD_ARCH_NAME)-android.a
 
 # try to have the compiler output colorized error messages if available
 export GCC_COLORS ?= 1
