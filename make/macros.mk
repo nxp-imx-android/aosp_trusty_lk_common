@@ -44,3 +44,28 @@ define MAKECONFIGHEADER
 	echo \#endif >> $1.tmp; \
 	$(call TESTANDREPLACEFILE,$1.tmp,$1)
 endef
+
+# Map LK's arch names into a more common form.
+define standard_name_for_arch
+ifeq ($(2),arm)
+$(1) := arm
+else
+ifeq ($(2),arm64)
+$(1) := aarch64
+else
+ifeq ($(2),x86)
+ifeq ($(3),x86-64)
+$(1) := x86_64
+else
+ifeq ($(3),x86-32)
+$(1) := i386
+else
+$$(error "unknown arch: $(2) / $(3)")
+endif
+endif
+else
+$$(error "unknown arch: $(2) / $(3)")
+endif
+endif
+endif
+endef

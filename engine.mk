@@ -159,6 +159,9 @@ $(info PROJECT = $(PROJECT))
 $(info PLATFORM = $(PLATFORM))
 $(info TARGET = $(TARGET))
 
+# Derive the standard arch name.
+$(eval $(call standard_name_for_arch,STANDARD_ARCH_NAME,$(ARCH),$(SUBARCH)))
+
 include arch/$(ARCH)/rules.mk
 include top/rules.mk
 
