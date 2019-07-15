@@ -876,8 +876,8 @@ err:
     return err;
 }
 
-static vmm_region_t* vmm_find_region(const vmm_aspace_t* aspace,
-                                     vaddr_t vaddr) {
+vmm_region_t* vmm_find_region(const vmm_aspace_t* aspace,
+                              vaddr_t vaddr) {
     vmm_region_t* r;
 
     DEBUG_ASSERT(aspace);
