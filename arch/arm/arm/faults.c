@@ -26,6 +26,7 @@
 #include <kernel/thread.h>
 #include <platform.h>
 #include <string.h>
+#include <lib/trusty/trusty_app.h>
 
 struct fault_handler_table_entry {
     uint32_t pc;
@@ -96,6 +97,11 @@ static void dump_fault_frame(struct arm_fault_frame *frame)
 
     dprintf(CRITICAL, "current_thread %p, name %s\n",
             current_thread, current_thread ? current_thread->name : "");
+
+    struct trusty_app *app = current_trusty_app();
+    if (app) {
+        dprintf(CRITICAL, "load bias %lx\n", app->load_bias);
+    }
 
     dprintf(CRITICAL, "r0  0x%08x r1  0x%08x r2  0x%08x r3  0x%08x\n", frame->r[0], frame->r[1], frame->r[2], frame->r[3]);
     dprintf(CRITICAL, "r4  0x%08x r5  0x%08x r6  0x%08x r7  0x%08x\n", frame->r[4], frame->r[5], frame->r[6], frame->r[7]);

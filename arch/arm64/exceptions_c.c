@@ -25,6 +25,7 @@
 #include <bits.h>
 #include <arch/arch_ops.h>
 #include <arch/arm64.h>
+#include <lib/trusty/trusty_app.h>
 
 #define SHUTDOWN_ON_FATAL 1
 
@@ -76,6 +77,7 @@ void arm64_sync_exception(struct arm64_iframe_long *iframe)
     uint32_t ec = BITS_SHIFT(esr, 31, 26);
     uint32_t il = BIT(esr, 25);
     uint32_t iss = BITS(esr, 24, 0);
+    uintptr_t display_pc = iframe->elr;
 
     switch (ec) {
         case 0b000111: /* floating point */
@@ -93,13 +95,30 @@ void arm64_sync_exception(struct arm64_iframe_long *iframe)
             return;
 #endif
         case 0b100000: /* instruction abort from lower level */
+            printf("load bias: 0x%lx\n", current_trusty_app()->load_bias);
+            /*
+             * load_bias may intentionally overflow to represent a shift
+             * down of the application base address
+             */
+            __builtin_sub_overflow(display_pc,
+                                   current_trusty_app()->load_bias,
+                                   &display_pc);
         case 0b100001: /* instruction abort from same level */
             if (check_fault_handler_table(iframe)) {
                 return;
             }
-            printf("instruction abort: PC at 0x%llx\n", iframe->elr);
+            printf("instruction abort: PC at 0x%llx(0x%lx)\n", iframe->elr,
+                   display_pc);
             break;
         case 0b100100: /* data abort from lower level */
+            printf("load bias: 0x%lx\n", current_trusty_app()->load_bias);
+            /*
+             * load_bias may intentionally overflow to represent a shift
+             * down of the application base address
+             */
+            __builtin_sub_overflow(display_pc,
+                                   current_trusty_app()->load_bias,
+                                   &display_pc);
         case 0b100101: { /* data abort from same level */
             if (check_fault_handler_table(iframe)) {
                 return;
@@ -110,10 +129,11 @@ void arm64_sync_exception(struct arm64_iframe_long *iframe)
 
             /* decode the iss */
             if (BIT(iss, 24)) { /* ISV bit */
-                printf("data fault: PC at 0x%llx, FAR 0x%llx, iss 0x%x (DFSC 0x%lx)\n",
-                       iframe->elr, far, iss, BITS(iss, 5, 0));
+                printf("data fault: PC at 0x%llx(0x%lx), FAR 0x%llx, iss 0x%x (DFSC 0x%lx)\n",
+                       iframe->elr, display_pc, far, iss, BITS(iss, 5, 0));
             } else {
-                printf("data fault: PC at 0x%llx, FAR 0x%llx, iss 0x%x\n", iframe->elr, far, iss);
+                printf("data fault: PC at 0x%llx(0x%lx), FAR 0x%llx, iss 0x%x\n",
+                       iframe->elr, display_pc, far, iss);
             }
 
             break;
