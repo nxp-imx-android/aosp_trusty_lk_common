@@ -377,9 +377,13 @@ static void arm64_mmu_unmap_pt(vaddr_t vaddr, vaddr_t vaddr_rel,
         } else {
             LTRACEF("pte %p[0x%lx] already clear\n", page_table, index);
         }
+        size -= chunk_size;
+        if (!size) {
+            break;
+        }
+        /* Early out avoids a benign overflow. */
         vaddr += chunk_size;
         vaddr_rel += chunk_size;
-        size -= chunk_size;
     }
 }
 
@@ -448,10 +452,14 @@ static int arm64_mmu_map_pt(vaddr_t vaddr_in, vaddr_t vaddr_rel_in,
             LTRACEF("pte %p[0x%lx] = 0x%llx\n", page_table, index, pte);
             page_table[index] = pte;
         }
+        size -= chunk_size;
+        if (!size) {
+            break;
+        }
+        /* Note: early out avoids a benign overflow. */
         vaddr += chunk_size;
         vaddr_rel += chunk_size;
         paddr += chunk_size;
-        size -= chunk_size;
     }
 
     return 0;
@@ -698,4 +706,3 @@ void arch_mmu_context_switch(arch_aspace_t *aspace)
         DSB;
     }
 }
-

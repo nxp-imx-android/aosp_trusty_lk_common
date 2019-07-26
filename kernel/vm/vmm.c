@@ -57,34 +57,44 @@ void vmm_init_preheap(void) {
 
 void vmm_init(void) {}
 
+static inline bool range_contains_range(vaddr_t range_base,
+                                        size_t range_size,
+                                        vaddr_t query_base,
+                                        size_t query_size) {
+    vaddr_t range_last;
+    vaddr_t query_last;
+
+    ASSERT(range_size > 0);
+    ASSERT(query_size > 0);
+
+    ASSERT(!__builtin_add_overflow(range_base, range_size - 1, &range_last));
+    ASSERT(!__builtin_add_overflow(query_base, query_size - 1, &query_last));
+
+    return range_base <= query_base && query_last <= range_last;
+}
+
 static inline bool is_inside_aspace(const vmm_aspace_t* aspace, vaddr_t vaddr) {
     DEBUG_ASSERT(aspace);
-
-    return (vaddr >= aspace->base &&
-            vaddr <= aspace->base + (aspace->size - 1));
+    return range_contains_range(aspace->base, aspace->size, vaddr, 1);
 }
 
 static bool is_region_inside_aspace(const vmm_aspace_t* aspace,
                                     vaddr_t vaddr,
                                     size_t size) {
     DEBUG_ASSERT(aspace);
+    return range_contains_range(aspace->base, aspace->size, vaddr, size);
+}
 
-    /* is the starting address within the address space*/
-    if (!is_inside_aspace(aspace, vaddr))
-        return false;
+static bool is_inside_region(const vmm_region_t* r, vaddr_t vaddr) {
+    DEBUG_ASSERT(r);
+    return range_contains_range(r->base, r->size, vaddr, 1);
+}
 
-    if (size == 0)
-        return true;
-
-    /* see if the size is enough to wrap the integer */
-    if (vaddr + size - 1 < vaddr)
-        return false;
-
-    /* test to see if the end address is within the address space's */
-    if (vaddr + size - 1 > aspace->base + (aspace->size - 1))
-        return false;
-
-    return true;
+static bool is_range_inside_region(const vmm_region_t* r,
+                                   vaddr_t vaddr,
+                                   size_t size) {
+    DEBUG_ASSERT(r);
+    return range_contains_range(r->base, r->size, vaddr, size);
 }
 
 static size_t trim_to_aspace(const vmm_aspace_t* aspace,
@@ -877,7 +887,7 @@ static vmm_region_t* vmm_find_region(const vmm_aspace_t* aspace,
 
     /* search the region list */
     list_for_every_entry(&aspace->region_list, r, vmm_region_t, node) {
-        if ((vaddr >= r->base) && (vaddr <= r->base + r->size - 1))
+        if (is_inside_region(r, vaddr))
             return r;
     }
 
@@ -892,7 +902,7 @@ static bool vmm_region_is_match(vmm_region_t* r,
         return false;
     }
     if (flags & VMM_FREE_REGION_FLAG_EXPAND) {
-        return r->base <= va && (va + size - 1) <= (r->base + r->size - 1);
+        return is_range_inside_region(r, va, size);
     } else {
         return r->base == va && r->size == size;
     }
