@@ -128,7 +128,7 @@ void hexdump(const void *ptr, size_t len)
         printf("|");
 
         for (i=0; i < 16; i++) {
-            char c = u.cbuf[i];
+            unsigned char c = u.cbuf[i];
             if (i < s && isprint(c)) {
                 printf("%c", c);
             } else {
@@ -163,7 +163,7 @@ void hexdump8_ex(const void *ptr, size_t len, uint64_t disp_addr)
         printf("|");
 
         for (i=0; i < MIN(len - count, 16); i++) {
-            char c = ((const char *)address)[i];
+            unsigned char c = ((const char *)address)[i];
             printf("%c", isprint(c) ? c : '.');
         }
 
