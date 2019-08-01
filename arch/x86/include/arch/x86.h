@@ -882,6 +882,26 @@ static inline void x86_write_gs_with_offset(uint64_t offset, uint64_t val)
         :"ir" (val), "m" (*(uint64_t *)offset)
         :"memory");
 }
+
+static inline void x86_allow_explicit_smap() {
+    if (x86_get_cr4() & X86_CR4_SMAP) {
+        __asm__ __volatile__(
+                "stac"
+                :
+                :
+                :"memory");
+    }
+}
+
+static inline void x86_disallow_explicit_smap() {
+    if (x86_get_cr4() & X86_CR4_SMAP) {
+        __asm__ __volatile__(
+                "clac"
+                :
+                :
+                :"memory");
+    }
+}
 #endif // ARCH_X86_64
 
 __END_CDECLS
