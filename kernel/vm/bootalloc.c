@@ -23,6 +23,7 @@
 #include <kernel/vm.h>
 #include "vm_priv.h"
 
+#include <assert.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <sys/types.h>
@@ -42,6 +43,9 @@ void *boot_alloc_mem(size_t len)
 {
     uintptr_t ptr;
 
+    /* boot_alloc_end == 0 indicates we should no longer use this allocator */
+    ASSERT(boot_alloc_end);
+
     ptr = align(boot_alloc_end, 8);
     boot_alloc_end = (ptr + align(len, 8));
 
@@ -49,4 +53,3 @@ void *boot_alloc_mem(size_t len)
 
     return (void *)ptr;
 }
-

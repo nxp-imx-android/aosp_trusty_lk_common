@@ -82,8 +82,11 @@ static void vm_init_preheap(uint level)
     LTRACEF("marking all kernel pages as used\n");
     mark_pages_in_use((vaddr_t)&_start, ((uintptr_t)&_end - (uintptr_t)&_start));
 
+    /* the boot time allocator should not be used after this */
     uintptr_t alloc_start = boot_alloc_start;
     uintptr_t alloc_end = boot_alloc_end;
+    boot_alloc_start = 0;
+    boot_alloc_end = 0;
 
     /* mark the physical pages used by the boot time allocator */
     if (alloc_end != alloc_start) {
