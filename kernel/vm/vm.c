@@ -23,6 +23,7 @@
 #include <kernel/vm.h>
 #include "vm_priv.h"
 
+#include <assert.h>
 #include <trace.h>
 #include <err.h>
 #include <string.h>
@@ -58,10 +59,12 @@ static void mark_pages_in_use(vaddr_t va, size_t len)
 
         status_t err = arch_mmu_query(&vmm_get_kernel_aspace()->arch_aspace, va + offset, &pa, &flags);
         if (err >= 0) {
-            //LTRACEF("va 0x%x, pa 0x%x, flags 0x%x, err %d\n", va + offset, pa, flags, err);
+            //LTRACEF("va 0x%lx, pa 0x%lx, flags 0x%x, err %d\n", va + offset, pa, flags, err);
 
-            /* alloate the range, throw the results away */
-            pmm_alloc_range(pa, 1, &list);
+            /* allocate the range, throw the results away */
+            if (pmm_alloc_range(pa, 1, &list) != 1) {
+              panic("Could not alloc pa 0x%lx\n", pa);
+            }
         } else {
             panic("Could not find pa for va 0x%lx\n", va);
         }
@@ -79,11 +82,27 @@ static void vm_init_preheap(uint level)
     LTRACEF("marking all kernel pages as used\n");
     mark_pages_in_use((vaddr_t)&_start, ((uintptr_t)&_end - (uintptr_t)&_start));
 
-    /* mark the physical pages used by the boot time allocator */
-    if (boot_alloc_end != boot_alloc_start) {
-        LTRACEF("marking boot alloc used from 0x%lx to 0x%lx\n", boot_alloc_start, boot_alloc_end);
+    uintptr_t alloc_start = boot_alloc_start;
+    uintptr_t alloc_end = boot_alloc_end;
 
-        mark_pages_in_use(boot_alloc_start, boot_alloc_end - boot_alloc_start);
+    /* mark the physical pages used by the boot time allocator */
+    if (alloc_end != alloc_start) {
+        LTRACEF("marking boot alloc used from 0x%lx to 0x%lx\n", alloc_start, alloc_end);
+
+        /*
+         * if _end is not page aligned, the kernel and the boot time allocator
+         * may share a page. Do not mark this page a second time.
+         */
+        ASSERT(alloc_start == (uintptr_t)&_end);
+        alloc_start = page_align(alloc_start);
+
+        /*
+         * aligning start could move it past end. In this case, the data is in a
+         * single page and it has already been marked.
+         */
+        if (alloc_start < alloc_end) {
+            mark_pages_in_use(alloc_start, alloc_end - alloc_start);
+        }
     }
 }
 

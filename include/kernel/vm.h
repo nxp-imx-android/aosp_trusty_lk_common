@@ -154,7 +154,7 @@ size_t pmm_alloc_pages(uint count, struct list_node *list);
  * Returns the number of pages allocated.
  * NOTE: This function does not clear the allocated pages
  */
-size_t pmm_alloc_range(paddr_t address, uint count, struct list_node *list);
+size_t pmm_alloc_range(paddr_t address, uint count, struct list_node *list) __WARN_UNUSED_RESULT;
 
 /* Free a list of physical pages.
  * Returns the number of pages freed.
