@@ -52,6 +52,8 @@
 #include <stdlib.h>
 #include <arch.h>
 #include <arch/mmu.h>
+#include <kernel/vm_obj.h>
+#include <lk/reflist.h>
 
 __BEGIN_CDECLS
 
@@ -222,6 +224,8 @@ typedef struct vmm_region {
     vaddr_t base;
     size_t  size;
 
+    struct vmm_obj *obj;
+    struct obj_ref obj_ref;
     struct list_node page_list;
 } vmm_region_t;
 
@@ -265,6 +269,12 @@ bool vmm_find_spot(vmm_aspace_t *aspace, size_t size, vaddr_t *out);
 
 /* reserve a chunk of address space to prevent allocations from that space */
 status_t vmm_reserve_space(vmm_aspace_t *aspace, const char *name, size_t size, vaddr_t vaddr);
+
+/* allocate a region of memory backed by vmm_obj */
+status_t vmm_alloc_obj(vmm_aspace_t *aspace, const char *name,
+                       struct vmm_obj *obj, size_t offset, size_t size,
+                       void **ptr, uint8_t align_log2, uint vmm_flags,
+                       uint arch_mmu_flags);
 
 /* allocate a region of virtual space that maps a physical piece of address space.
    the physical pages that back this are not allocated from the pmm. */

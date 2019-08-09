@@ -141,6 +141,7 @@ static vmm_region_t* alloc_region_struct(const char* name,
     r->size = size;
     r->flags = flags;
     r->arch_mmu_flags = arch_mmu_flags;
+    obj_ref_init(&r->obj_ref);
     list_initialize(&r->page_list);
 
     return r;
@@ -580,6 +581,48 @@ static vmm_region_t* alloc_region(vmm_aspace_t* aspace,
     return r;
 }
 
+static status_t vmm_map_obj_locked(vmm_aspace_t* aspace, vmm_region_t* r,
+                                   struct vmm_obj* vmm_obj, size_t start_off,
+                                   uint arch_mmu_flags) {
+    /* map all of the pages */
+    /* XXX use smarter algorithm that tries to build runs */
+    status_t err;
+    size_t off = 0;
+    while (off < r->size) {
+        paddr_t pa;
+        vaddr_t va;
+        size_t pa_size;
+        err = vmm_obj->ops->get_page(vmm_obj, off + start_off, &pa, &pa_size);
+        if (err) {
+            goto err_map_loop;
+        }
+        pa_size = MIN(pa_size, r->size - off);
+
+        DEBUG_ASSERT(IS_PAGE_ALIGNED(pa));
+        DEBUG_ASSERT(pa_size);
+        DEBUG_ASSERT(IS_PAGE_ALIGNED(pa_size));
+
+        if (__builtin_add_overflow(r->base, off, &va)) {
+            DEBUG_ASSERT(false);
+        }
+        DEBUG_ASSERT(IS_PAGE_ALIGNED(va));
+        DEBUG_ASSERT(va <= r->base + (r->size - 1));
+        err = arch_mmu_map(&aspace->arch_aspace, va, pa, pa_size / PAGE_SIZE,
+                           arch_mmu_flags);
+        if (err) {
+            goto err_map_loop;
+        }
+        off += pa_size;
+    }
+
+    return NO_ERROR;
+
+err_map_loop:
+    arch_mmu_unmap(&aspace->arch_aspace, r->base, off / PAGE_SIZE);
+    return err;
+}
+
+
 status_t vmm_reserve_space(vmm_aspace_t* aspace,
                            const char* name,
                            size_t size,
@@ -620,6 +663,98 @@ status_t vmm_reserve_space(vmm_aspace_t* aspace,
 
     mutex_release(&vmm_lock);
     return r ? NO_ERROR : ERR_NO_MEMORY;
+}
+
+void vmm_obj_add_ref(struct vmm_obj* obj, struct obj_ref* ref) {
+    mutex_acquire(&vmm_lock);
+    obj_add_ref(&obj->obj, ref);
+    mutex_release(&vmm_lock);
+}
+
+void vmm_obj_del_ref(struct vmm_obj* obj, struct obj_ref* ref) {
+    bool destroy;
+    mutex_acquire(&vmm_lock);
+    destroy = obj_del_ref(&obj->obj, ref, NULL);
+    mutex_release(&vmm_lock);
+    if (destroy) {
+        obj->ops->destroy(obj);
+    }
+}
+
+status_t vmm_alloc_obj(vmm_aspace_t* aspace, const char* name,
+                       struct vmm_obj* vmm_obj, size_t offset, size_t size,
+                       void** ptr, uint8_t align_log2, uint vmm_flags,
+                       uint arch_mmu_flags) {
+    status_t ret;
+
+    LTRACEF("aspace %p name '%s' obj %p offset 0x%zx size 0x%zx\n",
+            aspace, name, vmm_obj, offset, size);
+    LTRACEF("ptr %p align %hhu vmm_flags 0x%x arch_mmu_flags 0x%x\n",
+            ptr ? *ptr : 0, align_log2, vmm_flags, arch_mmu_flags);
+
+    DEBUG_ASSERT(aspace);
+    DEBUG_ASSERT(vmm_obj);
+    DEBUG_ASSERT(vmm_obj->ops);
+    DEBUG_ASSERT(IS_PAGE_ALIGNED(offset));
+    DEBUG_ASSERT(IS_PAGE_ALIGNED(size));
+    DEBUG_ASSERT(ptr);
+
+    if (!ptr) {
+        ret = ERR_INVALID_ARGS;
+        goto err_missing_ptr;
+    }
+
+    if (!name) {
+        name = "";
+    }
+
+    vaddr_t vaddr = 0;
+
+    /* if they're asking for a specific spot, copy the address */
+    if (vmm_flags & VMM_FLAG_VALLOC_SPECIFIC) {
+        vaddr = (vaddr_t)*ptr;
+    }
+
+    ret = vmm_obj->ops->check_flags(vmm_obj, &arch_mmu_flags);
+    if (ret) {
+        LTRACEF("check_flags failed\n");
+        goto err_check_flags;
+    }
+
+    mutex_acquire(&vmm_lock);
+
+    /* allocate a region and put it in the aspace list */
+    vmm_region_t* r =
+            alloc_region(aspace, name, size, vaddr, align_log2, vmm_flags,
+                         VMM_REGION_FLAG_PHYSICAL, arch_mmu_flags);
+    if (!r) {
+        ret = ERR_NO_MEMORY;
+        goto err_alloc_region;
+    }
+
+    ret = vmm_map_obj_locked(aspace, r, vmm_obj, offset, arch_mmu_flags);
+    if (ret) {
+        goto err_map_obj;
+    }
+
+    /* return the vaddr */
+    *ptr = (void*)r->base;
+
+    DEBUG_ASSERT(r->obj == NULL);
+    r->obj = vmm_obj;
+    obj_add_ref(&r->obj->obj, &r->obj_ref);
+
+    mutex_release(&vmm_lock);
+    return NO_ERROR;
+
+err_map_obj:
+    list_delete(&r->node);
+    free(r);
+err_alloc_region:
+    mutex_release(&vmm_lock);
+err_check_flags:
+err_missing_ptr:
+    return ret;
 }
 
 status_t vmm_alloc_physical_etc(vmm_aspace_t* aspace,
@@ -933,6 +1068,11 @@ status_t vmm_free_region_etc(vmm_aspace_t* aspace,
 
     mutex_release(&vmm_lock);
 
+    /* return physical pages or other obj if any */
+    if (r->obj) {
+        vmm_obj_del_ref(r->obj, &r->obj_ref);
+    }
+
     /* return physical pages if any */
     pmm_free(&r->page_list);
 
@@ -1021,6 +1161,11 @@ status_t vmm_free_aspace(vmm_aspace_t* aspace) {
 
     /* without the vmm lock held, free all of the pmm pages and the structure */
     while ((r = list_remove_head_type(&region_list, vmm_region_t, node))) {
+        /* return physical pages or other obj if any */
+        if (r->obj) {
+            vmm_obj_del_ref(r->obj, &r->obj_ref);
+        }
+
         /* return physical pages if any */
         pmm_free(&r->page_list);
 
