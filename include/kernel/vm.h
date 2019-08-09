@@ -145,15 +145,28 @@ typedef struct pmm_arena {
 /* Add a pre-filled memory arena to the physical allocator. */
 status_t pmm_add_arena(pmm_arena_t *arena);
 
-/* Optional flags passed to future pmm_alloc function */
+/* Optional flags passed to pmm_alloc */
 #define PMM_ALLOC_FLAG_KMAP (1U << 0)
 #define PMM_ALLOC_FLAG_CONTIGUOUS (1U << 1)
 
-/* Allocate and clear count pages of physical memory, adding to the tail of the passed list.
- * The list must be initialized.
- * Returns the number of pages allocated.
+/**
+ * pmm_alloc - Allocate and clear @count pages of physical memory.
+ * @objp:       Pointer to returned vmm_obj (untouched if return code is not 0).
+ * @ref:        Reference to add to *@objp (untouched if return code is not 0).
+ * @count:      Number of pages to allocate. Must be greater than 0.
+ * @flags:      Bitmask to optionally restrict allocation to areas that are
+ *              already mapped in the kernel, PMM_ALLOC_FLAG_KMAP (e.g for
+ *              kernel heap and page tables) and/or to allocate a single
+ *              physically contiguous range, PMM_ALLOC_FLAG_CONTIGUOUS.
+ * @align_log2: Alignment needed for contiguous allocation, 0 otherwise.
+ *
+ * Allocate and initialize a vmm_obj that tracks the allocated pages.
+ *
+ * Return: 0 on success, ERR_NO_MEMORY if there is not enough memory free to
+ *         allocate the vmm_obj or the requested page count.
  */
-size_t pmm_alloc_pages(uint count, struct list_node *list);
+status_t pmm_alloc(struct vmm_obj **objp, obj_ref_t* ref, uint count,
+                   uint32_t flags, uint8_t align_log2);
 
 /* Allocate a specific range of physical pages, adding to the tail of the passed list.
  * The list must be initialized.
@@ -230,7 +243,6 @@ typedef struct vmm_region {
 
     struct vmm_obj *obj;
     struct obj_ref obj_ref;
-    struct list_node page_list;
 } vmm_region_t;
 
 #define VMM_REGION_FLAG_RESERVED 0x1

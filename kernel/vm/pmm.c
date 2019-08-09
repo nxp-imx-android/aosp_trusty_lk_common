@@ -35,6 +35,19 @@
 
 #define LOCAL_TRACE 0
 
+struct pmm_vmm_obj {
+    struct vmm_obj vmm_obj;
+    struct list_node page_list;
+    size_t chunk_count;
+    size_t chunk_size;
+    struct vm_page *chunk[];
+};
+
+static inline struct pmm_vmm_obj* vmm_obj_to_pmm_obj(struct vmm_obj *vmm_obj)
+{
+    return containerof(vmm_obj, struct pmm_vmm_obj, vmm_obj);
+}
+
 static struct list_node arena_list = LIST_INITIAL_VALUE(arena_list);
 static mutex_t lock = MUTEX_INITIAL_VALUE(lock);
 
@@ -140,6 +153,69 @@ done_add:
     }
 
     return NO_ERROR;
+}
+
+static int pmm_vmm_obj_check_flags(struct vmm_obj *obj, uint *arch_mmu_flags)
+{
+    return 0; /* Allow any flags for now */
+}
+
+static int pmm_vmm_obj_get_page(struct vmm_obj *obj, size_t offset,
+                                paddr_t *paddr, size_t *paddr_size)
+{
+    struct pmm_vmm_obj *pmm_obj = vmm_obj_to_pmm_obj(obj);
+    size_t index;
+    size_t chunk_offset;
+
+    if (!IS_PAGE_ALIGNED(offset)) {
+        TRACEF("invalid offset %zd\n", offset);
+        return ERR_INVALID_ARGS;
+    }
+
+    index = offset / pmm_obj->chunk_size;
+    chunk_offset = offset % pmm_obj->chunk_size;
+
+    if (index >= pmm_obj->chunk_count) {
+        return ERR_OUT_OF_RANGE;
+    }
+    *paddr = vm_page_to_paddr(pmm_obj->chunk[index]) + chunk_offset;
+    *paddr_size = pmm_obj->chunk_size - chunk_offset;
+    return 0;
+}
+
+static void pmm_vmm_obj_destroy(struct vmm_obj *obj)
+{
+    struct pmm_vmm_obj *pmm_obj = vmm_obj_to_pmm_obj(obj);
+
+    pmm_free(&pmm_obj->page_list);
+    free(pmm_obj);
+}
+
+static struct vmm_obj_ops pmm_vmm_obj_ops = {
+    .check_flags = pmm_vmm_obj_check_flags,
+    .get_page = pmm_vmm_obj_get_page,
+    .destroy = pmm_vmm_obj_destroy,
+};
+
+static struct pmm_vmm_obj *pmm_alloc_obj(size_t chunk_count, size_t chunk_size)
+{
+    struct pmm_vmm_obj *pmm_obj;
+
+    DEBUG_ASSERT(chunk_size % PAGE_SIZE == 0);
+
+    if (chunk_count == 0)
+        return NULL;
+
+    pmm_obj = calloc(
+            1, sizeof(*pmm_obj) + sizeof(pmm_obj->chunk[0]) * chunk_count);
+    if (!pmm_obj) {
+        return NULL;
+    }
+    pmm_obj->chunk_count = chunk_count;
+    pmm_obj->chunk_size = chunk_size;
+    list_initialize(&pmm_obj->page_list);
+
+    return pmm_obj;
 }
 
 static size_t pmm_arena_find_free_run(pmm_arena_t *a, uint count,
@@ -257,21 +333,46 @@ static status_t pmm_alloc_pages_locked(struct list_node *page_list,
     return 0;
 }
 
-size_t pmm_alloc_pages(uint count, struct list_node *list)
+status_t pmm_alloc(struct vmm_obj **objp, obj_ref_t* ref, uint count,
+                   uint32_t flags, uint8_t align_log2)
 {
     status_t ret;
+    struct pmm_vmm_obj *pmm_obj;
+
+    DEBUG_ASSERT(objp);
+    DEBUG_ASSERT(ref);
+    DEBUG_ASSERT(!obj_ref_active(ref));
+    DEBUG_ASSERT(count > 0);
+
     LTRACEF("count %u\n", count);
-
-    /* list must be initialized prior to calling this */
-    DEBUG_ASSERT(list);
-
-    if (count == 0)
-        return 0;
+    if (flags & PMM_ALLOC_FLAG_CONTIGUOUS) {
+        /*
+         * When allocating a physically contiguous region we don't need a
+         * pointer to every page. Allocate an object with one large page
+         * instead. This also allows the vmm to map the contiguous region more
+         * efficiently when the hardware supports it.
+         */
+        pmm_obj = pmm_alloc_obj(1, count * PAGE_SIZE);
+    } else {
+        pmm_obj = pmm_alloc_obj(count, PAGE_SIZE);
+    }
+    if (!pmm_obj) {
+        return ERR_NO_MEMORY;
+    }
 
     mutex_acquire(&lock);
-    ret = pmm_alloc_pages_locked(list, NULL, count, 0, 0);
+    ret = pmm_alloc_pages_locked(&pmm_obj->page_list, pmm_obj->chunk, count,
+                                 flags, align_log2);
     mutex_release(&lock);
-    return ret < 0 ? 0 : count;
+
+    if (ret) {
+        free(pmm_obj);
+        return ret;
+    }
+
+    vmm_obj_init(&pmm_obj->vmm_obj, ref, &pmm_vmm_obj_ops);
+    *objp = &pmm_obj->vmm_obj;
+    return 0;
 }
 
 size_t pmm_alloc_range(paddr_t address, uint count, struct list_node *list)
@@ -507,25 +608,6 @@ usage:
         pmm_arena_t *a;
         list_for_every_entry(&arena_list, a, pmm_arena_t, node) {
             dump_arena(a, false);
-        }
-    } else if (!strcmp(argv[1].str, "alloc")) {
-        if (argc < 3) goto notenoughargs;
-
-        struct list_node list;
-        list_initialize(&list);
-
-        uint count = pmm_alloc_pages(argv[2].u, &list);
-        printf("alloc returns %u\n", count);
-
-        vm_page_t *p;
-        list_for_every_entry(&list, p, vm_page_t, node) {
-            printf("\tpage %p, address 0x%lx\n", p, vm_page_to_paddr(p));
-        }
-
-        /* add the pages to the local allocated list */
-        struct list_node *node;
-        while ((node = list_remove_head(&list))) {
-            list_add_tail(&allocated, node);
         }
     } else if (!strcmp(argv[1].str, "dump_alloced")) {
         vm_page_t *page;
