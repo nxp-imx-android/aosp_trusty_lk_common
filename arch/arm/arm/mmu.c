@@ -581,8 +581,12 @@ int arch_mmu_map(arch_aspace_t *aspace, addr_t vaddr, paddr_t paddr, uint count,
             arm_mmu_map_section(aspace, paddr, vaddr, arch_flags);
             count -= SECTION_SIZE / PAGE_SIZE;
             mapped += SECTION_SIZE / PAGE_SIZE;
-            vaddr += SECTION_SIZE;
-            paddr += SECTION_SIZE;
+            if (__builtin_add_overflow(vaddr, SECTION_SIZE, &vaddr)) {
+                ASSERT(!count);
+            }
+            if (__builtin_add_overflow(paddr, SECTION_SIZE, &paddr)) {
+                ASSERT(!count);
+            }
         } else {
             /* will have to use a L2 mapping */
             uint l1_index = vaddr / SECTION_SIZE;
@@ -623,8 +627,12 @@ int arch_mmu_map(arch_aspace_t *aspace, addr_t vaddr, paddr_t paddr, uint count,
                         l2_table[l2_index++] = paddr | arch_flags;
                         count--;
                         mapped++;
-                        vaddr += PAGE_SIZE;
-                        paddr += PAGE_SIZE;
+                        if (__builtin_add_overflow(vaddr, PAGE_SIZE, &vaddr)) {
+                            ASSERT(!count);
+                        }
+                        if (__builtin_add_overflow(paddr, PAGE_SIZE, &paddr)) {
+                            ASSERT(!count);
+                        }
                     } while (count && (l2_index != (SECTION_SIZE / PAGE_SIZE)));
                     break;
                 }
@@ -668,8 +676,11 @@ int arch_mmu_unmap(arch_aspace_t *aspace, vaddr_t vaddr, uint count)
             case MMU_MEMORY_L1_DESCRIPTOR_INVALID: {
                 /* this top level page is not mapped, move on to the next one */
                 uint page_cnt = MIN((SECTION_SIZE - (vaddr % SECTION_SIZE)) / PAGE_SIZE, count);
-                vaddr += page_cnt * PAGE_SIZE;
                 count -= page_cnt;
+                if (__builtin_add_overflow(vaddr, page_cnt * PAGE_SIZE,
+                                           &vaddr)) {
+                    ASSERT(!count);
+                }
                 break;
             }
             case MMU_MEMORY_L1_DESCRIPTOR_SECTION:
@@ -678,9 +689,11 @@ int arch_mmu_unmap(arch_aspace_t *aspace, vaddr_t vaddr, uint count)
                     // XXX test for supersection
                     arm_mmu_unmap_section(aspace, vaddr);
 
-                    vaddr += SECTION_SIZE;
                     count -= SECTION_SIZE / PAGE_SIZE;
                     unmapped += SECTION_SIZE / PAGE_SIZE;
+                    if (__builtin_add_overflow(vaddr, SECTION_SIZE, &vaddr)) {
+                        ASSERT(!count);
+                    }
                 } else {
                     // XXX handle unmapping just part of a section
                     // will need to convert to a L2 table and then unmap the parts we are asked to
@@ -701,7 +714,10 @@ int arch_mmu_unmap(arch_aspace_t *aspace, vaddr_t vaddr, uint count)
                 /* invalidate tlb */
                 for (uint i = 0; i < page_cnt; i++) {
                     arm_invalidate_tlb_mva_no_barrier(vaddr);
-                    vaddr += PAGE_SIZE;
+                    if (__builtin_add_overflow(vaddr, PAGE_SIZE, &vaddr)) {
+                        ASSERT(i == page_cnt - 1);
+                        ASSERT(count - page_cnt == 0);
+                    }
                 }
                 count -= page_cnt;
                 unmapped += page_cnt;

@@ -161,7 +161,7 @@ static status_t add_region_to_aspace(vmm_aspace_t* aspace, vmm_region_t* r) {
         return ERR_OUT_OF_RANGE;
     }
 
-    vaddr_t r_end = r->base + r->size - 1;
+    vaddr_t r_end = r->base + (r->size - 1);
 
     /* does it fit in front */
     vmm_region_t* last;
@@ -175,7 +175,7 @@ static status_t add_region_to_aspace(vmm_aspace_t* aspace, vmm_region_t* r) {
     /* walk the list, finding the right spot to put it */
     list_for_every_entry(&aspace->region_list, last, vmm_region_t, node) {
         /* does it go after last? */
-        if (r->base > last->base + last->size - 1) {
+        if (r->base > last->base + (last->size - 1)) {
             /* get the next element in the list */
             vmm_region_t* next = list_next_type(
                     &aspace->region_list, &last->node, vmm_region_t, node);
@@ -286,7 +286,10 @@ static inline bool extract_gap(vmm_aspace_t* aspace,
     DEBUG_ASSERT(aspace->size != 0);
 
     if (low) {
-        *gap_low = low->base + low->size;
+        if (__builtin_add_overflow(low->base, low->size, gap_low)) {
+            /* No valid address exists above the low region */
+            return false;
+        }
     } else {
         *gap_low = aspace->base;
     }
@@ -853,7 +856,7 @@ status_t vmm_alloc(vmm_aspace_t* aspace,
     vaddr_t va = r->base;
     DEBUG_ASSERT(IS_PAGE_ALIGNED(va));
     while ((p = list_remove_head_type(&page_list, vm_page_t, node))) {
-        DEBUG_ASSERT(va <= r->base + r->size - 1);
+        DEBUG_ASSERT(va <= r->base + (r->size - 1));
 
         paddr_t pa = vm_page_to_paddr(p);
         DEBUG_ASSERT(IS_PAGE_ALIGNED(pa));
@@ -863,7 +866,9 @@ status_t vmm_alloc(vmm_aspace_t* aspace,
 
         list_add_tail(&r->page_list, &p->node);
 
-        va += PAGE_SIZE;
+        if (__builtin_add_overflow(va, PAGE_SIZE, &va)) {
+            ASSERT(list_is_empty(&page_list));
+        }
     }
 
     mutex_release(&vmm_lock);
@@ -1071,7 +1076,7 @@ static void dump_region(const vmm_region_t* r) {
 
     printf("\tregion %p: name '%s' range 0x%lx - 0x%lx size 0x%zx flags 0x%x "
            "mmu_flags 0x%x\n",
-           r, r->name, r->base, r->base + r->size - 1, r->size, r->flags,
+           r, r->name, r->base, r->base + (r->size - 1), r->size, r->flags,
            r->arch_mmu_flags);
 }
 
@@ -1079,7 +1084,7 @@ static void dump_aspace(const vmm_aspace_t* a) {
     DEBUG_ASSERT(a);
 
     printf("aspace %p: name '%s' range 0x%lx - 0x%lx size 0x%zx flags 0x%x\n",
-           a, a->name, a->base, a->base + a->size - 1, a->size, a->flags);
+           a, a->name, a->base, a->base + (a->size - 1), a->size, a->flags);
 
     printf("regions:\n");
     vmm_region_t* r;
