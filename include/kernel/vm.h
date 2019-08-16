@@ -145,6 +145,10 @@ typedef struct pmm_arena {
 /* Add a pre-filled memory arena to the physical allocator. */
 status_t pmm_add_arena(pmm_arena_t *arena);
 
+/* Optional flags passed to future pmm_alloc function */
+#define PMM_ALLOC_FLAG_KMAP (1U << 0)
+#define PMM_ALLOC_FLAG_CONTIGUOUS (1U << 1)
+
 /* Allocate and clear count pages of physical memory, adding to the tail of the passed list.
  * The list must be initialized.
  * Returns the number of pages allocated.
