@@ -486,3 +486,116 @@ TEST(ListTest, ListLength2) {
     DefineListWith2Items(list, item1, item2);
     EXPECT_EQ(list_length(&list), 2U);
 }
+
+/* Test list splice operations */
+TEST(ListTest, ListSpliceTailBothEmpty) {
+    DefineEmptyList(list1);
+    DefineEmptyList(list2);
+    list_splice_tail(&list1, &list2);
+    CheckList(&list1);
+    CheckList(&list2);
+}
+
+TEST(ListTest, ListSpliceTailSrcEmpty) {
+    DefineListWith2Items(list1, item1, item2);
+    DefineEmptyList(list2);
+    list_splice_tail(&list1, &list2);
+    CheckList(&list1, &item1, &item2);
+    CheckList(&list2);
+}
+
+TEST(ListTest, ListSpliceTailSrc1Item) {
+    DefineListWith2Items(list1, item1, item2);
+    DefineListWith1Item(list2, item3);
+    list_splice_tail(&list1, &list2);
+    CheckList(&list1, &item1, &item2, &item3);
+    CheckList(&list2);
+}
+
+TEST(ListTest, ListSpliceTailDestEmpty) {
+    DefineEmptyList(list1);
+    DefineListWith2Items(list2, item1, item2);
+    list_splice_tail(&list1, &list2);
+    CheckList(&list1, &item1, &item2);
+    CheckList(&list2);
+}
+
+TEST(ListTest, ListSpliceTailDest1Item) {
+    DefineListWith1Item(list1, item1);
+    DefineListWith2Items(list2, item2, item3);
+    list_splice_tail(&list1, &list2);
+    CheckList(&list1, &item1, &item2, &item3);
+    CheckList(&list2);
+}
+
+TEST(ListTest, ListSpliceTail) {
+    DefineListWith2Items(list1, item1, item2);
+    DefineListWith2Items(list2, item3, item4);
+    list_splice_tail(&list1, &list2);
+    CheckList(&list1, &item1, &item2, &item3, &item4);
+    CheckList(&list2);
+}
+
+TEST(ListTest, ListSpliceHeadBothEmpty) {
+    DefineEmptyList(list1);
+    DefineEmptyList(list2);
+    list_splice_head(&list1, &list2);
+    CheckList(&list1);
+    CheckList(&list2);
+}
+
+TEST(ListTest, ListSpliceHeadSrcEmpty) {
+    DefineListWith2Items(list1, item1, item2);
+    DefineEmptyList(list2);
+    list_splice_head(&list1, &list2);
+    CheckList(&list1, &item1, &item2);
+    CheckList(&list2);
+}
+
+TEST(ListTest, ListSpliceHeadSrc1Item) {
+    DefineListWith2Items(list1, item2, item3);
+    DefineListWith1Item(list2, item1);
+    list_splice_head(&list1, &list2);
+    CheckList(&list1, &item1, &item2, &item3);
+    CheckList(&list2);
+}
+
+TEST(ListTest, ListSpliceHeadDestEmpty) {
+    DefineEmptyList(list1);
+    DefineListWith2Items(list2, item1, item2);
+    list_splice_head(&list1, &list2);
+    CheckList(&list1, &item1, &item2);
+    CheckList(&list2);
+}
+
+TEST(ListTest, ListSpliceHeadDest1Item) {
+    DefineListWith1Item(list1, item3);
+    DefineListWith2Items(list2, item1, item2);
+    list_splice_head(&list1, &list2);
+    CheckList(&list1, &item1, &item2, &item3);
+    CheckList(&list2);
+}
+
+TEST(ListTest, ListSpliceHead) {
+    DefineListWith2Items(list1, item3, item4);
+    DefineListWith2Items(list2, item1, item2);
+    list_splice_head(&list1, &list2);
+    CheckList(&list1, &item1, &item2, &item3, &item4);
+    CheckList(&list2);
+}
+
+TEST(ListTest, ListSpliceAfter) {
+    DefineListWith2Items(list1, item1, item4);
+    DefineListWith2Items(list2, item2, item3);
+    list_splice_after(&item1, &list2);
+    CheckList(&list1, &item1, &item2, &item3, &item4);
+    CheckList(&list2);
+}
+
+TEST(ListTest, ListSpliceBefore) {
+    DefineListWith2Items(list1, item1, item4);
+    DefineListWith2Items(list2, item2, item3);
+    list_splice_before(&item4, &list2);
+    CheckList(&list1, &item1, &item2, &item3, &item4);
+    CheckList(&list2);
+}

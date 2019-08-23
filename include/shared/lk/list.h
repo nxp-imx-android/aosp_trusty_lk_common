@@ -290,6 +290,81 @@ static inline size_t list_length(struct list_node *list)
     return cnt;
 }
 
+/**
+ * list_splice_after - Move all entries from one list to another list.
+ * @dest_item:  Items from @src_list are inserted after this item.
+ * @src_list:   List containing items to be moved.
+ *
+ * This function also serves as the helper function for list_splice_before,
+ * list_splice_head and list_splice_tail. In this case @dest_item can be the
+ * list node instead of an item in the list.
+ *
+ * Empty source and destination lists are both supported. The destination list
+ * or item should not be in the source list.
+ */
+static inline void list_splice_after(struct list_node *dest_item,
+                                     struct list_node *src_list)
+{
+    /*
+     * We need to read prev from @src_list before writing to src_next->prev in
+     * case @src_list is empty (src_next->prev and src_list->prev are the same
+     * in that case).
+     */
+    struct list_node *src_next = src_list->next;
+    struct list_node *src_prev = src_list->prev;
+
+    /*
+     * Link to @dest_item at the start of &src_list and &dest_item->next at the
+     * end of @src_list. If src_list is empty, this will stash the existing
+     * @dest_item and @dest_item->next values into the head of source_list.
+     */
+    src_next->prev = dest_item;
+    src_prev->next = dest_item->next;
+
+    /*
+     * List @src_list after @dest_item. If @src_list was empty this is a nop as
+     * we are reading back the same values we stored.
+     */
+    dest_item->next->prev = src_list->prev;
+    dest_item->next = src_list->next;
+
+    /* Clear &src_list so we don't leave it in a corrupt state */
+    list_initialize(src_list);
+}
+
+/**
+ * list_splice_before - Move all entries from one list to another list.
+ * @dest_item:  Items from @src_list are inserted before this item.
+ * @src_list:   List containing times to be moved.
+ */
+static inline void list_splice_before(struct list_node *dest_item,
+                                      struct list_node *src_list)
+{
+    list_splice_after(dest_item->prev, src_list);
+}
+
+/**
+ * list_splice_head - Move all entries from one list to another list.
+ * @dest_list:  Items from @src_list are inserted at the head of this list.
+ * @src_list:   List containing times to be moved.
+ */
+static inline void list_splice_head(struct list_node *dest_list,
+                                    struct list_node *src_list)
+{
+    list_splice_after(dest_list, src_list);
+}
+
+/**
+ * list_splice_tail - Move all entries from one list to another list.
+ * @dest_list:  Items from @src_list are inserted at the tail of this list.
+ * @src_list:   List containing times to be moved.
+ */
+static inline void list_splice_tail(struct list_node *dest_list,
+                                    struct list_node *src_list)
+{
+    list_splice_after(dest_list->prev, src_list);
+}
+
 __END_CDECLS;
 
 #endif
