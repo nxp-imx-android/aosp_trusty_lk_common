@@ -27,6 +27,8 @@
 #include <string.h>
 #include <sys/types.h>
 
+#include <lk/compiler.h>
+
 int
 memcmp(const void *cs, const void *ct, size_t count)
 {
@@ -38,3 +40,10 @@ memcmp(const void *cs, const void *ct, size_t count)
             break;
     return res;
 }
+
+/*
+ * Any compliant memcmp implementation is a bcmp implementation. Modern clang
+ * sometimes generates bcmp calls, and we do not have a specialized bcmp
+ * implementation.
+ */
+int bcmp(const void *cs, const void *ct, size_t count) __WEAK_ALIAS("memcmp");
