@@ -641,6 +641,7 @@ status_t vmm_alloc_physical_etc(vmm_aspace_t* aspace,
             arch_mmu_flags);
 
     DEBUG_ASSERT(aspace);
+    DEBUG_ASSERT(ptr);
     for (i = 0; i < paddr_count; i++) {
         DEBUG_ASSERT(IS_PAGE_ALIGNED(paddr[i]));
     }
@@ -659,14 +660,14 @@ status_t vmm_alloc_physical_etc(vmm_aspace_t* aspace,
     if (!IS_PAGE_ALIGNED(paddr[0]) || !IS_PAGE_ALIGNED(page_size))
         return ERR_INVALID_ARGS;
 
+    if (!ptr) {
+        return ERR_INVALID_ARGS;
+    }
+
     vaddr_t vaddr = 0;
 
     /* if they're asking for a specific spot, copy the address */
     if (vmm_flags & VMM_FLAG_VALLOC_SPECIFIC) {
-        /* can't ask for a specific spot and then not provide one */
-        if (!ptr) {
-            return ERR_INVALID_ARGS;
-        }
         vaddr = (vaddr_t)*ptr;
     }
 
@@ -681,9 +682,8 @@ status_t vmm_alloc_physical_etc(vmm_aspace_t* aspace,
         goto err_alloc_region;
     }
 
-    /* return the vaddr if requested */
-    if (ptr)
-        *ptr = (void*)r->base;
+    /* return the vaddr */
+    *ptr = (void*)r->base;
 
     /* map all of the pages */
     for (i = 0; i < paddr_count; i++) {
@@ -714,10 +714,15 @@ status_t vmm_alloc_contiguous(vmm_aspace_t* aspace,
             arch_mmu_flags);
 
     DEBUG_ASSERT(aspace);
+    DEBUG_ASSERT(ptr);
 
     size = round_up(size, PAGE_SIZE);
     if (size == 0)
         return ERR_INVALID_ARGS;
+
+    if (!ptr) {
+        return ERR_INVALID_ARGS;
+    }
 
     if (!name)
         name = "";
@@ -726,11 +731,6 @@ status_t vmm_alloc_contiguous(vmm_aspace_t* aspace,
 
     /* if they're asking for a specific spot, copy the address */
     if (vmm_flags & VMM_FLAG_VALLOC_SPECIFIC) {
-        /* can't ask for a specific spot and then not provide one */
-        if (!ptr) {
-            err = ERR_INVALID_ARGS;
-            goto err;
-        }
         vaddr = (vaddr_t)*ptr;
     }
 
@@ -760,9 +760,8 @@ status_t vmm_alloc_contiguous(vmm_aspace_t* aspace,
         goto err1;
     }
 
-    /* return the vaddr if requested */
-    if (ptr)
-        *ptr = (void*)r->base;
+    /* return the vaddr */
+    *ptr = (void*)r->base;
 
     /* map all of the pages */
     arch_mmu_map(&aspace->arch_aspace, r->base, pa, size / PAGE_SIZE,
@@ -799,10 +798,15 @@ status_t vmm_alloc(vmm_aspace_t* aspace,
             arch_mmu_flags);
 
     DEBUG_ASSERT(aspace);
+    DEBUG_ASSERT(ptr);
 
     size = round_up(size, PAGE_SIZE);
     if (size == 0)
         return ERR_INVALID_ARGS;
+
+    if (!ptr) {
+        return ERR_INVALID_ARGS;
+    }
 
     if (!name)
         name = "";
@@ -811,11 +815,6 @@ status_t vmm_alloc(vmm_aspace_t* aspace,
 
     /* if they're asking for a specific spot, copy the address */
     if (vmm_flags & VMM_FLAG_VALLOC_SPECIFIC) {
-        /* can't ask for a specific spot and then not provide one */
-        if (!ptr) {
-            err = ERR_INVALID_ARGS;
-            goto err;
-        }
         vaddr = (vaddr_t)*ptr;
     }
 
@@ -846,9 +845,8 @@ status_t vmm_alloc(vmm_aspace_t* aspace,
         goto err1;
     }
 
-    /* return the vaddr if requested */
-    if (ptr)
-        *ptr = (void*)r->base;
+    /* return the vaddr */
+    *ptr = (void*)r->base;
 
     /* map all of the pages */
     /* XXX use smarter algorithm that tries to build runs */
