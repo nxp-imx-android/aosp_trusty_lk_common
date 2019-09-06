@@ -20,5 +20,6 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-include external/lk/hosttests/kerneltests-inc.mk
-include external/lk/lib/kerneltests-inc.mk
+MODULES += \
+	$(GET_LOCAL_DIR)/binary_search_tree/hosttest \
+

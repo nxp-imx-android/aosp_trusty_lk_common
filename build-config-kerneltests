@@ -15,5 +15,6 @@
 # This file lists kernel tests
 
 [
+    hosttest("binary_search_tree_test"),
     hosttest("list_test"),
 ]

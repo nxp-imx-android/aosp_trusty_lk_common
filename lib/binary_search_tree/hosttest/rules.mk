@@ -1,3 +1,4 @@
+#
 # Copyright (c) 2019 LK Trusty Authors. All Rights Reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining
@@ -20,5 +21,25 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-include external/lk/hosttests/kerneltests-inc.mk
-include external/lk/lib/kerneltests-inc.mk
+LOCAL_DIR := $(GET_LOCAL_DIR)
+
+HOST_TEST := binary_search_tree_test
+
+GTEST_DIR := external/googletest/googletest
+
+HOST_SRCS := \
+        $(LOCAL_DIR)/binary_search_tree_test.cpp \
+        $(LOCAL_DIR)/../binary_search_tree.c \
+        $(GTEST_DIR)/src/gtest-all.cc \
+        $(GTEST_DIR)/src/gtest_main.cc \
+
+HOST_INCLUDE_DIRS := \
+        $(LOCAL_DIR)/../include \
+        $(GTEST_DIR)/include \
+        $(GTEST_DIR) \
+
+HOST_LIBS := \
+        stdc++ \
+        pthread \
+
+include make/host_test.mk
