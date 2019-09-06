@@ -556,6 +556,10 @@ int arch_mmu_map(arch_aspace_t *aspace, vaddr_t vaddr, paddr_t paddr, uint count
     if (!IS_PAGE_ALIGNED(vaddr) || !IS_PAGE_ALIGNED(paddr))
         return ERR_INVALID_ARGS;
 
+    if (paddr & ~MMU_PTE_OUTPUT_ADDR_MASK) {
+        return ERR_INVALID_ARGS;
+    }
+
     if (count == 0)
         return NO_ERROR;
 
