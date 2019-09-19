@@ -53,6 +53,7 @@
 #include <arch.h>
 #include <arch/mmu.h>
 #include <kernel/vm_obj.h>
+#include <lib/binary_search_tree.h>
 #include <lk/reflist.h>
 
 __BEGIN_CDECLS
@@ -224,7 +225,7 @@ typedef struct vmm_aspace {
     vaddr_t base;
     size_t  size;
 
-    struct list_node region_list;
+    struct bst_root regions;
 
     arch_aspace_t arch_aspace;
 } vmm_aspace_t;
@@ -232,7 +233,7 @@ typedef struct vmm_aspace {
 #define VMM_ASPACE_FLAG_KERNEL 0x1
 
 typedef struct vmm_region {
-    struct list_node node;
+    struct bst_node node;
     char name[32];
 
     uint flags;

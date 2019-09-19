@@ -9,4 +9,7 @@ MODULE_SRCS += \
 	$(LOCAL_DIR)/vm.c \
 	$(LOCAL_DIR)/vmm.c \
 
+MODULE_DEPS += \
+	lib/binary_search_tree \
+
 include make/module.mk

@@ -47,7 +47,7 @@ void vmm_init_preheap(void) {
     _kernel_aspace.base = KERNEL_ASPACE_BASE;
     _kernel_aspace.size = KERNEL_ASPACE_SIZE;
     _kernel_aspace.flags = VMM_ASPACE_FLAG_KERNEL;
-    list_initialize(&_kernel_aspace.region_list);
+    bst_root_initialize(&_kernel_aspace.regions);
 
     arch_mmu_init_aspace(&_kernel_aspace.arch_aspace, KERNEL_ASPACE_BASE,
                          KERNEL_ASPACE_SIZE, ARCH_ASPACE_FLAG_KERNEL);
@@ -146,6 +146,20 @@ static vmm_region_t* alloc_region_struct(const char* name,
     return r;
 }
 
+/* Match any region that overlap */
+static int vmm_region_cmp(struct bst_node *_a, struct bst_node *_b) {
+    vmm_region_t *a = containerof(_a, vmm_region_t, node);
+    vmm_region_t *b = containerof(_b, vmm_region_t, node);
+
+    if ((b->base > a->base + (a->size - 1))) {
+        return 1;
+    }
+    if ((a->base > b->base + (b->size - 1))) {
+        return -1;
+    }
+    return 0;
+}
+
 /* add a region to the appropriate spot in the address space list,
  * testing to see if there's a space */
 static status_t add_region_to_aspace(vmm_aspace_t* aspace, vmm_region_t* r) {
@@ -161,30 +175,8 @@ static status_t add_region_to_aspace(vmm_aspace_t* aspace, vmm_region_t* r) {
         return ERR_OUT_OF_RANGE;
     }
 
-    vaddr_t r_end = r->base + (r->size - 1);
-
-    /* does it fit in front */
-    vmm_region_t* last;
-    last = list_peek_head_type(&aspace->region_list, vmm_region_t, node);
-    if (!last || r_end < last->base) {
-        /* empty list or not empty and fits before the first element */
-        list_add_head(&aspace->region_list, &r->node);
+    if (bst_insert(&aspace->regions, &r->node, vmm_region_cmp)) {
         return NO_ERROR;
-    }
-
-    /* walk the list, finding the right spot to put it */
-    list_for_every_entry(&aspace->region_list, last, vmm_region_t, node) {
-        /* does it go after last? */
-        if (r->base > last->base + (last->size - 1)) {
-            /* get the next element in the list */
-            vmm_region_t* next = list_next_type(
-                    &aspace->region_list, &last->node, vmm_region_t, node);
-            if (!next || (r_end < next->base)) {
-                /* end of the list or next exists and it goes between them */
-                list_add_after(&last->node, &r->node);
-                return NO_ERROR;
-            }
-        }
     }
 
     LTRACEF("couldn't find spot\n");
@@ -441,12 +433,6 @@ static inline vaddr_t spot_in_gap(vmm_aspace_t* aspace,
  * @size:           How large of a spot is required
  * @align_pow2:     Alignment requirements for the gap in bits
  * @arch_mmu_flags: Architecture-specifc MMU flags (RWX etc)
- * @before:         Optional pointer to record the list node which occurred
- *                  prior to the spot we are returning to make list insertion
- *                  easier. If null, no write will occur. If the insertion is
- *                  at the beginning of the address space, the list header
- *                  will be written. This output is only valid if a value
- *                  other than -1 was returned.
  *
  * Finds a space in the virtual memory space which is currently unoccupied,
  * is legal to map according to the MMU, is at least as large as @size,
@@ -465,8 +451,7 @@ static inline vaddr_t spot_in_gap(vmm_aspace_t* aspace,
 static vaddr_t alloc_spot(vmm_aspace_t* aspace,
                           size_t size,
                           uint8_t align_pow2,
-                          uint arch_mmu_flags,
-                          struct list_node** before) {
+                          uint arch_mmu_flags) {
     DEBUG_ASSERT(aspace);
     DEBUG_ASSERT(size > 0 && IS_PAGE_ALIGNED(size));
 
@@ -480,9 +465,14 @@ static vaddr_t alloc_spot(vmm_aspace_t* aspace,
     vmm_region_t* left = NULL;
     vmm_region_t* right;
 
+    /*
+     * TODO: When ASLR is enabled, pick a random address and check if it is
+     * available with bst_search before falling back to examine every region.
+     */
+
     /* Figure out how many options we have to size randomness appropriately */
     size_t choices = 0;
-    list_for_every_entry(&aspace->region_list, right, vmm_region_t, node) {
+    bst_for_every_entry(&aspace->regions, right, vmm_region_t, node) {
         choices += scan_gap(aspace, left, right, align, size, arch_mmu_flags);
         left = right;
     }
@@ -505,7 +495,7 @@ static vaddr_t alloc_spot(vmm_aspace_t* aspace,
     size_t index = 0;
 #endif
     left = NULL;
-    list_for_every_entry(&aspace->region_list, right, vmm_region_t, node) {
+    bst_for_every_entry(&aspace->regions, right, vmm_region_t, node) {
         size_t local_spots =
                 scan_gap(aspace, left, right, align, size, arch_mmu_flags);
         if (local_spots > index) {
@@ -521,14 +511,12 @@ static vaddr_t alloc_spot(vmm_aspace_t* aspace,
     spot = spot_in_gap(aspace, left, right, align, size, arch_mmu_flags, index);
 
 done:
-    if (before)
-        *before = left ? &left->node : &aspace->region_list;
     return spot;
 }
 
 bool vmm_find_spot(vmm_aspace_t* aspace, size_t size, vaddr_t* out) {
     mutex_acquire(&vmm_lock);
-    *out = alloc_spot(aspace, size, PAGE_SIZE_SHIFT, 0, NULL);
+    *out = alloc_spot(aspace, size, PAGE_SIZE_SHIFT, 0);
     mutex_release(&vmm_lock);
     return *out != (vaddr_t)(-1);
 }
@@ -558,10 +546,8 @@ static vmm_region_t* alloc_region(vmm_aspace_t* aspace,
         }
     } else {
         /* allocate a virtual slot for it */
-        struct list_node* before = NULL;
-
-        vaddr = alloc_spot(aspace, size, align_pow2, arch_mmu_flags, &before);
-        LTRACEF("alloc_spot returns 0x%lx, before %p\n", vaddr, before);
+        vaddr = alloc_spot(aspace, size, align_pow2, arch_mmu_flags);
+        LTRACEF("alloc_spot returns 0x%lx\n", vaddr);
 
         if (vaddr == (vaddr_t)-1) {
             LTRACEF("failed to find spot\n");
@@ -569,12 +555,10 @@ static vmm_region_t* alloc_region(vmm_aspace_t* aspace,
             return NULL;
         }
 
-        DEBUG_ASSERT(before != NULL);
-
         r->base = (vaddr_t)vaddr;
 
         /* add it to the region list */
-        list_add_after(before, &r->node);
+        ASSERT(bst_insert(&aspace->regions, &r->node, vmm_region_cmp));
     }
 
     return r;
@@ -747,7 +731,7 @@ status_t vmm_alloc_obj(vmm_aspace_t* aspace, const char* name,
     return NO_ERROR;
 
 err_map_obj:
-    list_delete(&r->node);
+    bst_delete(&aspace->regions, &r->node);
     free(r);
 err_alloc_region:
     mutex_release(&vmm_lock);
@@ -895,12 +879,16 @@ vmm_region_t* vmm_find_region(const vmm_aspace_t* aspace,
         return NULL;
 
     /* search the region list */
-    list_for_every_entry(&aspace->region_list, r, vmm_region_t, node) {
-        if (is_inside_region(r, vaddr))
-            return r;
+    vmm_region_t r_ref;
+    r_ref.base = vaddr;
+    r_ref.size = 1;
+    r = bst_search_type(&aspace->regions, &r_ref, vmm_region_cmp, vmm_region_t,
+                        node);
+    if (!r) {
+        return NULL;
     }
-
-    return NULL;
+    DEBUG_ASSERT(is_inside_region(r, vaddr));
+    return r;
 }
 
 static bool vmm_region_is_match(vmm_region_t* r,
@@ -932,7 +920,7 @@ status_t vmm_free_region_etc(vmm_aspace_t* aspace,
     }
 
     /* remove it from aspace */
-    list_delete(&r->node);
+    bst_delete(&aspace->regions, &r->node);
 
     /* unmap it */
     arch_mmu_unmap(&aspace->arch_aspace, r->base, r->size / PAGE_SIZE);
@@ -991,7 +979,7 @@ status_t vmm_create_aspace(vmm_aspace_t** _aspace,
     }
 
     list_clear_node(&aspace->node);
-    list_initialize(&aspace->region_list);
+    bst_root_initialize(&aspace->regions);
 
     mutex_acquire(&vmm_lock);
     list_add_head(&aspace_list, &aspace->node);
@@ -1014,21 +1002,22 @@ status_t vmm_free_aspace(vmm_aspace_t* aspace) {
     list_delete(&aspace->node);
 
     /* free all of the regions */
-    struct list_node region_list = LIST_INITIAL_VALUE(region_list);
 
     vmm_region_t* r;
-    while ((r = list_remove_head_type(&aspace->region_list, vmm_region_t,
-                                      node))) {
-        /* add it to our tempoary list */
-        list_add_tail(&region_list, &r->node);
-
+    bst_for_every_entry(&aspace->regions, r, vmm_region_t, node) {
         /* unmap it */
         arch_mmu_unmap(&aspace->arch_aspace, r->base, r->size / PAGE_SIZE);
+
+        /* mark it as unmapped (only used for debug assert below) */
+        r->size = 0;
     }
     mutex_release(&vmm_lock);
 
     /* without the vmm lock held, free all of the pmm pages and the structure */
-    while ((r = list_remove_head_type(&region_list, vmm_region_t, node))) {
+    bst_for_every_entry(&aspace->regions, r, vmm_region_t, node) {
+        DEBUG_ASSERT(!r->size);
+        bst_delete(&aspace->regions, &r->node);
+
         /* return physical pages or other obj if any */
         if (r->obj) {
             vmm_obj_del_ref(r->obj, &r->obj_ref);
@@ -1096,7 +1085,7 @@ static void dump_aspace(const vmm_aspace_t* a) {
 
     printf("regions:\n");
     vmm_region_t* r;
-    list_for_every_entry(&a->region_list, r, vmm_region_t, node) {
+    bst_for_every_entry(&a->regions, r, vmm_region_t, node) {
         dump_region(r);
     }
 }
