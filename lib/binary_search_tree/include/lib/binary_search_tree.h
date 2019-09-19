@@ -124,6 +124,9 @@ static inline struct bst_node *bst_search(const struct bst_root *root,
     containerof_null_safe(bst_search(root, &(item)->member, compare), type, \
                           member)
 
+/* Internal helper. Don't call directly */
+void bst_update_rank_insert(struct bst_root *root, struct bst_node *node);
+
 /**
  * bst_insert - Insert node in tree.
  * @root:       Tree.
@@ -154,6 +157,7 @@ static inline bool bst_insert(struct bst_root *root, struct bst_node *node,
             node->child[0] = NULL;
             node->child[1] = NULL;
             *parent_ptr = node;
+            bst_update_rank_insert(root, node);
             return true;
         }
         diff = compare(tree_node, node);

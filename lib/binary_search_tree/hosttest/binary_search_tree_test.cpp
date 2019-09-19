@@ -112,8 +112,13 @@ static void bst_test_check_node(struct bst_root *root, struct bst_node *node) {
     if (node->parent) {
         ASSERT_NE(root->root, node) << node << root;
         ASSERT_EQ(node->parent->child[bst_is_right_child(node)], node) << node << root;
+        ASSERT_GE(node->parent->rank, node->rank + 1) << node << root;
+        ASSERT_LE(node->parent->rank, node->rank + 2) << node << root;
     } else {
         ASSERT_EQ(root->root, node) << node << root;;
+    }
+    if (!node->child[0] && !node->child[1]) {
+        ASSERT_EQ(node->rank, 1U) << node << root;;
     }
 }
 
@@ -181,6 +186,89 @@ static void bst_test_check_tree_valid(struct bst_root *root) {
     }
 }
 
+static void bst_test_check_sub_tree(struct bst_node *subtree,
+                                    struct bst_node nodes[],
+                                    struct bst_node *parent,
+                                    const char **expected_tree,
+                                    int is_right_child);
+
+static void bst_test_check_child(struct bst_node *subtree,
+                                 struct bst_node nodes[],
+                                 const char **expected_tree,
+                                 int child) {
+    if (BstTest::GetParam()) {
+        child = !child;
+    }
+    while (isspace(**expected_tree)) {
+        (*expected_tree)++;
+    }
+
+    if (**expected_tree == '(') {
+        (*expected_tree)++;
+        bst_test_check_sub_tree(subtree->child[child], nodes, subtree,
+                                expected_tree, child);
+        if (::testing::Test::HasFatalFailure()) {
+            return;
+        }
+        ASSERT_EQ(**expected_tree, ')');
+        (*expected_tree)++;
+    } else {
+        EXPECT_EQ(subtree->child[child], nullptr);
+    }
+
+    while (isspace(**expected_tree)) {
+        (*expected_tree)++;
+    }
+}
+
+static void bst_test_check_sub_tree(struct bst_node *subtree,
+                                    struct bst_node nodes[],
+                                    struct bst_node *parent,
+                                    const char **expected_tree,
+                                    int is_right_child) {
+    size_t index;
+    size_t rank;
+
+    if (!parent && **expected_tree == '\0') {
+        return;
+    }
+    ASSERT_NE(subtree, nullptr);
+
+    bst_test_check_child(subtree, nodes, expected_tree, 0);
+    if (::testing::Test::HasFatalFailure()) {
+        return;
+    }
+
+    index = strtoul(*expected_tree, (char **)expected_tree, 0);
+    ASSERT_EQ(**expected_tree, 'r');
+    (*expected_tree)++;
+    rank = strtoul(*expected_tree, (char **)expected_tree, 0);
+
+    EXPECT_EQ(subtree, &nodes[index]);
+    EXPECT_EQ(subtree->rank, rank);
+    EXPECT_EQ(subtree->parent, parent);
+    EXPECT_EQ(bst_is_right_child(subtree), is_right_child);
+
+    bst_test_check_child(subtree, nodes, expected_tree, 1);
+    if (::testing::Test::HasFatalFailure()) {
+        return;
+    }
+}
+
+/*
+ * Check if tree has expected structure and ranks. The expected tree is
+ * described by a string, "(left child) <node index>r<rank> (right child)". For
+ * example: "((0r1) 1r2 (2r1)) 3r3 ((4r1) 5r2)".
+ */
+static void _bst_test_check_tree(struct bst_root *root, struct bst_node nodes[],
+                                 const char *expected_tree) {
+    bst_test_check_sub_tree(root->root, nodes, NULL, &expected_tree, 0);
+    EXPECT_EQ(*expected_tree, '\0');
+    if(::testing::Test::HasFailure()) {
+        bst_test_print_tree(root, nodes);
+    }
+}
+
 static void bst_test_check_array(struct bst_root *root,
                                      struct bst_node nodes[],
                                      size_t index[],
@@ -216,6 +304,12 @@ static void bst_test_check_array(struct bst_root *root,
     if (HasFatalFailure()) return; \
 } while(0)
 
+#define bst_test_check_tree(root, node, treestr) do { \
+    SCOPED_TRACE("bst_test_check_tree"); \
+    _bst_test_check_tree(root, nodes, treestr); \
+    if (HasFatalFailure()) return; \
+} while(0)
+
 static void bst_test_insert_func(struct bst_root *root, struct bst_node *node) {
     ASSERT_EQ(node->rank, 0U);
     bst_insert(root, node, bst_test_compare);
@@ -237,6 +331,16 @@ static void bst_test_insert_func(struct bst_root *root, struct bst_node *node) {
 #define bst_test_delete_check(root, nodes, insert, items...) do { \
     bst_test_delete(root, &nodes[insert]); \
     bst_test_check(root, nodes, items); \
+} while(0)
+
+#define bst_test_insert_check_tree(root, nodes, insert, treestr) do { \
+    bst_test_insert(root, &nodes[insert]); \
+    bst_test_check_tree(root, nodes, treestr); \
+} while(0)
+
+#define bst_test_delete_check_tree(root, nodes, insert, treestr) do { \
+    bst_test_delete(root, &nodes[insert]); \
+    bst_test_check_tree(root, nodes, treestr); \
 } while(0)
 
 static void bst_test_delete_func(struct bst_root *root, struct bst_node *node) {
@@ -297,6 +401,9 @@ TEST_P(BstTest, InsertAscending) {
     }
     bst_test_check_array(&root, nodes, NULL, countof(nodes), NULL, NULL);
     EXPECT_GE(bst_depth(&root), 4U); /* Minimum depth for a binary tree */
+    EXPECT_LT(bst_depth(&root), 15U); /* We should have a tree, not a list */
+    EXPECT_LE(bst_depth(&root), 8U); /* RB tree should have depth <= 8 */
+    EXPECT_LE(bst_depth(&root), 6U); /* WAVL tree should have depth <= 6 */
 }
 
 TEST_P(BstTest, InsertBalanced) {
@@ -490,6 +597,320 @@ TEST_P(BstTest, ForEveryEntryDelete) {
     EXPECT_EQ(i, countof(nodes));
 
     EXPECT_EQ(bst_next(&root, NULL), nullptr);
+}
+
+/*
+ * WAVL specific tests.
+ * Name describe non-mirrored test (/0).
+ * Swap left/right for mirrrored test run (/1).
+ */
+TEST_P(BstTest, WAVLPromoteRootInsertLeft) {
+    struct bst_root root = BST_ROOT_INITIAL_VALUE;
+    struct bst_node nodes[] = {[0 ... 1] = BST_NODE_INITIAL_VALUE};
+
+    bst_test_insert_check_tree(&root, nodes, 1, "1r1");
+    bst_test_insert_check_tree(&root, nodes, 0, "(0r1) 1r2");
+}
+
+TEST_P(BstTest, WAVLPromote2InsertLeft) {
+    struct bst_root root = BST_ROOT_INITIAL_VALUE;
+    struct bst_node nodes[] = {[0 ... 3] = BST_NODE_INITIAL_VALUE};
+
+    bst_test_insert_check_tree(&root, nodes, 2, "2r1");
+    bst_test_insert_check_tree(&root, nodes, 1, "(1r1) 2r2");
+    bst_test_insert_check_tree(&root, nodes, 3, "(1r1) 2r2 (3r1)");
+    bst_test_insert_check_tree(&root, nodes, 0, "((0r1) 1r2) 2r3 (3r1)");
+}
+
+TEST_P(BstTest, WAVLRootRotateRightNoChildNodesInsertLeft) {
+    struct bst_root root = BST_ROOT_INITIAL_VALUE;
+    struct bst_node nodes[] = {[0 ... 2] = BST_NODE_INITIAL_VALUE};
+
+    bst_test_insert_check_tree(&root, nodes, 2, "2r1");
+    bst_test_insert_check_tree(&root, nodes, 1, "(1r1) 2r2");
+
+    /*
+     *       2r2*         1r2
+     *      /            /   \
+     *    1r2      =>  0r1   2r1
+     *   /
+     * 0r1
+     */
+    bst_test_insert_check_tree(&root, nodes, 0, "(0r1) 1r2 (2r1)");
+}
+
+TEST_P(BstTest, WAVLRootRotateRightNoChildNodesInsertRight) {
+    struct bst_root root = BST_ROOT_INITIAL_VALUE;
+    struct bst_node nodes[] = {[0 ... 2] = BST_NODE_INITIAL_VALUE};
+
+    bst_test_insert_check_tree(&root, nodes, 2, "2r1");
+    bst_test_insert_check_tree(&root, nodes, 0, "(0r1) 2r2");
+
+    /*
+     *       ___2r2*         1r2
+     *      /               /   \
+     *    0r2         =>  0r1   2r1
+     *       \
+     *       1r1
+     */
+    bst_test_insert_check_tree(&root, nodes, 1, "(0r1) 1r2 (2r1)");
+}
+
+
+TEST_P(BstTest, WAVLRootRotateRightWithChildNodesInsertLeft) {
+    struct bst_root root = BST_ROOT_INITIAL_VALUE;
+    struct bst_node nodes[] = {[0 ... 5] = BST_NODE_INITIAL_VALUE};
+
+    bst_test_insert_check_tree(&root, nodes, 4, "4r1");
+    bst_test_insert_check_tree(&root, nodes, 2, "(2r1) 4r2");
+    bst_test_insert_check_tree(&root, nodes, 5, "(2r1) 4r2 (5r1)");
+    bst_test_insert_check_tree(&root, nodes, 1, "((1r1) 2r2) 4r3 (5r1)");
+    bst_test_insert_check_tree(&root, nodes, 3, "((1r1) 2r2 (3r1)) 4r3 (5r1)");
+
+    /*
+     *          ___4r3*              2r3___
+     *         /      \             /      \
+     *       2r3      5r1  =>     1r2      4r2
+     *      /   \                /        /   \
+     *    1r2   3r1            0r1      3r1   5r1
+     *   /
+     * 0r1
+     */
+    bst_test_insert_check_tree(&root, nodes, 0, "((0r1) 1r2) 2r3 ((3r1) 4r2 (5r1))");
+}
+
+TEST_P(BstTest, WAVLNonRootRotateRightWithChildNodesInsertLeft) {
+    struct bst_root root = BST_ROOT_INITIAL_VALUE;
+    struct bst_node nodes[] = {[0 ... 8] = BST_NODE_INITIAL_VALUE};
+
+    bst_test_insert_check_tree(&root, nodes, 6, "6r1");
+    bst_test_insert_check_tree(&root, nodes, 4, "(4r1) 6r2");
+    bst_test_insert_check_tree(&root, nodes, 7, "(4r1) 6r2 (7r1)");
+    bst_test_insert_check_tree(&root, nodes, 2, "((2r1) 4r2) 6r3 (7r1)");
+    bst_test_insert_check_tree(&root, nodes, 8, "((2r1) 4r2) 6r3 (7r2 (8r1))");
+    bst_test_insert_check_tree(&root, nodes, 5, "((2r1) 4r2 (5r1)) 6r3 (7r2 (8r1))");
+    bst_test_insert_check_tree(&root, nodes, 1, "(((1r1) 2r2) 4r3 (5r1)) 6r4 (7r2 (8r1))");
+    bst_test_insert_check_tree(&root, nodes, 3, "(((1r1) 2r2 (3r1)) 4r3 (5r1)) 6r4 (7r2 (8r1))");
+
+    /*
+     *                ___6r4...             _________6r4...
+     *               /                     /
+     *          ___4r3*                  2r3___
+     *         /      \                 /      \
+     *       2r3      5r1      =>     1r2      4r1
+     *      /   \                    /        /   \
+     *    1r2   3r1                0r1      3r1   5r1
+     *   /
+     * 0r1
+     */
+    bst_test_insert_check_tree(&root, nodes, 0, "(((0r1) 1r2) 2r3 ((3r1) 4r2 (5r1))) 6r4 (7r2 (8r1))");
+}
+
+TEST_P(BstTest, WAVLRotateLeftRightSimpleInsertRight) {
+    struct bst_root root = BST_ROOT_INITIAL_VALUE;
+    struct bst_node nodes[] = {[0 ... 5] = BST_NODE_INITIAL_VALUE};
+
+    bst_test_insert_check_tree(&root, nodes, 4, "4r1");
+    bst_test_insert_check_tree(&root, nodes, 1, "(1r1) 4r2");
+    bst_test_insert_check_tree(&root, nodes, 5, "(1r1) 4r2 (5r1)");
+    bst_test_insert_check_tree(&root, nodes, 0, "((0r1) 1r2) 4r3 (5r1)");
+    bst_test_insert_check_tree(&root, nodes, 2, "((0r1) 1r2 (2r1)) 4r3 (5r1)");
+
+    /*
+     *       ______4r3                 ___4r3               2r3___
+     *      /         \               /      \             /      \
+     *    1r3         5r1           2r3      5r1         1r2      4r2
+     *   /   \             =>      /   \           =>   /        /   \
+     * 0r1   2r2                 1r2   3r1            0r1      3r1   5r1
+     *          \               /
+     *          3r1           0r1
+     */
+    bst_test_insert_check_tree(&root, nodes, 3, "((0r1) 1r2) 2r3 ((3r1) 4r2 (5r1))");
+}
+
+TEST_P(BstTest, WAVLRotateRightLeftSimpleInsertLeft) {
+    struct bst_root root = BST_ROOT_INITIAL_VALUE;
+    struct bst_node nodes[] = {[0 ... 5] = BST_NODE_INITIAL_VALUE};
+
+    bst_test_insert_check_tree(&root, nodes, 1, "1r1");
+    bst_test_insert_check_tree(&root, nodes, 0, "(0r1) 1r2");
+    bst_test_insert_check_tree(&root, nodes, 4, "(0r1) 1r2 (4r1)");
+    bst_test_insert_check_tree(&root, nodes, 3, "(0r1) 1r3 ((3r1) 4r2)");
+    bst_test_insert_check_tree(&root, nodes, 5, "(0r1) 1r3 ((3r1) 4r2 (5r1))");
+
+    /*
+     *    1r3______               1r3___                     ___3r3
+     *   /         \             /      \                   /      \
+     * 0r1         4r3         0r1      3r3               1r2      4r2
+     *            /   \    =>          /   \       =>    /   \        \
+     *          3r2   5r1            2r1   4r2         0r1   2r1      5r1
+     *         /                              \
+     *       2r1                              5r1
+     */
+    bst_test_insert_check_tree(&root, nodes, 2, "((0r1) 1r2 (2r1)) 3r3 (4r2 (5r1))");
+}
+
+TEST_P(BstTest, WAVLDemoteLeaf) {
+    struct bst_root root = BST_ROOT_INITIAL_VALUE;
+    struct bst_node nodes[] = {[0 ... 1] = BST_NODE_INITIAL_VALUE};
+
+    bst_test_insert_check_tree(&root, nodes, 1, "1r1");
+    bst_test_insert_check_tree(&root, nodes, 0, "(0r1) 1r2");
+    /*
+     *    1r2      1r2*      1r1
+     *   /     =>        =>
+     * 0r1
+     */
+    bst_test_delete_check_tree(&root, nodes, 0, "1r1");
+}
+
+TEST_P(BstTest, WAVLDemoteNonLeaf) {
+    struct bst_root root = BST_ROOT_INITIAL_VALUE;
+    struct bst_node nodes[] = {[0 ... 3] = BST_NODE_INITIAL_VALUE};
+
+    bst_test_insert_check_tree(&root, nodes, 1, "1r1");
+    bst_test_insert_check_tree(&root, nodes, 0, "(0r1) 1r2");
+    bst_test_insert_check_tree(&root, nodes, 2, "(0r1) 1r2 (2r1)");
+    bst_test_insert_check_tree(&root, nodes, 3, "(0r1) 1r3 (2r2 (3r1))");
+    bst_test_delete_check_tree(&root, nodes, 3, "(0r1) 1r3 (2r1)");
+    /*
+     *    1r3         1r3         1r2
+     *   /   \    =>     \    =>     \
+     * 0r1   2r1         2r1         2r1
+     */
+    bst_test_delete_check_tree(&root, nodes, 0, "1r2 (2r1)");
+}
+
+TEST_P(BstTest, WAVLDoubleDemote) {
+    struct bst_root root = BST_ROOT_INITIAL_VALUE;
+    struct bst_node nodes[] = {[0 ... 6] = BST_NODE_INITIAL_VALUE};
+
+    bst_test_insert_check_tree(&root, nodes, 2, "2r1");
+    bst_test_insert_check_tree(&root, nodes, 1, "(1r1) 2r2");
+    bst_test_insert_check_tree(&root, nodes, 4, "(1r1) 2r2 (4r1)");
+    bst_test_insert_check_tree(&root, nodes, 0, "((0r1) 1r2) 2r3 (4r1)");
+    bst_test_insert_check_tree(&root, nodes, 3, "((0r1) 1r2) 2r3 ((3r1) 4r2)");
+    bst_test_insert_check_tree(&root, nodes, 5, "((0r1) 1r2) 2r3 ((3r1) 4r2 (5r1))");
+    bst_test_insert_check_tree(&root, nodes, 6, "((0r1) 1r2) 2r4 ((3r1) 4r3 (5r2 (6r1)))");
+    bst_test_delete_check_tree(&root, nodes, 6, "((0r1) 1r2) 2r4 ((3r1) 4r3 (5r1))");
+    /*
+     *       2r4___            2r4___               2r3___
+     *      /      \    =>    /      \       =>    /      \
+     *    1r2      4r3      1r1      4r3         1r1      4r2
+     *   /        /   \             /   \                /   \
+     * 0r1      3r1   5r1         3r1   5r1            3r1   5r1
+     */
+    bst_test_delete_check_tree(&root, nodes, 0, "(1r1) 2r3 ((3r1) 4r2 (5r1))");
+}
+
+TEST_P(BstTest, WAVLRotateNoChildrenAfterDelete) {
+    struct bst_root root = BST_ROOT_INITIAL_VALUE;
+    struct bst_node nodes[] = {[0 ... 3] = BST_NODE_INITIAL_VALUE};
+
+    bst_test_insert_check_tree(&root, nodes, 1, "1r1");
+    bst_test_insert_check_tree(&root, nodes, 0, "(0r1) 1r2");
+    bst_test_insert_check_tree(&root, nodes, 2, "(0r1) 1r2 (2r1)");
+    bst_test_insert_check_tree(&root, nodes, 3, "(0r1) 1r3 (2r2 (3r1))");
+    /*
+     *    1r3            1r3               2r3
+     *   /   \              \             /   \
+     * 0r1   2r2     =>     2r2     =>  1r1   3r1
+     *          \              \
+     *          3r1            3r1
+     *
+     * (2r2 would also be a valid wavl tree after this rotate, but that does
+     * not work in the general case where 2 could have started with a left
+     * child)
+     */
+    bst_test_delete_check_tree(&root, nodes, 0, "(1r1) 2r3 (3r1)");
+}
+
+TEST_P(BstTest, WAVLRotateWithChildren1AfterDelete) {
+    struct bst_root root = BST_ROOT_INITIAL_VALUE;
+    struct bst_node nodes[] = {[0 ... 6] = BST_NODE_INITIAL_VALUE};
+
+    bst_test_insert_check_tree(&root, nodes, 2, "2r1");
+    bst_test_insert_check_tree(&root, nodes, 1, "(1r1) 2r2");
+    bst_test_insert_check_tree(&root, nodes, 4, "(1r1) 2r2 (4r1)");
+    bst_test_insert_check_tree(&root, nodes, 0, "((0r1) 1r2) 2r3 (4r1)");
+    bst_test_insert_check_tree(&root, nodes, 3, "((0r1) 1r2) 2r3 ((3r1) 4r2)");
+    bst_test_insert_check_tree(&root, nodes, 5, "((0r1) 1r2) 2r3 ((3r1) 4r2 (5r1))");
+    bst_test_insert_check_tree(&root, nodes, 6, "((0r1) 1r2) 2r4 ((3r1) 4r3 (5r2 (6r1)))");
+    /*
+     *       2r4___                 2r4___                     ___4r4
+     *      /      \               /      \                   /      \
+     *    1r2      4r3           1r1      4r3               2r2      5r2
+     *   /        /   \      =>          /   \       =>    /   \        \
+     * 0r1      3r1   5r2              3r1   5r2         1r1   3r1      6r1
+     *                   \                      \
+     *                   6r1                    6r1
+     *
+     * (4r3/2r2 would also be a valid wavl tree after this rotate, but that does
+     * not work in the general case where 3r1 could be 3r2. 2r3 would also be
+     * valid, but since we have to demote it when it is a leaf node, the current
+     * implementation demotes it when possible)
+     */
+    bst_test_delete_check_tree(&root, nodes, 0, "((1r1) 2r2 (3r1)) 4r4 (5r2 (6r1))");
+}
+
+TEST_P(BstTest, WAVLRotateWithChildren2AfterDelete) {
+    struct bst_root root = BST_ROOT_INITIAL_VALUE;
+    struct bst_node nodes[] = {[0 ... 7] = BST_NODE_INITIAL_VALUE};
+
+    bst_test_insert_check_tree(&root, nodes, 2, "2r1");
+    bst_test_insert_check_tree(&root, nodes, 1, "(1r1) 2r2");
+    bst_test_insert_check_tree(&root, nodes, 5, "(1r1) 2r2 (5r1)");
+    bst_test_insert_check_tree(&root, nodes, 0, "((0r1) 1r2) 2r3 (5r1)");
+    bst_test_insert_check_tree(&root, nodes, 4, "((0r1) 1r2) 2r3 ((4r1) 5r2)");
+    bst_test_insert_check_tree(&root, nodes, 6, "((0r1) 1r2) 2r3 ((4r1) 5r2 (6r1))");
+    bst_test_insert_check_tree(&root, nodes, 3, "((0r1) 1r2) 2r4 (((3r1) 4r2) 5r3 (6r1))");
+    bst_test_insert_check_tree(&root, nodes, 7, "((0r1) 1r2) 2r4 (((3r1) 4r2) 5r3 (6r2 (7r1)))");
+    /*
+     *       2r4_____               2r4______                   ______5r4
+     *      /        \             /         \                 /         \
+     *    1r2         5r3         1r1         5r3             2r3___      6r2
+     *   /           /   \     =>            /   \      =>   /      \        \
+     * 0r1         4r2   6r2               4r2   6r2       1r1      4r2      7r1
+     *            /         \             /         \              /
+     *          3r1         7r1         3r1         7r1          3r1
+     */
+    bst_test_delete_check_tree(&root, nodes, 0, "((1r1) 2r3 ((3r1) 4r2)) 5r4 (6r2 (7r1))");
+}
+
+TEST_P(BstTest, WAVLDoubleRotateWithChildren2AfterDelete) {
+        /*
+         * Swap nodes @up2 and @up1 then @up2 and @down
+         * (pictured for up_was_right_child==false):
+         *
+         *         down(0)              down            up2(0)
+         *        /       \            /    \          /    \
+         *       up1(-1)   D(-3)     up2     D      up1(-2)  down(-2)
+         *      /       \            /   \          /  \     /   \
+         *     A(-3)    up2(-2)    up1    C      A(-3)  B   C     D(-3)
+         *              /   \     /   \
+         *             B     C   A(-3) B
+         */
+    struct bst_root root = BST_ROOT_INITIAL_VALUE;
+    struct bst_node nodes[] = {[0 ... 7] = BST_NODE_INITIAL_VALUE};
+
+    bst_test_insert_check_tree(&root, nodes, 2, "2r1");
+    bst_test_insert_check_tree(&root, nodes, 1, "(1r1) 2r2");
+    bst_test_insert_check_tree(&root, nodes, 6, "(1r1) 2r2 (6r1)");
+    bst_test_insert_check_tree(&root, nodes, 0, "((0r1) 1r2) 2r3 (6r1)");
+    bst_test_insert_check_tree(&root, nodes, 4, "((0r1) 1r2) 2r3 ((4r1) 6r2)");
+    bst_test_insert_check_tree(&root, nodes, 7, "((0r1) 1r2) 2r3 ((4r1) 6r2 (7r1))");
+    bst_test_insert_check_tree(&root, nodes, 3, "((0r1) 1r2) 2r4 (((3r1) 4r2) 6r3 (7r1))");
+    bst_test_insert_check_tree(&root, nodes, 5, "((0r1) 1r2) 2r4 (((3r1) 4r2 (5r1)) 6r3 (7r1))");
+    /*
+     *    2r4_________             2r4___                     ___4r4___
+     *   /            \           /      \                   /         \
+     * 1r1         ___6r3       1r1      4r3___            2r2         6r2
+     *            /      \   =>         /      \     =>   /   \       /   \
+     *          4r2      7r1          3r1      6r2      1r1   3r1   5r1   7r1
+     *         /   \                          /   \
+     *       3r1   5r1                      5r1   7r1
+     */
+    bst_test_delete_check_tree(&root, nodes, 0, "((1r1) 2r2 (3r1)) 4r4 ((5r1) 6r2 (7r1))");
 }
 
 TEST_P(BstTest, RandomInsert) {
