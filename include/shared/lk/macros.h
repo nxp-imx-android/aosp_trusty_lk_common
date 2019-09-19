@@ -49,5 +49,15 @@ static inline uintptr_t align(uintptr_t ptr, size_t alignment) {
 #define containerof(ptr, type, member) \
     ((type *)((uintptr_t)(ptr) - offsetof(type, member)))
 
+#define containerof_null_safe(ptr, type, member) ({ \
+    __typeof__(ptr) __ptr = ptr;\
+    type *__t;\
+    if(__ptr)\
+        __t = containerof(__ptr, type, member);\
+    else\
+        __t = (type *)0;\
+    __t;\
+})
+
 #endif
 

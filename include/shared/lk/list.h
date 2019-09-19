@@ -95,15 +95,8 @@ static inline struct list_node *list_remove_head(struct list_node *list)
     }
 }
 
-#define list_remove_head_type(list, type, element) ({\
-    struct list_node *__nod = list_remove_head(list);\
-    type *__t;\
-    if(__nod)\
-        __t = containerof(__nod, type, element);\
-    else\
-        __t = (type *)0;\
-    __t;\
-})
+#define list_remove_head_type(list, type, element) \
+    containerof_null_safe(list_remove_head(list), type, element)
 
 static inline struct list_node *list_remove_tail(struct list_node *list)
 {
@@ -116,15 +109,8 @@ static inline struct list_node *list_remove_tail(struct list_node *list)
     }
 }
 
-#define list_remove_tail_type(list, type, element) ({\
-    struct list_node *__nod = list_remove_tail(list);\
-    type *__t;\
-    if(__nod)\
-        __t = containerof(__nod, type, element);\
-    else\
-        __t = (type *)0;\
-    __t;\
-})
+#define list_remove_tail_type(list, type, element) \
+    containerof_null_safe(list_remove_tail(list), type, element)
 
 static inline struct list_node *list_peek_head(struct list_node *list)
 {
@@ -135,15 +121,8 @@ static inline struct list_node *list_peek_head(struct list_node *list)
     }
 }
 
-#define list_peek_head_type(list, type, element) ({\
-    struct list_node *__nod = list_peek_head(list);\
-    type *__t;\
-    if(__nod)\
-        __t = containerof(__nod, type, element);\
-    else\
-        __t = (type *)0;\
-    __t;\
-})
+#define list_peek_head_type(list, type, element) \
+    containerof_null_safe(list_peek_head(list), type, element)
 
 static inline struct list_node *list_peek_tail(struct list_node *list)
 {
@@ -154,15 +133,8 @@ static inline struct list_node *list_peek_tail(struct list_node *list)
     }
 }
 
-#define list_peek_tail_type(list, type, element) ({\
-    struct list_node *__nod = list_peek_tail(list);\
-    type *__t;\
-    if(__nod)\
-        __t = containerof(__nod, type, element);\
-    else\
-        __t = (type *)0;\
-    __t;\
-})
+#define list_peek_tail_type(list, type, element) \
+    containerof_null_safe(list_peek_tail(list), type, element)
 
 static inline struct list_node *list_prev(struct list_node *list, struct list_node *item)
 {
@@ -172,15 +144,8 @@ static inline struct list_node *list_prev(struct list_node *list, struct list_no
         return NULL;
 }
 
-#define list_prev_type(list, item, type, element) ({\
-    struct list_node *__nod = list_prev(list, item);\
-    type *__t;\
-    if(__nod)\
-        __t = containerof(__nod, type, element);\
-    else\
-        __t = (type *)0;\
-    __t;\
-})
+#define list_prev_type(list, item, type, element) \
+    containerof_null_safe(list_prev(list, item), type, element)
 
 static inline struct list_node *list_prev_wrap(struct list_node *list, struct list_node *item)
 {
@@ -192,15 +157,8 @@ static inline struct list_node *list_prev_wrap(struct list_node *list, struct li
         return NULL;
 }
 
-#define list_prev_wrap_type(list, item, type, element) ({\
-    struct list_node *__nod = list_prev_wrap(list, item);\
-    type *__t;\
-    if(__nod)\
-        __t = containerof(__nod, type, element);\
-    else\
-        __t = (type *)0;\
-    __t;\
-})
+#define list_prev_wrap_type(list, item, type, element) \
+    containerof_null_safe(list_prev_wrap(list, item), type, element)
 
 static inline struct list_node *list_next(struct list_node *list, struct list_node *item)
 {
@@ -210,15 +168,8 @@ static inline struct list_node *list_next(struct list_node *list, struct list_no
         return NULL;
 }
 
-#define list_next_type(list, item, type, element) ({\
-    struct list_node *__nod = list_next(list, item);\
-    type *__t;\
-    if(__nod)\
-        __t = containerof(__nod, type, element);\
-    else\
-        __t = (type *)0;\
-    __t;\
-})
+#define list_next_type(list, item, type, element) \
+    containerof_null_safe(list_next(list, item), type, element)
 
 static inline struct list_node *list_next_wrap(struct list_node *list, struct list_node *item)
 {
@@ -230,15 +181,8 @@ static inline struct list_node *list_next_wrap(struct list_node *list, struct li
         return NULL;
 }
 
-#define list_next_wrap_type(list, item, type, element) ({\
-    struct list_node *__nod = list_next_wrap(list, item);\
-    type *__t;\
-    if(__nod)\
-        __t = containerof(__nod, type, element);\
-    else\
-        __t = (type *)0;\
-    __t;\
-})
+#define list_next_wrap_type(list, item, type, element) \
+    containerof_null_safe(list_next_wrap(list, item), type, element)
 
 // iterates over the list, node should be struct list_node*
 #define list_for_every(list, node) \
