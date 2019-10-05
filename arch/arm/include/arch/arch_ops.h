@@ -269,10 +269,10 @@ static inline uint32_t arch_cycle_count(void)
 }
 
 #if WITH_SMP && ARM_ISA_ARMV7
+extern uint arm_curr_cpu_num(void);
 static inline uint arch_curr_cpu_num(void)
 {
-    uint32_t mpidr = arm_read_mpidr();
-    return ((mpidr & ((1U << SMP_CPU_ID_BITS) - 1)) >> 8 << SMP_CPU_CLUSTER_SHIFT) | (mpidr & 0xff);
+    return arm_curr_cpu_num();
 }
 #else
 static inline uint arch_curr_cpu_num(void)

@@ -65,16 +65,16 @@ arm_reset:
     sub     r11, r11, r4
 
 #if WITH_SMP
+    /* Stash r0 as it will be clobbered by arm_curr_cpu_num */
+    mov     r5, r0
     /* figure out our cpu number */
-    mrc     p15, 0, r12, c0, c0, 5 /* read MPIDR */
-
-    /* mask off the bottom bits to test cluster number:cpu number */
-    ubfx    r12, r12, #0, #SMP_CPU_ID_BITS
-
+    bl      arm_curr_cpu_num
     /* if we're not cpu 0:0, fall into a trap and wait */
-    teq     r12, #0
-    movne   r0, r12
+    teq     r0, #0
+    /* For secondary startup, pass r0 as the cpu num arg */
     bne     arm_secondary_setup
+    /* In the main codepath, restore r0 */
+    mov     r0, r5
 #endif // WITH_SMP
 
 #if WITH_CPU_EARLY_INIT
@@ -337,8 +337,33 @@ arm_reset:
 #endif
 
 #if WITH_SMP
+/*
+ *  Decodes the CPU number out of MPIDR.
+ *  This can be overridden by the platform.
+ *  If it is, it must:
+ *  - Not assume a stack
+ *  - Not clobber r1-r3
+ *  - Otherwise follow the ARM convention
+ *    (This means you can only clobber r0 and r12)
+ *  - Return the CPU number in r0
+ *  - If the CPU number would be invalid, return SMP_MAX_CPUS
+ */
+WEAK_FUNCTION(arm_curr_cpu_num)
+    mrc     p15, 0, r0, c0, c0, 5 /* read MPIDR */
+    ubfx    r0, r0, #0, #SMP_CPU_ID_BITS
+    and     r12, r0, #0xff
+    cmp     r12, #(1 << SMP_CPU_CLUSTER_SHIFT)
+    bge     .Larm_curr_cpu_num_error
+    bic     r0, r0, #0xff
+    orr     r0, r12, r0, LSR #(8 - SMP_CPU_CLUSTER_SHIFT)
+    bx      lr
+
+.Larm_curr_cpu_num_error:
+    mov     r0, #SMP_MAX_CPUS
+    bx      lr
+
     /* secondary cpu entry point */
-    /* r0 holds cpu number */
+    /* r0 holds decoded cpu number */
     /* r11 hold phys offset */
 FUNCTION(arm_secondary_setup)
     /* all other cpus, trap and wait to be released */
@@ -349,12 +374,6 @@ FUNCTION(arm_secondary_setup)
     ldr     r12, [r12]
     cmp     r12, #0
     bne     1b
-
-    and     r1, r0, #0xff
-    cmp     r1, #(1 << SMP_CPU_CLUSTER_SHIFT)
-    bge     unsupported_cpu_trap
-    bic     r0, r0, #0xff
-    orr     r0, r1, r0, LSR #(8 - SMP_CPU_CLUSTER_SHIFT)
 
     cmp     r0, #SMP_MAX_CPUS
     bge     unsupported_cpu_trap

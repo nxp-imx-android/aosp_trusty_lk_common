@@ -23,7 +23,8 @@
 #ifndef __ASM_H
 #define __ASM_H
 
-#define FUNCTION(x) .global x; .type x,STT_FUNC; x:
+#define WEAK_FUNCTION(x) .weak x; LOCAL_FUNCTION(x)
+#define FUNCTION(x) .global x; LOCAL_FUNCTION(x)
 #define DATA(x) .global x; .type x,STT_OBJECT; x:
 
 #define LOCAL_FUNCTION(x) .type x,STT_FUNC; x:

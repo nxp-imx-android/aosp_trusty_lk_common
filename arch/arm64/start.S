@@ -56,8 +56,16 @@ arm_reset:
     add     page_table0, page_table0, #:lo12:tt_trampoline
 
 #if WITH_SMP
-    mrs     cpuid, mpidr_el1
-    ubfx    cpuid, cpuid, #0, #SMP_CPU_ID_BITS
+    /*
+     * Stash x0 as it will be clobbered
+     * We place it in size as x0 contains the size passed to the entry point.
+     */
+    mov     size, x0
+    /* Get the CPU number */
+    bl      arm64_curr_cpu_num
+    mov     cpuid, x0
+    /* Restore registers */
+    mov     x0, size
     cbnz    cpuid, .Lmmu_enable_secondary
 #endif
 
@@ -359,13 +367,30 @@ arm_reset:
     b   .
 
 #if WITH_SMP
-.Lsecondary_boot:
-    and     tmp, cpuid, #0xff
+/*
+ *  Decodes the CPU number out of MPIDR.
+ *  This can be overridden by the platform.
+ *  If it is, it must:
+ *  - Not assume a stack
+ *  - Only clobber x0, x9, x10
+ *  - Return the CPU number in x0
+ *  - If the CPU number would be invalid, return SMP_MAX_CPUS
+ */
+WEAK_FUNCTION(arm64_curr_cpu_num)
+    mrs     x0, mpidr_el1
+    ubfx    x0, x0, #0, #SMP_CPU_ID_BITS
+    and     tmp, x0, #0xff
     cmp     tmp, #(1 << SMP_CPU_CLUSTER_SHIFT)
-    bge     .Lunsupported_cpu_trap
-    bic     cpuid, cpuid, #0xff
-    orr     cpuid, tmp, cpuid, LSR #(8 - SMP_CPU_CLUSTER_SHIFT)
+    bge     .Lunsupported_cpu_num
+    bic     x0, x0, #0xff
+    orr     x0, tmp, x0, LSR #(8 - SMP_CPU_CLUSTER_SHIFT)
+    ret
 
+.Lunsupported_cpu_num:
+    mov     x0, #SMP_MAX_CPUS
+    ret
+
+.Lsecondary_boot:
     cmp     cpuid, #SMP_MAX_CPUS
     bge     .Lunsupported_cpu_trap
 
