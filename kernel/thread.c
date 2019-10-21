@@ -653,11 +653,11 @@ void thread_resched(void)
     THREAD_STATS_INC(context_switches);
 
     if (thread_is_idle(oldthread)) {
-        lk_bigtime_t now = current_time_hires();
+        lk_time_ns_t now = current_time_ns();
         thread_stats[cpu].idle_time += now - thread_stats[cpu].last_idle_timestamp;
     }
     if (thread_is_idle(newthread)) {
-        thread_stats[cpu].last_idle_timestamp = current_time_hires();
+        thread_stats[cpu].last_idle_timestamp = current_time_ns();
     }
 #endif
 

@@ -51,7 +51,7 @@ typedef uintptr_t paddr_t;
 typedef int kobj_id;
 
 typedef uint32_t lk_time_t;
-typedef unsigned long long lk_bigtime_t;
+typedef unsigned long long lk_time_ns_t;
 #define INFINITE_TIME UINT32_MAX
 
 /* The overflow here is intended to deal with timestamps near wrapping */

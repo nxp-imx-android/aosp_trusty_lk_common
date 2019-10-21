@@ -224,8 +224,8 @@ static inline __ALWAYS_INLINE uintptr_t __tls_set(uint entry, uintptr_t val)
 /* thread level statistics */
 #if THREAD_STATS
 struct thread_stats {
-    lk_bigtime_t idle_time;
-    lk_bigtime_t last_idle_timestamp;
+    lk_time_ns_t idle_time;
+    lk_time_ns_t last_idle_timestamp;
     ulong reschedules;
     ulong context_switches;
     ulong preempts;

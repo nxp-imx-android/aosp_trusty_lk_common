@@ -80,7 +80,7 @@ static int cmd_threadstats(int argc, const cmd_args *argv)
 
         printf("thread stats (cpu %d):\n", i);
         printf("\ttotal idle time: %lld\n", thread_stats[i].idle_time);
-        printf("\ttotal busy time: %lld\n", current_time_hires() - thread_stats[i].idle_time);
+        printf("\ttotal busy time: %lld\n", current_time_ns() - thread_stats[i].idle_time);
         printf("\treschedules: %lu\n", thread_stats[i].reschedules);
 #if WITH_SMP
         printf("\treschedule_ipis: %lu\n", thread_stats[i].reschedule_ipis);
@@ -99,23 +99,23 @@ static int cmd_threadstats(int argc, const cmd_args *argv)
 static enum handler_return threadload(struct timer *t, lk_time_t now, void *arg)
 {
     static struct thread_stats old_stats[SMP_MAX_CPUS];
-    static lk_bigtime_t last_idle_time[SMP_MAX_CPUS];
+    static lk_time_ns_t last_idle_time[SMP_MAX_CPUS];
 
     for (uint i = 0; i < SMP_MAX_CPUS; i++) {
         /* dont display time for inactiv cpus */
         if (!mp_is_cpu_active(i))
             continue;
 
-        lk_bigtime_t idle_time = thread_stats[i].idle_time;
+        lk_time_ns_t idle_time = thread_stats[i].idle_time;
 
         /* if the cpu is currently idle, add the time since it went idle up until now to the idle counter */
         bool is_idle = !!mp_is_cpu_idle(i);
         if (is_idle) {
-            idle_time += current_time_hires() - thread_stats[i].last_idle_timestamp;
+            idle_time += current_time_ns() - thread_stats[i].last_idle_timestamp;
         }
 
-        lk_bigtime_t delta_time = idle_time - last_idle_time[i];
-        lk_bigtime_t busy_time = 1000000ULL - (delta_time > 1000000ULL ? 1000000ULL : delta_time);
+        lk_time_ns_t delta_time = idle_time - last_idle_time[i];
+        lk_time_ns_t busy_time = 1000000000ULL - (delta_time > 1000000000ULL ? 1000000000ULL : delta_time);
         uint busypercent = (busy_time * 10000) / (1000000);
 
         printf("cpu %u LOAD: "

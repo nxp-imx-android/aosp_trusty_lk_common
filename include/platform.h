@@ -49,7 +49,7 @@ typedef enum {
 } platform_halt_reason;
 
 lk_time_t current_time(void);
-lk_bigtime_t current_time_hires(void);
+lk_time_ns_t current_time_ns(void);
 
 /* super early platform initialization, before almost everything */
 void platform_early_init(void);

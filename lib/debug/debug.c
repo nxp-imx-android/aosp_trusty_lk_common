@@ -34,9 +34,10 @@
 
 void spin(uint32_t usecs)
 {
-    lk_bigtime_t start = current_time_hires();
+    lk_time_ns_t nsecs = usecs * 1000ULL;
+    lk_time_ns_t start = current_time_ns();
 
-    while ((current_time_hires() - start) < usecs)
+    while ((current_time_ns() - start) < nsecs)
         ;
 }
 

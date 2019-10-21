@@ -30,7 +30,7 @@ lk_time_t current_time(void) {
     return 0;
 }
 
-lk_bigtime_t current_time_hires(void) {
+lk_time_ns_t current_time_ns(void) {
     return 0;
 }
 
