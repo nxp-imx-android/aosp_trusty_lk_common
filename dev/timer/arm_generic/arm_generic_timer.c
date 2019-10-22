@@ -250,10 +250,18 @@ static uint64_t abs_int64(int64_t a)
     return (a > 0) ? a : -a;
 }
 
+static uint64_t uint64_sub_ignore_overflow(uint64_t a, uint64_t b) {
+    uint64_t res;
+    __builtin_sub_overflow(a, b, &res);
+    return res;
+}
+
 static void test_time_conversion_check_result(uint64_t a, uint64_t b, uint64_t limit, bool is32)
 {
     if (a != b) {
-        uint64_t diff = is32 ? abs_int32(a - b) : abs_int64(a - b);
+        uint64_t a_minus_b = uint64_sub_ignore_overflow(a, b);
+        uint64_t diff = is32 ? abs_int32((int32_t)a_minus_b) :
+                               abs_int64((int64_t)a_minus_b);
         if (diff <= limit)
             LTRACEF("ROUNDED by %llu (up to %llu allowed)\n", diff, limit);
         else
@@ -282,7 +290,8 @@ static void test_cntpct_to_lk_time(uint32_t cntfrq, lk_time_t expected_lk_time, 
         cntpct += (((uint64_t)(cntfrq * wrap_count) << 32) / 1000);
     lk_time = cntpct_to_lk_time(cntpct);
 
-    test_time_conversion_check_result(lk_time, expected_lk_time, (1000 + cntfrq - 1) / cntfrq, true);
+    test_time_conversion_check_result(lk_time, expected_lk_time,
+                                      (1000ULL + cntfrq - 1) / cntfrq, true);
     LTRACEF_LEVEL(2, "cntpct_to_lk_time(%llu): got %u, expect %u\n", cntpct, lk_time, expected_lk_time);
 }
 
@@ -351,8 +360,8 @@ void arm_generic_timer_init(int irq, uint32_t freq_override)
     arm_generic_timer_init_conversion_factors(1);
     test_time_conversions(1);
     LTRACEF("Test max cntfrq\n");
-    arm_generic_timer_init_conversion_factors(~0);
-    test_time_conversions(~0);
+    arm_generic_timer_init_conversion_factors(~0U);
+    test_time_conversions(~0U);
     LTRACEF("Set actual cntfrq\n");
 #endif
     arm_generic_timer_init_conversion_factors(cntfrq);
