@@ -175,7 +175,7 @@ static inline void cpuid(uint32_t leaf,
         uint32_t *ecx,
         uint32_t *edx)
 {
-    __cpuid(leaf, *eax, *ebx, *ecx, *ebx);
+    __cpuid(leaf, *eax, *ebx, *ecx, *edx);
 }
 
 static inline void cpuid_count(uint32_t leaf,
@@ -185,7 +185,7 @@ static inline void cpuid_count(uint32_t leaf,
         uint32_t *ecx,
         uint32_t *edx)
 {
-    __cpuid_count(leaf, sub_leaf, *eax, *ebx, *ecx, *ebx);
+    __cpuid_count(leaf, sub_leaf, *eax, *ebx, *ecx, *edx);
 }
 
 static inline bool check_smep_avail(void)
