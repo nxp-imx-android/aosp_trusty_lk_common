@@ -17,4 +17,5 @@
 [
     hosttest("binary_search_tree_test"),
     hosttest("list_test"),
+    porttest("com.android.kernel.timertest"),
 ]
