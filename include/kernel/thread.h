@@ -168,7 +168,10 @@ thread_t *thread_create(const char *name, thread_start_routine entry, void *arg,
 thread_t *thread_create_etc(thread_t *t, const char *name, thread_start_routine entry, void *arg, int priority, void *stack, size_t stack_size);
 status_t thread_resume(thread_t *);
 void thread_exit(int retcode) __NO_RETURN;
-void thread_sleep(lk_time_t delay);
+void thread_sleep_ns(lk_time_ns_t delay_ns);
+static inline void thread_sleep(lk_time_t delay_ms) {
+    thread_sleep_ns(delay_ms * 1000ULL * 1000);
+}
 status_t thread_detach(thread_t *t);
 status_t thread_join(thread_t *t, int *retcode, lk_time_t timeout);
 status_t thread_detach_and_resume(thread_t *t);

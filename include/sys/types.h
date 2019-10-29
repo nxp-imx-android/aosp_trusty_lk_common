@@ -56,23 +56,23 @@ typedef unsigned long long lk_time_ns_t;
 
 /* The overflow here is intended to deal with timestamps near wrapping */
 __attribute__((no_sanitize("unsigned-integer-overflow")))
-static inline int32_t time_delta(lk_time_t a, lk_time_t b) {
-    return (int32_t)(a - b);
+static inline int64_t time_delta(lk_time_ns_t a, lk_time_ns_t b) {
+    return (int64_t)(a - b);
 }
 
-static inline bool time_gte(lk_time_t a, lk_time_t b) {
+static inline bool time_gte(lk_time_ns_t a, lk_time_ns_t b) {
     return time_delta(a, b) >= 0;
 }
 
-static inline bool time_lte(lk_time_t a, lk_time_t b) {
+static inline bool time_lte(lk_time_ns_t a, lk_time_ns_t b) {
     return time_delta(a, b) <= 0;
 }
 
-static inline bool time_gt(lk_time_t a, lk_time_t b) {
+static inline bool time_gt(lk_time_ns_t a, lk_time_ns_t b) {
     return time_delta(a, b) > 0;
 }
 
-static inline bool time_lt(lk_time_t a, lk_time_t b) {
+static inline bool time_lt(lk_time_ns_t a, lk_time_ns_t b) {
     return time_delta(a, b) < 0;
 }
 

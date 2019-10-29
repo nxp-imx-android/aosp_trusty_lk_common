@@ -92,6 +92,9 @@ static void idle_thread_routine(void) __NO_RETURN;
 static timer_t preempt_timer[SMP_MAX_CPUS];
 #endif
 
+#define US2NS(us) ((us) * 1000ULL)
+#define MS2NS(ms) (US2NS(ms) * 1000ULL)
+
 /* run queue manipulation */
 static void insert_in_run_queue_head(thread_t *t)
 {
@@ -682,7 +685,8 @@ void thread_resched(void)
         dprintf(ALWAYS, "arch_context_switch: start preempt, cpu %d, old %p (%s), new %p (%s)\n",
                 cpu, oldthread, oldthread->name, newthread, newthread->name);
 #endif
-        timer_set_periodic(&preempt_timer[cpu], 10, (timer_callback)thread_timer_tick, NULL);
+        timer_set_periodic_ns(&preempt_timer[cpu], MS2NS(10),
+                              (timer_callback)thread_timer_tick, NULL);
     }
 #endif
 
@@ -863,7 +867,8 @@ enum handler_return thread_timer_tick(void)
 }
 
 /* timer callback to wake up a sleeping thread */
-static enum handler_return thread_sleep_handler(timer_t *timer, lk_time_t now, void *arg)
+static enum handler_return thread_sleep_handler(timer_t *timer,
+                                                lk_time_ns_t now, void *arg)
 {
     thread_t *t = (thread_t *)arg;
 
@@ -884,13 +889,13 @@ static enum handler_return thread_sleep_handler(timer_t *timer, lk_time_t now, v
  * @brief  Put thread to sleep; delay specified in ms
  *
  * This function puts the current thread to sleep until the specified
- * delay in ms has expired.
+ * delay in ns has expired.
  *
  * Note that this function could sleep for longer than the specified delay if
  * other threads are running.  When the timer expires, this thread will
  * be placed at the head of the run queue.
  */
-void thread_sleep(lk_time_t delay)
+void thread_sleep_ns(lk_time_ns_t delay_ns)
 {
     timer_t timer;
 
@@ -903,7 +908,8 @@ void thread_sleep(lk_time_t delay)
     timer_initialize(&timer);
 
     THREAD_LOCK(state);
-    timer_set_oneshot(&timer, delay, thread_sleep_handler, (void *)current_thread);
+    timer_set_oneshot_ns(&timer, delay_ns, thread_sleep_handler,
+                         (void *)current_thread);
     current_thread->state = THREAD_SLEEPING;
     thread_resched();
     THREAD_UNLOCK(state);
@@ -1178,7 +1184,9 @@ void wait_queue_init(wait_queue_t *wait)
     *wait = (wait_queue_t)WAIT_QUEUE_INITIAL_VALUE(*wait);
 }
 
-static enum handler_return wait_queue_timeout_handler(timer_t *timer, lk_time_t now, void *arg)
+static enum handler_return wait_queue_timeout_handler(timer_t *timer,
+                                                      lk_time_ns_t now,
+                                                      void *arg)
 {
     thread_t *thread = (thread_t *)arg;
 
@@ -1237,7 +1245,9 @@ status_t wait_queue_block(wait_queue_t *wait, lk_time_t timeout)
     /* if the timeout is nonzero or noninfinite, set a callback to yank us out of the queue */
     if (timeout != INFINITE_TIME) {
         timer_initialize(&timer);
-        timer_set_oneshot(&timer, timeout, wait_queue_timeout_handler, (void *)current_thread);
+        timer_set_oneshot_ns(&timer, MS2NS(timeout),
+                             wait_queue_timeout_handler,
+                             (void *)current_thread);
     }
 
     thread_resched();

@@ -126,13 +126,13 @@
 static platform_timer_callback t_callback;
 static int timer_irq;
 
-struct fp_32_64 cntpct_per_ms;
+struct fp_32_64 cntpct_per_ns;
 struct fp_32_64 ms_per_cntpct;
 struct fp_32_64 ns_per_cntpct;
 
-static uint64_t lk_time_to_cntpct(lk_time_t lk_time)
+static uint64_t lk_time_ns_to_cntpct(lk_time_ns_t lk_time_ns)
 {
-    return u64_mul_u32_fp32_64(lk_time, cntpct_per_ms);
+    return u64_mul_u64_fp32_64(lk_time_ns, cntpct_per_ns);
 }
 
 static lk_time_t cntpct_to_lk_time(uint64_t cntpct)
@@ -202,23 +202,19 @@ static enum handler_return platform_tick(void *arg)
 {
     write_cntp_ctl(0);
     if (t_callback) {
-        return t_callback(arg, current_time());
+        return t_callback(arg, current_time_ns());
     } else {
         return INT_NO_RESCHEDULE;
     }
 }
 
-status_t platform_set_oneshot_timer(platform_timer_callback callback, void *arg, lk_time_t interval)
+status_t platform_set_oneshot_timer(platform_timer_callback callback,
+                                    lk_time_ns_t time_ns)
 {
-    uint64_t cntpct_interval = lk_time_to_cntpct(interval);
-
-    ASSERT(arg == NULL);
+    uint64_t target_cntpct = lk_time_ns_to_cntpct(time_ns);
 
     t_callback = callback;
-    if (cntpct_interval <= INT_MAX)
-        write_cntp_tval(cntpct_interval);
-    else
-        write_cntp_cval(read_cntpct() + cntpct_interval);
+    write_cntp_cval(target_cntpct);
     write_cntp_ctl(1);
 
     return 0;
@@ -268,13 +264,18 @@ static void test_time_conversion_check_result(uint64_t a, uint64_t b, uint64_t l
     }
 }
 
-static void test_lk_time_to_cntpct(uint32_t cntfrq, lk_time_t lk_time)
+static void test_lk_time_ns_to_cntpct(uint32_t cntfrq, lk_time_ns_t lk_time_ns)
 {
-    uint64_t cntpct = lk_time_to_cntpct(lk_time);
-    uint64_t expected_cntpct = ((uint64_t)cntfrq * lk_time + 500) / 1000;
+    uint64_t cntpct = lk_time_ns_to_cntpct(lk_time_ns);
+    uint64_t s = (1000 * 1000 * 1000);
+    uint64_t lk_time_s = lk_time_ns / s;
+    uint64_t lk_time_ns_rem = lk_time_ns % s;
+    uint64_t expected_cntpct = (lk_time_s * cntfrq) +
+                               (lk_time_ns_rem * cntfrq + (s / 2)) / s;
 
     test_time_conversion_check_result(cntpct, expected_cntpct, 1, false);
-    LTRACEF_LEVEL(2, "lk_time_to_cntpct(%u): got %llu, expect %llu\n", lk_time, cntpct, expected_cntpct);
+    LTRACEF_LEVEL(2, "lk_time_ns_to_cntpct(%llu): got %llu, expect %llu\n",
+                  lk_time_ns, cntpct, expected_cntpct);
 }
 
 static void test_cntpct_to_lk_time(uint32_t cntfrq, lk_time_t expected_lk_time, uint32_t wrap_count)
@@ -302,18 +303,20 @@ static void test_cntpct_to_lk_time_ns(uint32_t cntfrq, uint64_t expected_s)
 
     test_time_conversion_check_result(
             lk_time_ns, expected_lk_time_ns,
-            (1000 * 1000 * 1000 + cntfrq - 1) / cntfrq, false);
+            (1000ULL * 1000 * 1000 + cntfrq - 1) / cntfrq, false);
     LTRACEF_LEVEL(2, "cntpct_to_lk_time_ns(%llu): got %llu, expect %llu\n",
                   cntpct, lk_time_ns, expected_lk_time_ns);
 }
 
 static void test_time_conversions(uint32_t cntfrq)
 {
-    test_lk_time_to_cntpct(cntfrq, 0);
-    test_lk_time_to_cntpct(cntfrq, 1);
-    test_lk_time_to_cntpct(cntfrq, INT_MAX);
-    test_lk_time_to_cntpct(cntfrq, INT_MAX + 1U);
-    test_lk_time_to_cntpct(cntfrq, ~0U);
+    test_lk_time_ns_to_cntpct(cntfrq, 0);
+    test_lk_time_ns_to_cntpct(cntfrq, 1);
+    test_lk_time_ns_to_cntpct(cntfrq, INT_MAX);
+    test_lk_time_ns_to_cntpct(cntfrq, INT_MAX + 1U);
+    test_lk_time_ns_to_cntpct(cntfrq, ~0U);
+    test_lk_time_ns_to_cntpct(cntfrq, cntfrq <= 1000 * 1000 * 1000 ? ~0ULL :
+                                      cntpct_to_lk_time_ns(~0ULL));
     test_cntpct_to_lk_time(cntfrq, 0, 0);
     test_cntpct_to_lk_time(cntfrq, INT_MAX, 0);
     test_cntpct_to_lk_time(cntfrq, INT_MAX + 1U, 0);
@@ -332,10 +335,10 @@ static void test_time_conversions(uint32_t cntfrq)
 
 static void arm_generic_timer_init_conversion_factors(uint32_t cntfrq)
 {
-    fp_32_64_div_32_32(&cntpct_per_ms, cntfrq, 1000);
+    fp_32_64_div_32_32(&cntpct_per_ns, cntfrq, 1000 * 1000 * 1000);
     fp_32_64_div_32_32(&ms_per_cntpct, 1000, cntfrq);
     fp_32_64_div_32_32(&ns_per_cntpct, 1000 * 1000 * 1000, cntfrq);
-    LTRACEF("cntpct_per_ms: %08x.%08x%08x\n", cntpct_per_ms.l0, cntpct_per_ms.l32, cntpct_per_ms.l64);
+    LTRACEF("cntpct_per_ns: %08x.%08x%08x\n", cntpct_per_ns.l0, cntpct_per_ns.l32, cntpct_per_ns.l64);
     LTRACEF("ms_per_cntpct: %08x.%08x%08x\n", ms_per_cntpct.l0, ms_per_cntpct.l32, ms_per_cntpct.l64);
     LTRACEF("ns_per_cntpct: %08x.%08x%08x\n", ns_per_cntpct.l0, ns_per_cntpct.l32, ns_per_cntpct.l64);
 }

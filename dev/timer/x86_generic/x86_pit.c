@@ -37,8 +37,7 @@ lk_time_ns_t current_time_ns(void) {
 void x86_init_pit(void) { }
 
 status_t platform_set_oneshot_timer(platform_timer_callback callback,
-                                    void* arg,
-                                    lk_time_t interval) {
+                                    lk_time_ns_t time_ns) {
     return ERR_NOT_IMPLEMENTED;
 }
 
