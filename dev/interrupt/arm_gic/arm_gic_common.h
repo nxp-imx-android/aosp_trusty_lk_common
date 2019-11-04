@@ -33,6 +33,79 @@
 #include <arch/arm64.h>
 #endif
 
+#if GIC_VERSION > 2
+    /* GICv3/v4 */
+
+#define GICV3_IRQ_GROUP_GRP0S   0
+#define GICV3_IRQ_GROUP_GRP1NS  1
+#define GICV3_IRQ_GROUP_GRP1S   2
+
+#ifndef ARM_GIC_SELECTED_IRQ_GROUP
+#define ARM_GIC_SELECTED_IRQ_GROUP GRP1S
+#endif
+
+#define COMBINE2(a, b)  a ## b
+#define XCOMBINE2(a, b) COMBINE2(a,b)
+#define GICV3_IRQ_GROUP XCOMBINE2(GICV3_IRQ_GROUP_, ARM_GIC_SELECTED_IRQ_GROUP)
+
+/*
+ * In ARMv8 for GICv3/v4, ARM suggest to use system register
+ * to access GICC instead of memory map.
+ */
+#ifdef ARCH_ARM64
+
+#define GICCREG_READ(gic, reg)  ARM64_READ_SYSREG(reg)
+#define GICCREG_WRITE(gic, reg, val) ARM64_WRITE_SYSREG(reg, (uint64_t)val)
+
+#else /* ARCH_ARM64 */
+
+/* For 32bit mode, use different way to access registers */
+#define GICCREG_READ(gic, reg) COMBINE2(arm_read_,reg)()
+#define GICCREG_WRITE(gic, reg, val) COMBINE2(arm_write_,reg)(val)
+
+GEN_CP15_REG_FUNCS(icc_ctlr_el1, 0, c12, c12, 4);
+GEN_CP15_REG_FUNCS(icc_pmr_el1, 0, c4, c6, 0);
+GEN_CP15_REG_FUNCS(icc_bpr0_el1, 0, c12, c8, 3);
+GEN_CP15_REG_FUNCS(icc_iar0_el1, 0, c12, c8, 0);
+GEN_CP15_REG_FUNCS(icc_eoir0_el1, 0, c12, c8, 1);
+GEN_CP15_REG_FUNCS(icc_rpr_el1, 0, c12, c11, 3);
+GEN_CP15_REG_FUNCS(icc_hppir0_el1, 0, c12, c8, 2);
+GEN_CP15_REG_FUNCS(icc_bpr1_el1, 0, c12, c12, 3);
+GEN_CP15_REG_FUNCS(icc_iar1_el1, 0, c12, c12, 0);
+GEN_CP15_REG_FUNCS(icc_eoir1_el1, 0, c12, c12, 1);
+GEN_CP15_REG_FUNCS(icc_hppir1_el1, 0, c12, c12, 2);
+GEN_CP15_REG_FUNCS(icc_dir_el1, 0, c12, c11, 1);
+GEN_CP15_REG_FUNCS(icc_sre_el1, 0, c12, c12, 5);
+GEN_CP15_REG_FUNCS(icc_igrpen0_el1, 0, c12, c12, 6);
+GEN_CP15_REG_FUNCS(icc_igrpen1_el1, 0, c12, c12, 7);
+GEN_CP15_REG_FUNCS(icc_ap0r0_el1, 0, c12, c8, 4);
+GEN_CP15_REG_FUNCS(icc_ap0r1_el1, 0, c12, c8, 5);
+GEN_CP15_REG_FUNCS(icc_ap0r2_el1, 0, c12, c8, 6);
+GEN_CP15_REG_FUNCS(icc_ap0r3_el1, 0, c12, c8, 7);
+GEN_CP15_REG_FUNCS(icc_ap1r0_el1, 0, c12, c9, 0);
+GEN_CP15_REG_FUNCS(icc_ap1r1_el1, 0, c12, c9, 1);
+GEN_CP15_REG_FUNCS(icc_ap1r2_el1, 0, c12, c9, 2);
+GEN_CP15_REG_FUNCS(icc_ap1r3_el1, 0, c12, c9, 3);
+GEN_CP15_REG64_FUNCS(icc_sgi1r_el1, 0, c12);
+GEN_CP15_REG64_FUNCS(icc_asgi1r_el1, 1, c12);
+GEN_CP15_REG64_FUNCS(icc_sgi0r_el1, 2, c12);
+
+#endif /* ARCH_ARM64 */
+
+#if GICV3_IRQ_GROUP == GICV3_IRQ_GROUP_GRP0S
+#define GICC_PRIMARY_HPPIR       icc_hppir0_el1
+#define GICC_PRIMARY_IAR         icc_iar0_el1
+#define GICC_PRIMARY_EOIR        icc_eoir0_el1
+#define GICC_PRIMARY_SGIR        icc_sgi0r_el1
+#else
+#define GICC_PRIMARY_HPPIR       icc_hppir1_el1
+#define GICC_PRIMARY_IAR         icc_iar1_el1
+#define GICC_PRIMARY_EOIR        icc_eoir1_el1
+#define GICC_PRIMARY_SGIR        icc_sgi1r_el1
+#endif
+
+#else /* GIC_VERSION > 2 */
+
 #define GICCREG_READ(gic, reg) (*REG32(GICBASE(gic) + (reg)))
 #define GICCREG_WRITE(gic, reg, val) (*REG32(GICBASE(gic) + (reg)) = (val))
 /* main cpu regs */
@@ -43,7 +116,7 @@
 #define GICC_EOIR               (GICC_OFFSET + 0x0010)
 #define GICC_RPR                (GICC_OFFSET + 0x0014)
 #define GICC_HPPIR              (GICC_OFFSET + 0x0018)
-#define GICC_APBR               (GICC_OFFSET + 0x001c)
+#define GICC_ABPR               (GICC_OFFSET + 0x001c)
 #define GICC_AIAR               (GICC_OFFSET + 0x0020)
 #define GICC_AEOIR              (GICC_OFFSET + 0x0024)
 #define GICC_AHPPIR             (GICC_OFFSET + 0x0028)
@@ -51,6 +124,18 @@
 #define GICC_NSAPR(n)           (GICC_OFFSET + 0x00e0 + (n) * 4)
 #define GICC_IIDR               (GICC_OFFSET + 0x00fc)
 #define GICC_DIR                (GICC_OFFSET + 0x1000)
+
+#if WITH_LIB_SM
+#define GICC_PRIMARY_HPPIR      GICC_AHPPIR
+#define GICC_PRIMARY_IAR        GICC_AIAR
+#define GICC_PRIMARY_EOIR       GICC_AEOIR
+#else
+#define GICC_PRIMARY_HPPIR      GICC_HPPIR
+#define GICC_PRIMARY_IAR        GICC_IAR
+#define GICC_PRIMARY_EOIR       GICC_EOIR
+#endif
+
+#endif /* GIC_VERSION > 2 */
 
 #define GICDREG_READ(gic, reg) (*REG32(GICBASE(gic) + (reg)))
 #define GICDREG_WRITE(gic, reg, val) (*REG32(GICBASE(gic) + (reg)) = (val))
@@ -72,3 +157,49 @@
 #define GICD_SGIR               (GICD_OFFSET + 0xf00)
 #define GICD_CPENDSGIR(n)       (GICD_OFFSET + 0xf10 + (n) * 4)
 #define GICD_SPENDSGIR(n)       (GICD_OFFSET + 0xf20 + (n) * 4)
+
+#if GIC_VERSION > 2
+/* some registers of GICD are 64 bit */
+#define GICDREG_READ64(gic, reg) (*REG64(GICBASE(gic) + (reg)))
+#define GICDREG_WRITE64(gic, reg, val) (*REG64(GICBASE(gic) + (reg)) = (val))
+
+/* GICv3/v4 Distributor interface */
+#define GICD_STATUSR            (GICD_OFFSET + 0x0010)
+#define GICD_SETSPI_NSR         (GICD_OFFSET + 0x0040)
+#define GICD_CLRSPI_NSR         (GICD_OFFSET + 0x0048)
+#define GICD_SETSPI_SR          (GICD_OFFSET + 0x0050)
+#define GICD_CLRSPI_SR          (GICD_OFFSET + 0x0058)
+#define GICD_IGRPMODR(n)        (GICD_OFFSET + 0x0D00 + (n) * 4)
+#define GICD_IROUTER(n)         (GICD_OFFSET + 0x6000 + (n) * 8)
+
+/* GICv3/v4 Redistrubutor interface */
+#if GIC_VERSION == 3
+#define GICR_CPU_OFFSET(cpu) ((cpu) * 0x20000)
+#endif
+#if GIC_VERSION == 4
+#define GICR_CPU_OFFSET(cpu) ((cpu) * 0x30000)
+#endif
+
+#define GICRREG_READ(gic, cpu, reg) (*REG32(GICBASE(gic) + GICR_CPU_OFFSET(cpu) + (reg)))
+#define GICRREG_WRITE(gic, cpu, reg, val) (*REG32(GICBASE(gic) + GICR_CPU_OFFSET(cpu) + (reg)) = (val))
+
+#define GICR_CTRL               (GICR_OFFSET + 0x0000)
+#define GICR_IIDR               (GICR_OFFSET + 0x0004)
+#define GICR_TYPER              (GICR_OFFSET + 0x0008)
+#define GICR_STATUSR            (GICR_OFFSET + 0x0010)
+#define GICR_WAKER              (GICR_OFFSET + 0x0014)
+
+/* The following GICR registers are on separate 64KB page */
+#define GICR_SGI_OFFSET         (GICR_OFFSET + 0x10000)
+#define GICR_IGROUPR0           (GICR_SGI_OFFSET + 0x0080)
+#define GICR_ISENABLER0         (GICR_SGI_OFFSET + 0x0100)
+#define GICR_ICENABLER0         (GICR_SGI_OFFSET + 0x0180)
+#define GICR_ISPENDR0           (GICR_SGI_OFFSET + 0x0200)
+#define GICR_ICPENDR0           (GICR_SGI_OFFSET + 0x0280)
+#define GICR_ISACTIVER0         (GICR_SGI_OFFSET + 0x0300)
+#define GICR_ICACTIVER0         (GICR_SGI_OFFSET + 0x0380)
+#define GICR_IPRIORITYR(n)      (GICR_SGI_OFFSET + 0x0400 + (n) * 4)
+#define GICR_ICFGR(n)           (GICR_SGI_OFFSET + 0x0C00 + (n) * 4)
+#define GICR_IGRPMODR0          (GICR_SGI_OFFSET + 0x0D00)
+#define GICR_NSACR              (GICR_SGI_OFFSET + 0x0E00)
+#endif /* GIC_VERSION > 2 */
