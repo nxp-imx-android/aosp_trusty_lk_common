@@ -26,3 +26,5 @@
 void arm_gicv3_init(void);
 void arm_gicv3_init_percpu(void);
 void arm_gicv3_configure_irq_locked(unsigned int cpu, unsigned int vector);
+void arm_gicv3_suspend_cpu(unsigned int cpu);
+void arm_gicv3_resume_cpu_locked(unsigned int cpu, bool gicd);

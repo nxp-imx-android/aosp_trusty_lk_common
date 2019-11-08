@@ -205,6 +205,9 @@ LK_INIT_HOOK_FLAGS(arm_gic_init_percpu,
 
 static void arm_gic_suspend_cpu(uint level)
 {
+#if GIC_VERSION > 2
+    arm_gicv3_suspend_cpu(arch_curr_cpu_num());
+#endif
     suspend_resume_fiq(false, false);
 }
 
@@ -229,6 +232,21 @@ static void arm_gic_resume_cpu(uint level)
     } else {
         arm_gic_init_percpu(0);
     }
+
+#if GIC_VERSION > 2
+    {
+        uint cpu = arch_curr_cpu_num();
+        uint max_irq = resume_gicd ? MAX_INT : GIC_MAX_PER_CPU_INT;
+
+        for (uint v = 0; v < max_irq; v++) {
+            struct int_handler_struct *h = get_int_handler(v, cpu);
+            if (h->handler) {
+                arm_gicv3_configure_irq_locked(cpu, v);
+            }
+        }
+        arm_gicv3_resume_cpu_locked(cpu, resume_gicd);
+    }
+#endif
     spin_unlock_restore(&gicd_lock, state, GICD_LOCK_FLAGS);
     suspend_resume_fiq(false, resume_gicd);
 }

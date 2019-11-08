@@ -249,3 +249,32 @@ void arm_gicv3_configure_irq_locked(unsigned int cpu, unsigned int vector) {
     }
 }
 
+static uint32_t enabled_spi_mask[DIV_ROUND_UP(MAX_INT, 32)];
+static uint32_t enabled_ppi_mask[SMP_MAX_CPUS];
+
+void arm_gicv3_suspend_cpu(unsigned int cpu) {
+    uint32_t i;
+    ASSERT(cpu < SMP_MAX_CPUS);
+
+    if (cpu == 0) {
+        /* also save gicd */
+        for (i = 32; i < MAX_INT; i += 32) {
+            enabled_spi_mask[i / 32] = GICDREG_READ(0, GICD_ISENABLER(i / 32));
+        }
+    }
+    enabled_ppi_mask[cpu] = GICRREG_READ(0, cpu, GICR_ISENABLER0);
+}
+
+void arm_gicv3_resume_cpu_locked(unsigned int cpu, bool gicd) {
+    uint32_t i;
+    ASSERT(cpu < SMP_MAX_CPUS);
+
+    GICRREG_WRITE(0, cpu, GICR_ISENABLER0, enabled_ppi_mask[cpu]);
+
+    if (gicd) {
+        /* also resume gicd */
+        for (i = 32; i < MAX_INT; i += 32) {
+          GICDREG_WRITE(0, GICD_ISENABLER(i / 32), enabled_spi_mask[i / 32]);
+        }
+    }
+}
