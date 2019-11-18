@@ -34,6 +34,12 @@
 #endif
 
 #if GIC_VERSION > 2
+
+#if WITH_LIB_SM
+#define ARM_GIC_USE_DOORBELL_NS_IRQ 1
+#define ARM_GIC_DOORBELL_IRQ 13
+#endif
+
     /* GICv3/v4 */
 
 #define GICV3_IRQ_GROUP_GRP0S   0

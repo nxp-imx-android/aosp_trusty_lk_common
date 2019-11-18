@@ -68,6 +68,10 @@ static spin_lock_t gicd_lock;
 #endif
 #define GIC_MAX_PER_CPU_INT 32
 
+#if ARM_GIC_USE_DOORBELL_NS_IRQ
+static bool doorbell_enabled;
+#endif
+
 #if WITH_LIB_SM
 static bool arm_gic_non_secure_interrupts_frozen;
 
@@ -108,6 +112,10 @@ static struct int_handler_struct *get_int_handler(unsigned int vector, uint cpu)
         return &int_handler_table_shared[vector - GIC_MAX_PER_CPU_INT];
 }
 
+#if ARM_GIC_USE_DOORBELL_NS_IRQ
+static status_t arm_gic_set_priority_locked(u_int irq, uint8_t priority);
+#endif
+
 void register_int_handler(unsigned int vector, int_handler handler, void *arg)
 {
     struct int_handler_struct *h;
@@ -127,6 +135,13 @@ void register_int_handler(unsigned int vector, int_handler handler, void *arg)
         h = get_int_handler(vector, cpu);
         h->handler = handler;
         h->arg = arg;
+#if ARM_GIC_USE_DOORBELL_NS_IRQ
+        /*
+         * Use lowest priority Linux does not mask to allow masking the entire
+         * group while still allowing other interrupts to be delivered.
+         */
+        arm_gic_set_priority_locked(vector, 0xf7);
+#endif
     }
 
     spin_unlock_restore(&gicd_lock, state, GICD_LOCK_FLAGS);
@@ -403,8 +418,13 @@ enum handler_return __platform_irq(struct iframe *frame)
     unsigned int vector = iar & 0x3ff;
 
     if (vector >= 0x3fe) {
+#if WITH_LIB_SM && ARM_GIC_USE_DOORBELL_NS_IRQ
+        // spurious or non-secure interrupt
+        return sm_handle_irq();
+#else
         // spurious
         return INT_NO_RESCHEDULE;
+#endif
     }
 
     THREAD_STATS_INC(interrupts);
@@ -434,7 +454,7 @@ enum handler_return __platform_irq(struct iframe *frame)
 
 enum handler_return platform_irq(struct iframe *frame)
 {
-#if WITH_LIB_SM
+#if WITH_LIB_SM && !ARM_GIC_USE_DOORBELL_NS_IRQ
     uint32_t ahppir = GICCREG_READ(0, GICC_PRIMARY_HPPIR);
     uint32_t pending_irq = ahppir & 0x3ff;
     struct int_handler_struct *h;
@@ -496,18 +516,26 @@ void platform_fiq(struct iframe *frame)
 }
 
 #if WITH_LIB_SM
-static status_t arm_gic_get_next_irq_locked(u_int min_irq, bool per_cpu)
+static status_t arm_gic_get_next_irq_locked(u_int min_irq, uint type)
 {
+#if ARM_GIC_USE_DOORBELL_NS_IRQ
+    if (type == TRUSTY_IRQ_TYPE_DOORBELL && min_irq <= ARM_GIC_DOORBELL_IRQ) {
+        doorbell_enabled = true;
+        return ARM_GIC_DOORBELL_IRQ;
+    }
+#else
     u_int irq;
-    u_int max_irq = per_cpu ? GIC_MAX_PER_CPU_INT : MAX_INT;
+    u_int max_irq = type == TRUSTY_IRQ_TYPE_PER_CPU ? GIC_MAX_PER_CPU_INT :
+                    type == TRUSTY_IRQ_TYPE_NORMAL ? MAX_INT : 0;
     uint cpu = arch_curr_cpu_num();
 
-    if (!per_cpu && min_irq < GIC_MAX_PER_CPU_INT)
+    if (type == TRUSTY_IRQ_TYPE_NORMAL && min_irq < GIC_MAX_PER_CPU_INT)
         min_irq = GIC_MAX_PER_CPU_INT;
 
     for (irq = min_irq; irq < max_irq; irq++)
         if (get_int_handler(irq, cpu)->handler)
             return irq;
+#endif
 
     return SM_ERR_END_OF_INPUT;
 }
@@ -519,7 +547,9 @@ long smc_intc_get_next_irq(smc32_args_t *args)
 
     spin_lock_save(&gicd_lock, &state, GICD_LOCK_FLAGS);
 
+#if !ARM_GIC_USE_DOORBELL_NS_IRQ
     arm_gic_non_secure_interrupts_frozen = true;
+#endif
     ret = arm_gic_get_next_irq_locked(args->params[0], args->params[1]);
     LTRACEF("min_irq %d, per_cpu %d, ret %d\n",
             args->params[0], args->params[1], ret);
@@ -611,6 +641,13 @@ static void suspend_resume_fiq(bool resume_gicc, bool resume_gicd)
     update_fiq_targets(cpu, resume_gicc, ~0, resume_gicd);
 }
 
+void sm_intc_enable_interrupts(void)
+{
+#if ARM_GIC_USE_DOORBELL_NS_IRQ
+    GICCREG_WRITE(0, icc_igrpen1_el1, 1); /* Enable secure Group 1 */
+#endif
+}
+
 status_t sm_intc_fiq_enter(void)
 {
     u_int cpu = arch_curr_cpu_num();
@@ -626,7 +663,20 @@ status_t sm_intc_fiq_enter(void)
     LTRACEF("cpu %d, irq %i\n", cpu, irq);
 
     if (irq >= 1020) {
+#if ARM_GIC_USE_DOORBELL_NS_IRQ
+        uint cpu = arch_curr_cpu_num();
+        uint cpu_mask = 1U << cpu;
+        u_int val = (ARM_GIC_DOORBELL_IRQ << 24) | (cpu_mask & 0xffff);
+
+        GICCREG_WRITE(0, icc_igrpen1_el1, 0); /* Disable secure Group 1 */
+
+        if (doorbell_enabled) {
+            LTRACEF("GICD_SGIR: %x\n", val);
+            GICCREG_WRITE(0, icc_asgi1r_el1, val);
+        }
+#else
         LTRACEF("spurious fiq: cpu %d, old %d, new %d\n", cpu, current_fiq[cpu], irq);
+#endif
         return ERR_NO_MSG;
     }
 
