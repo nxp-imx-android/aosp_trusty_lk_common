@@ -211,6 +211,9 @@ void arm_gicv3_init_percpu(void) {
 #if WITH_LIB_SM
     /* TZ */
     /* Initialized by ATF */
+#if ARM_GIC_USE_DOORBELL_NS_IRQ
+    gicv3_gicr_setup_irq_group(ARM_GIC_DOORBELL_IRQ, GICV3_IRQ_GROUP_GRP1NS);
+#endif
 #else
     /* non-TZ */
 
