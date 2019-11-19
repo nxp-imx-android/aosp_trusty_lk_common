@@ -166,7 +166,7 @@ status_t pmm_add_arena(pmm_arena_t *arena);
  * Return: 0 on success, ERR_NO_MEMORY if there is not enough memory free to
  *         allocate the vmm_obj or the requested page count.
  */
-status_t pmm_alloc(struct vmm_obj **objp, obj_ref_t* ref, uint count,
+status_t pmm_alloc(struct vmm_obj **objp, struct obj_ref* ref, uint count,
                    uint32_t flags, uint8_t align_log2);
 
 /* Allocate a specific range of physical pages, adding to the tail of the passed list.

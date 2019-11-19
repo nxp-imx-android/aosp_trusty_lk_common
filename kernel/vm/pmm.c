@@ -333,7 +333,7 @@ static status_t pmm_alloc_pages_locked(struct list_node *page_list,
     return 0;
 }
 
-status_t pmm_alloc(struct vmm_obj **objp, obj_ref_t* ref, uint count,
+status_t pmm_alloc(struct vmm_obj **objp, struct obj_ref* ref, uint count,
                    uint32_t flags, uint8_t align_log2)
 {
     status_t ret;
