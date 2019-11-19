@@ -183,7 +183,7 @@ void register_int_handler(unsigned int vector, int_handler handler, void* arg) {
 }
 
 #if WITH_LIB_SM
-long smc_intc_get_next_irq(smc32_args_t* args) {
+long smc_intc_get_next_irq(struct smc32_args* args) {
     long vector;
 
     for (vector = args->params[0]; vector < INT_VECTORS; vector++) {
@@ -194,11 +194,11 @@ long smc_intc_get_next_irq(smc32_args_t* args) {
     return -1;
 }
 
-long smc_intc_request_fiq(smc32_args_t* args) {
+long smc_intc_request_fiq(struct smc32_args* args) {
     return ERR_NOT_SUPPORTED;
 }
 
-long smc_intc_fiq_resume(smc32_args_t* args) {
+long smc_intc_fiq_resume(struct smc32_args* args) {
     return ERR_NOT_SUPPORTED;
 }
 

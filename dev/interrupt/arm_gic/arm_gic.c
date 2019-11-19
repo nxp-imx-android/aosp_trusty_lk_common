@@ -486,7 +486,7 @@ static status_t arm_gic_get_next_irq_locked(u_int min_irq, bool per_cpu)
     return SM_ERR_END_OF_INPUT;
 }
 
-long smc_intc_get_next_irq(smc32_args_t *args)
+long smc_intc_get_next_irq(struct smc32_args *args)
 {
     status_t ret;
     spin_lock_saved_state_t state;
@@ -516,7 +516,7 @@ static void bitmap_update_locked(u_long *bitmap, u_int bit, bool set)
         *bitmap &= ~mask;
 }
 
-long smc_intc_request_fiq(smc32_args_t *args)
+long smc_intc_request_fiq(struct smc32_args *args)
 {
     u_int fiq = args->params[0];
     bool enable = args->params[1];
@@ -539,7 +539,7 @@ long smc_intc_request_fiq(smc32_args_t *args)
     return NO_ERROR;
 }
 
-long smc_intc_fiq_resume(smc32_args_t *args)
+long smc_intc_fiq_resume(struct smc32_args *args)
 {
     suspend_resume_fiq(true, false);
 
