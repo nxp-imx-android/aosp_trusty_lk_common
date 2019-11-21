@@ -248,7 +248,19 @@ FUNCTION(arm_irq)
 
 FUNCTION(arm_fiq)
 #if ARM_MERGE_FIQ_IRQ
-    b arm_irq
+    mrs     r8, spsr
+    tst     r8, #(1<<7)
+    beq     arm_irq
+
+    /*
+     * IRQ were masked but we got an FIQ. This means FIQs were not masked which
+     * is not a state we support (but is entered by the hardware on most
+     * exceptions). Mask FIQs in spsr and return.
+     */
+    sub     lr, #4
+    orr     r8, #(1<<6)
+    msr     spsr, r8
+    eret
 #else
     save_offset #4
     /* r0 now holds pointer to iframe */
