@@ -128,9 +128,6 @@ void register_int_handler(unsigned int vector, int_handler handler, void *arg)
 
 #define GICREG(gic, reg) (*REG32(GICBASE(gic) + (reg)))
 
-#ifndef ARM_GIC_USE_SYSTEM_REG
-#define GICCREG_READ(gic, reg) (*REG32(GICBASE(gic) + (reg)))
-#define GICCREG_WRITE(gic, reg, val) (*REG32(GICBASE(gic) + (reg)) = (val))
 /* main cpu regs */
 #define GICC_CTLR               (GICC_OFFSET + 0x0000)
 #define GICC_PMR                (GICC_OFFSET + 0x0004)
@@ -147,37 +144,6 @@ void register_int_handler(unsigned int vector, int_handler handler, void *arg)
 #define GICC_NSAPR(n)           (GICC_OFFSET + 0x00e0 + (n) * 4)
 #define GICC_IIDR               (GICC_OFFSET + 0x00fc)
 #define GICC_DIR                (GICC_OFFSET + 0x1000)
-#else /* ARM_GIC_USE_SYSTEM_REG */
-/*
- * In arm64 for GICv3/v4, ARM suggest to use system register
- * to access GICC instead of memory map.
- */
-#ifdef ARCH_ARM64
-#define GICCREG_READ(gic, reg)  ARM64_READ_SYSREG(reg)
-#define GICCREG_WRITE(gic, reg, val) ARM64_WRITE_SYSREG(reg, (uint64_t)val)
-#define GICC_CTLR                S3_0_C12_C12_4
-#define GICC_PMR                 S3_0_C4_C6_0
-#define GICC_HPPIR               S3_0_c12_c8_2
-#define GICC_AHPPIR              S3_0_c12_c12_2
-#define GICC_EOIR                S3_0_c12_c8_1
-#define GICC_AEOIR               S3_0_c12_c12_1
-#define GICC_AIAR                S3_0_c12_c12_0
-#define GICC_IAR                 S3_0_c12_c8_0
-#else /* ARCH_ARM64 */
-/* For 32bit mode, use different way to access registers */
-GEN_CP15_REG_FUNCS(GICC_CTLR, 0, c12, c12, 4);
-GEN_CP15_REG_FUNCS(GICC_PMR, 0, c4, c6, 0);
-GEN_CP15_REG_FUNCS(GICC_HPPIR, 0, c12, c8, 2);
-GEN_CP15_REG_FUNCS(GICC_AHPPIR, 0, c12, c12, 2);
-GEN_CP15_REG_FUNCS(GICC_EOIR, 0, c12, c8, 1);
-GEN_CP15_REG_FUNCS(GICC_AEOIR, 0, c12, c12, 1);
-GEN_CP15_REG_FUNCS(GICC_AIAR, 0, c12, c12, 0);
-GEN_CP15_REG_FUNCS(GICC_IAR, 0, c12, c8, 0);
-
-#define GICCREG_READ(gic, reg) arm_read_##reg()
-#define GICCREG_WRITE(gic, reg, val) arm_write_##reg((uint32_t)val)
-#endif /* ARCH_ARM64 */
-#endif /* ARM_GIC_USE_SYSTEM_REG */
 
 /* distribution regs */
 #define GICD_CTLR               (GICD_OFFSET + 0x000)
