@@ -207,4 +207,6 @@ status_t sm_intc_fiq_enter(void) {
 }
 
 void sm_intc_fiq_exit(void) {}
+
+void sm_intc_enable_interrupts(void) {}
 #endif
