@@ -95,6 +95,9 @@ static void timer_set(timer_t *timer, lk_time_ns_t delay, lk_time_ns_t period,
 
     DEBUG_ASSERT(timer->magic == TIMER_MAGIC);
 
+    spin_lock_saved_state_t state;
+    spin_lock_irqsave(&timer_lock, state);
+
     if (list_in_list(&timer->node)) {
         panic("timer %p already in list\n", timer);
     }
@@ -107,10 +110,16 @@ static void timer_set(timer_t *timer, lk_time_ns_t delay, lk_time_ns_t period,
 
     LTRACEF("scheduled time %llu\n", timer->scheduled_time);
 
-    spin_lock_saved_state_t state;
-    spin_lock_irqsave(&timer_lock, state);
-
     uint cpu = arch_curr_cpu_num();
+
+    /*
+     * It is not safe to move the timer to a new cpu while the callback is
+     * running.
+     */
+    DEBUG_ASSERT(!timer->running || timer->cpu == cpu);
+
+    timer->cpu = cpu;
+
     insert_timer_in_queue(cpu, timer);
 
 #if PLATFORM_HAS_DYNAMIC_TIMER
@@ -171,15 +180,37 @@ void timer_set_periodic_ns(timer_t *timer, lk_time_ns_t period,
 /**
  * @brief  Cancel a pending timer
  */
-void timer_cancel(timer_t *timer)
+void timer_cancel_etc(timer_t *timer, bool wait)
 {
     DEBUG_ASSERT(timer->magic == TIMER_MAGIC);
+
+    /* Interrupt must be enabled when waiting */
+    DEBUG_ASSERT(!wait || !arch_ints_disabled());
+
+    /*
+     * If interrupt are enabled, we should wait for the callback to finish.
+     * This is not a strict requirement, but helps find call sites that should
+     * be updated. We must wait before freeing the timer.
+     */
+    DEBUG_ASSERT(arch_ints_disabled() || wait);
 
     spin_lock_saved_state_t state;
     spin_lock_irqsave(&timer_lock, state);
 
+    /*
+     * It is safe to cancel the timer without waiting on the same cpu that the
+     * callback runs on.
+     */
+    DEBUG_ASSERT(wait || arch_curr_cpu_num() == timer->cpu);
+
+    while (wait && timer->running) {
+        spin_unlock_irqrestore(&timer_lock, state);
+        thread_yield();
+        spin_lock_irqsave(&timer_lock, state);
+    }
+
 #if PLATFORM_HAS_DYNAMIC_TIMER
-    uint cpu = arch_curr_cpu_num();
+    uint cpu = arch_curr_cpu_num(); /* cpu could have changed in thread_yield */
 
     timer_t *oldhead = list_peek_head_type(&timers[cpu].timer_queue, timer_t, node);
 #endif
@@ -191,11 +222,9 @@ void timer_cancel(timer_t *timer)
      * periodic timer callback.
      */
     timer->periodic_time = 0;
-    timer->callback = NULL;
-    timer->arg = NULL;
 
 #if PLATFORM_HAS_DYNAMIC_TIMER
-    /* see if we've just modified the head of the timer queue */
+    /* see if we've just modified the head of the current cpu timer queue */
     timer_t *newhead = list_peek_head_type(&timers[cpu].timer_queue, timer_t, node);
     if (newhead == NULL) {
         LTRACEF("clearing old hw timer, nothing in the queue\n");
@@ -248,6 +277,7 @@ static enum handler_return timer_tick(void *arg, lk_time_ns_t now)
         LTRACEF("timer %p\n", timer);
         DEBUG_ASSERT(timer && timer->magic == TIMER_MAGIC);
         list_delete(&timer->node);
+        timer->running = true;
 
         /* we pulled it off the list, release the list lock to handle it */
         spin_unlock(&timer_lock);
@@ -266,6 +296,7 @@ static enum handler_return timer_tick(void *arg, lk_time_ns_t now)
 
         /* it may have been requeued or periodic, grab the lock so we can safely inspect it */
         spin_lock(&timer_lock);
+        timer->running = false;
 
         /* if it was a periodic timer and it hasn't been requeued
          * by the callback put it back in the list

@@ -1254,7 +1254,15 @@ status_t wait_queue_block(wait_queue_t *wait, lk_time_t timeout)
 
     /* we don't really know if the timer fired or not, so it's better safe to try to cancel it */
     if (timeout != INFINITE_TIME) {
-        timer_cancel(&timer);
+        /*
+         * The timer could be running on another CPU. Drop the thread-lock then
+         * cancel and wait for the stack allocated timer.
+         */
+        spin_unlock(&thread_lock);
+        arch_enable_ints();
+        timer_cancel_sync(&timer);
+        arch_disable_ints();
+        spin_lock(&thread_lock);
     }
 
     return current_thread->wait_queue_block_ret;
