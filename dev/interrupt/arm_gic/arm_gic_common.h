@@ -36,8 +36,10 @@
 #if GIC_VERSION > 2
 
 #if WITH_LIB_SM
+#ifndef MACH_IMX8MQ
 #define ARM_GIC_USE_DOORBELL_NS_IRQ 1
 #define ARM_GIC_DOORBELL_IRQ 13
+#endif
 #endif
 
     /* GICv3/v4 */
@@ -103,11 +105,13 @@ GEN_CP15_REG64_FUNCS(icc_sgi0r_el1, 2, c12);
 #define GICC_PRIMARY_IAR         icc_iar0_el1
 #define GICC_PRIMARY_EOIR        icc_eoir0_el1
 #define GICC_PRIMARY_SGIR        icc_sgi0r_el1
+#define GICC_HPPIR               icc_hppir0_el1
 #else
 #define GICC_PRIMARY_HPPIR       icc_hppir1_el1
 #define GICC_PRIMARY_IAR         icc_iar1_el1
 #define GICC_PRIMARY_EOIR        icc_eoir1_el1
 #define GICC_PRIMARY_SGIR        icc_sgi1r_el1
+#define GICC_HPPIR               icc_hppir1_el1
 #endif
 
 #else /* GIC_VERSION > 2 */
