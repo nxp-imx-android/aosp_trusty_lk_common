@@ -130,7 +130,9 @@ void register_int_handler(unsigned int vector, int_handler handler, void *arg)
 
     if (arm_gic_interrupt_change_allowed(vector)) {
 #if GIC_VERSION > 2
+#ifndef MACH_IMX8MQ
         arm_gicv3_configure_irq_locked(cpu, vector);
+#endif
 #endif
         h = get_int_handler(vector, cpu);
         h->handler = handler;
@@ -165,6 +167,7 @@ static void gic_set_enable(uint vector, bool enable)
     uint32_t mask = 1ULL << (vector % 32);
 
 #if GIC_VERSION > 2
+#ifndef MACH_IMX8MQ
     if (reg == 0) {
         uint32_t cpu = arch_curr_cpu_num();
 
@@ -176,6 +179,7 @@ static void gic_set_enable(uint vector, bool enable)
         return;
     }
 #endif
+#endif
     if (enable)
         GICDREG_WRITE(0, GICD_ISENABLER(reg), mask);
     else
@@ -186,7 +190,9 @@ static void arm_gic_init_percpu(uint level)
 {
 #if GIC_VERSION > 2
     /* GICv3/v4 */
+#ifndef MACH_IMX8MQ
     arm_gicv3_init_percpu();
+#endif
 #else
     /* GICv2 */
 #if WITH_LIB_SM
@@ -331,6 +337,7 @@ static status_t arm_gic_set_priority_locked(u_int irq, uint8_t priority)
     uint32_t regval;
 
 #if GIC_VERSION > 2
+#ifndef MACH_IMX8MQ
     if (irq < 32) {
         uint cpu = arch_curr_cpu_num();
 
@@ -345,6 +352,7 @@ static status_t arm_gic_set_priority_locked(u_int irq, uint8_t priority)
         return 0;
     }
 #endif
+#endif
 
     regval = GICDREG_READ(0, GICD_IPRIORITYR(reg));
     LTRACEF("irq %i, old GICD_IPRIORITYR%d = %x\n", irq, reg, regval);
@@ -358,6 +366,20 @@ static status_t arm_gic_set_priority_locked(u_int irq, uint8_t priority)
 
 status_t arm_gic_sgi(u_int irq, u_int flags, u_int cpu_mask)
 {
+#ifdef MACH_IMX8MQ
+    u_int val =
+        ((flags & ARM_GIC_SGI_FLAG_TARGET_FILTER_MASK) << 24) |
+        ((cpu_mask & 0xff) << 16) |
+        ((flags & ARM_GIC_SGI_FLAG_NS) ? (1U << 15) : 0) |
+        (irq & 0xf);
+
+    if (irq >= 16)
+        return ERR_INVALID_ARGS;
+
+    LTRACEF("GICD_SGIR: %x\n", val);
+
+    GICDREG_WRITE(0, GICD_SGIR, val);
+#else
 #if GIC_VERSION > 2
     /* This assumes that all CPUs are in the same cluster */
     u_int val = ((irq & 0xf) << 24) | (cpu_mask & 0xffff);
@@ -367,7 +389,6 @@ status_t arm_gic_sgi(u_int irq, u_int flags, u_int cpu_mask)
 
     LTRACEF("GICC_PRIMARY_SGIR: %x\n", val);
     GICCREG_WRITE(0, GICC_PRIMARY_SGIR, val);
-
 #else /* else GIC_VERSION > 2 */
 
     u_int val =
@@ -384,6 +405,7 @@ status_t arm_gic_sgi(u_int irq, u_int flags, u_int cpu_mask)
     GICDREG_WRITE(0, GICD_SGIR, val);
 
 #endif /* else GIC_VERSION > 2 */
+#endif
 
     return NO_ERROR;
 }
