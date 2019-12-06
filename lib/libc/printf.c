@@ -531,9 +531,9 @@ next_format:
                 goto hex;
             case 'X':
                 flags |= CAPSFLAG;
-                /* fallthrough */
-hex:
+                goto hex;
             case 'x':
+hex:
                 n = (flags & LONGLONGFLAG) ? va_arg(ap, unsigned long long) :
                     (flags & LONGFLAG) ? va_arg(ap, unsigned long) :
                     (flags & HALFHALFFLAG) ? (unsigned char)va_arg(ap, unsigned int) :
@@ -566,7 +566,7 @@ hex:
 #if FLOAT_PRINTF
             case 'F':
                 flags |= CAPSFLAG;
-                /* fallthrough */
+                __FALLTHROUGH;
             case 'f': {
                 double d = va_arg(ap, double);
                 s = double_to_string(num_buffer, sizeof(num_buffer), d, flags);
@@ -574,7 +574,7 @@ hex:
             }
             case 'A':
                 flags |= CAPSFLAG;
-                /* fallthrough */
+                __FALLTHROUGH;
             case 'a': {
                 double d = va_arg(ap, double);
                 s = double_to_hexstring(num_buffer, sizeof(num_buffer), d, flags);

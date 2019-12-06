@@ -609,7 +609,7 @@ int arch_mmu_map(arch_aspace_t *aspace, addr_t vaddr, paddr_t paddr, uint count,
                         tt_entry |= MMU_MEMORY_L1_PAGETABLE_NON_SECURE;
 
                     aspace->tt_virt[l1_index] = tt_entry;
-                    /* fallthrough */
+                    __FALLTHROUGH;
                 }
                 case MMU_MEMORY_L1_DESCRIPTOR_PAGE_TABLE: {
                     uint32_t *l2_table = paddr_to_kvaddr(MMU_MEMORY_L1_PAGE_TABLE_ADDR(tt_entry));
