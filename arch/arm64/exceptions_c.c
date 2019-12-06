@@ -103,6 +103,7 @@ void arm64_sync_exception(struct arm64_iframe_long *iframe)
             __builtin_sub_overflow(display_pc,
                                    current_trusty_app()->load_bias,
                                    &display_pc);
+            __FALLTHROUGH;
         case 0b100001: /* instruction abort from same level */
             if (check_fault_handler_table(iframe)) {
                 return;
@@ -119,6 +120,7 @@ void arm64_sync_exception(struct arm64_iframe_long *iframe)
             __builtin_sub_overflow(display_pc,
                                    current_trusty_app()->load_bias,
                                    &display_pc);
+            __FALLTHROUGH;
         case 0b100101: { /* data abort from same level */
             if (check_fault_handler_table(iframe)) {
                 return;

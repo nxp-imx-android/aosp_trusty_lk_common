@@ -158,6 +158,16 @@
 /* TODO: add type check */
 #define countof(a) (sizeof(a) / sizeof((a)[0]))
 
+#ifndef __has_attribute
+#define __has_attribute(x) 0
+#endif
+
+#if __has_attribute(fallthrough)
+#define __FALLTHROUGH __attribute__((fallthrough))
+#else
+#define __FALLTHROUGH
+#endif
+
 /* CPP header guards */
 #ifdef __cplusplus
 #define __BEGIN_CDECLS  extern "C" {
