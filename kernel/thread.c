@@ -913,6 +913,12 @@ void thread_sleep_ns(lk_time_ns_t delay_ns)
     current_thread->state = THREAD_SLEEPING;
     thread_resched();
     THREAD_UNLOCK(state);
+
+    /*
+     * Make sure callback is not still running before timer goes out of scope as
+     * it would corrupt the stack.
+     */
+    timer_cancel_sync(&timer);
 }
 
 /**
