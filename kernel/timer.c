@@ -296,6 +296,13 @@ static enum handler_return timer_tick(void *arg, lk_time_ns_t now)
 
         /* it may have been requeued or periodic, grab the lock so we can safely inspect it */
         spin_lock(&timer_lock);
+
+        /*
+         * Check that timer did not get freed and overwritten while the callback
+         * was running.
+         */
+        DEBUG_ASSERT(timer->magic == TIMER_MAGIC);
+
         timer->running = false;
 
         /* if it was a periodic timer and it hasn't been requeued
