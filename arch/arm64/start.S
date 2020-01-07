@@ -77,7 +77,12 @@ _start:
     mov     cpuid, x0
     /* Restore registers */
     mov     x0, size
+#ifdef WITH_BOOT_FROM_A72
+    cmp     cpuid,#4
+    b.ne    .Ltt_trampoline_check_secondary
+#else
     cbnz    cpuid, .Ltt_trampoline_check_secondary
+#endif /* WITH_BOOT_FROM_A72 */
 #endif
 
     /* Zero the top level kernel page table */
@@ -190,7 +195,12 @@ _start:
     isb
 
 #if WITH_SMP
+#ifdef WITH_BOOT_FROM_A72
+    cmp     cpuid,#4
+    b.ne    .Lpage_tables_check_secondary
+#else
     cbnz    cpuid, .Lpage_tables_check_secondary
+#endif /* WITH_BOOT_FROM_A72 */
 #endif
 #endif /* WITH_KERNEL_VM */
 
@@ -348,7 +358,12 @@ _start:
 .Ldont_set_mte_flags_2:
 
 #if WITH_SMP
+#ifdef WITH_BOOT_FROM_A72
+    cmp     cpuid,#4
+    b.ne    .Lsecondary_boot
+#else
     cbnz    cpuid, .Lsecondary_boot
+#endif /* WITH_BOOT_FROM_A72 */
 #endif
 #endif /* WITH_KERNEL_VM */
 
