@@ -140,8 +140,10 @@ void arch_enter_uspace(vaddr_t entry_point, vaddr_t user_stack_top, vaddr_t shad
 void arm64_secondary_entry(ulong asm_cpu_num)
 {
     uint cpu = arch_curr_cpu_num();
+#ifndef WITH_BOOT_FROM_A72
     if (cpu != asm_cpu_num)
         return;
+#endif
 
     arm64_cpu_early_init();
 
