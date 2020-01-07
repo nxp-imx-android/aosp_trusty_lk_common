@@ -58,7 +58,12 @@ arm_reset:
 #if WITH_SMP
     mrs     cpuid, mpidr_el1
     ubfx    cpuid, cpuid, #0, #SMP_CPU_ID_BITS
+#ifdef WITH_BOOT_FROM_A72
+    cmp     cpuid,#0x100
+    b.ne    .Lmmu_enable_secondary
+#else
     cbnz    cpuid, .Lmmu_enable_secondary
+#endif /* WITH_BOOT_FROM_A72 */
 #endif
 
     mov     tmp, #0
@@ -334,7 +339,12 @@ arm_reset:
     isb
 
 #if WITH_SMP
+#ifdef WITH_BOOT_FROM_A72
+    cmp     cpuid,#0x100
+    b.ne    .Lsecondary_boot
+#else
     cbnz    cpuid, .Lsecondary_boot
+#endif /* WITH_BOOT_FROM_A72 */
 #endif
 #endif /* WITH_KERNEL_VM */
 

@@ -278,7 +278,31 @@ static inline void set_current_thread(struct thread *t)
 static inline uint arch_curr_cpu_num(void)
 {
     uint64_t mpidr =  ARM64_READ_SYSREG(mpidr_el1);
+#ifdef WITH_BOOT_FROM_A72
+    /*
+     * In this situation, we make the first A72 core boot as CPU0. Then it will modify the default CPUs boot sequence.
+     * The first A72 will bring up cluster A53, means A53 cores will be CPU1 to CPU4. The second A72 still be CPU5.
+     */
+    uint64_t hardware_num = ((mpidr & ((1U << SMP_CPU_ID_BITS) - 1)) >> 8 << SMP_CPU_CLUSTER_SHIFT) | (mpidr & 0xff);
+    switch (hardware_num) {
+        case 0:
+            return 1;
+        case 1:
+            return 2;
+        case 2:
+            return 3;
+        case 3:
+            return 4;
+        case 4:
+            return 0;
+        case 5:
+            return 5;
+        default:
+            return 0;
+    }
+#else
     return ((mpidr & ((1U << SMP_CPU_ID_BITS) - 1)) >> 8 << SMP_CPU_CLUSTER_SHIFT) | (mpidr & 0xff);
+#endif
 }
 #else
 static inline uint arch_curr_cpu_num(void)
