@@ -66,7 +66,12 @@ arm_reset:
     mov     cpuid, x0
     /* Restore registers */
     mov     x0, size
+#ifdef WITH_BOOT_FROM_A72
+    cmp     cpuid,#4
+    b.ne    .Lmmu_enable_secondary
+#else
     cbnz    cpuid, .Lmmu_enable_secondary
+#endif /* WITH_BOOT_FROM_A72 */
 #endif
 
     mov     tmp, #0
@@ -342,7 +347,12 @@ arm_reset:
     isb
 
 #if WITH_SMP
+#ifdef WITH_BOOT_FROM_A72
+    cmp     cpuid,#4
+    b.ne    .Lsecondary_boot
+#else
     cbnz    cpuid, .Lsecondary_boot
+#endif /* WITH_BOOT_FROM_A72 */
 #endif
 #endif /* WITH_KERNEL_VM */
 
