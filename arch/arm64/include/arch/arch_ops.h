@@ -282,22 +282,22 @@ static inline uint arch_curr_cpu_num(void)
 #ifdef WITH_BOOT_FROM_A72
     /*
      * In this situation, we make the first A72 core boot as CPU0. Then it will modify the default CPUs boot sequence.
-     * The first A72 will bring up cluster A53, means A53 cores will be CPU1 to CPU4. The second A72 still be CPU5.
+     * The first A72 will bring up the second A72 and named CPU1, then A53 cores will be CPU2 to CPU5.
      */
     uint64_t hardware_num = arm64_curr_cpu_num();
     switch (hardware_num) {
         case 0:
-            return 1;
-        case 1:
             return 2;
-        case 2:
+        case 1:
             return 3;
-        case 3:
+        case 2:
             return 4;
+        case 3:
+            return 5;
         case 4:
             return 0;
         case 5:
-            return 5;
+            return 1;
         default:
             return 0;
     }
