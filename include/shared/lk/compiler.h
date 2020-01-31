@@ -92,7 +92,7 @@
 #endif
 
 /* look for gcc 3.4 and above */
-#if (__GNUC__ > 3) || (__GNUC__ == 3 && __GNUC_MINOR__ >= 4)
+#if (__GNUC__ > 3) || (__GNUC__ == 3 && __GNUC_MINOR__ >= 4) || defined(__clang__)
 #define __WARN_UNUSED_RESULT __attribute((warn_unused_result))
 #else
 #define __WARN_UNUSED_RESULT
@@ -110,7 +110,7 @@
 #define __UNREACHABLE
 #endif
 
-#if (__GNUC__ > 4) || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6)
+#if (__GNUC__ > 4) || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6) || defined(__clang__)
 #ifdef __cplusplus
 #define STATIC_ASSERT(e) static_assert(e, #e)
 #else
