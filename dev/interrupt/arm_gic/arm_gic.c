@@ -600,7 +600,7 @@ long smc_intc_request_fiq(struct smc32_args *args)
     spin_lock_save(&gicd_lock, &state, GICD_LOCK_FLAGS);
 
     arm_gic_set_secure_locked(fiq, true);
-    arm_gic_set_target_locked(fiq, ~0, ~0);
+    arm_gic_set_target_locked(fiq, ~0U, ~0U);
     arm_gic_set_priority_locked(fiq, 0);
 
     gic_set_enable(fiq, enable);
@@ -641,7 +641,7 @@ static bool update_fiq_targets(u_int cpu, bool enable, u_int triggered_fiq, bool
                 ret = true;
             LTRACEF("cpu %d, irq %i, enable %d\n", cpu, fiq, enable);
             if (smp)
-                arm_gic_set_target_locked(fiq, 1U << cpu, enable ? ~0 : 0);
+                arm_gic_set_target_locked(fiq, 1U << cpu, enable ? ~0U : 0);
             if (!smp || resume_gicd)
                 gic_set_enable(fiq, enable || smp);
         }
@@ -656,7 +656,7 @@ static void suspend_resume_fiq(bool resume_gicc, bool resume_gicd)
 
     ASSERT(cpu < 8);
 
-    update_fiq_targets(cpu, resume_gicc, ~0, resume_gicd);
+    update_fiq_targets(cpu, resume_gicc, UINT_MAX, resume_gicd);
 }
 
 void sm_intc_enable_interrupts(void)
