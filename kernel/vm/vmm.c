@@ -87,14 +87,14 @@ static bool is_region_inside_aspace(const vmm_aspace_t* aspace,
 
 static bool is_inside_region(const vmm_region_t* r, vaddr_t vaddr) {
     DEBUG_ASSERT(r);
-    return range_contains_range(r->base, r->size, vaddr, 1);
+    return range_contains_range(r->base, r->obj_slice.size, vaddr, 1);
 }
 
 static bool is_range_inside_region(const vmm_region_t* r,
                                    vaddr_t vaddr,
                                    size_t size) {
     DEBUG_ASSERT(r);
-    return range_contains_range(r->base, r->size, vaddr, size);
+    return range_contains_range(r->base, r->obj_slice.size, vaddr, size);
 }
 
 static size_t trim_to_aspace(const vmm_aspace_t* aspace,
@@ -125,6 +125,53 @@ static size_t trim_to_aspace(const vmm_aspace_t* aspace,
     return size;
 }
 
+void vmm_obj_slice_init(struct vmm_obj_slice *slice) {
+    slice->obj = NULL;
+    obj_ref_init(&slice->obj_ref);
+    slice->offset = 0;
+    slice->size = 0;
+}
+
+/*
+ * This will not invoke the destructor on the vmm_obj if it is the last
+ * one out, as the vmm lock is held. If we would need to destroy the object,
+ * we instead assert fail in debug builds, and with NDEBUG builds leak.
+ */
+static void vmm_obj_slice_release_locked(struct vmm_obj_slice *slice) {
+    bool dead = false;
+    if (slice->obj) {
+        dead = obj_del_ref(&slice->obj->obj, &slice->obj_ref, NULL);
+        slice->obj = NULL;
+    }
+    ASSERT(!dead);
+}
+
+void vmm_obj_slice_release(struct vmm_obj_slice *slice) {
+    if (slice->obj) {
+        vmm_obj_del_ref(slice->obj, &slice->obj_ref);
+        slice->obj = NULL;
+    }
+}
+
+static void vmm_obj_slice_bind_locked(struct vmm_obj_slice *slice,
+                                      struct vmm_obj *obj,
+                                      size_t offset,
+                                      size_t size) {
+    DEBUG_ASSERT(!slice->obj);
+    slice->obj = obj;
+    /* Use obj_add_ref directly to avoid acquiring the vmm lock. */
+    obj_add_ref(&slice->obj->obj, &slice->obj_ref);
+    slice->offset = offset;
+    slice->size = size;
+}
+
+void vmm_obj_slice_bind(struct vmm_obj_slice *slice, struct vmm_obj *obj,
+                        size_t offset, size_t size) {
+    mutex_acquire(&vmm_lock);
+    vmm_obj_slice_bind_locked(slice, obj, offset, size);
+    mutex_release(&vmm_lock);
+}
+
 static vmm_region_t* alloc_region_struct(const char* name,
                                          vaddr_t base,
                                          size_t size,
@@ -138,10 +185,10 @@ static vmm_region_t* alloc_region_struct(const char* name,
 
     strlcpy(r->name, name, sizeof(r->name));
     r->base = base;
-    r->size = size;
     r->flags = flags;
     r->arch_mmu_flags = arch_mmu_flags;
-    obj_ref_init(&r->obj_ref);
+    vmm_obj_slice_init(&r->obj_slice);
+    r->obj_slice.size = size;
 
     return r;
 }
@@ -151,10 +198,10 @@ static int vmm_region_cmp(struct bst_node *_a, struct bst_node *_b) {
     vmm_region_t *a = containerof(_a, vmm_region_t, node);
     vmm_region_t *b = containerof(_b, vmm_region_t, node);
 
-    if ((b->base > a->base + (a->size - 1))) {
+    if ((b->base > a->base + (a->obj_slice.size - 1))) {
         return 1;
     }
-    if ((a->base > b->base + (b->size - 1))) {
+    if ((a->base > b->base + (b->obj_slice.size - 1))) {
         return -1;
     }
     return 0;
@@ -167,10 +214,11 @@ static status_t add_region_to_aspace(vmm_aspace_t* aspace, vmm_region_t* r) {
     DEBUG_ASSERT(r);
 
     LTRACEF("aspace %p base 0x%lx size 0x%zx r %p base 0x%lx size 0x%zx\n",
-            aspace, aspace->base, aspace->size, r, r->base, r->size);
+            aspace, aspace->base, aspace->size, r, r->base, r->obj_slice.size);
 
     /* only try if the region will at least fit in the address space */
-    if (r->size == 0 || !is_region_inside_aspace(aspace, r->base, r->size)) {
+    if (r->obj_slice.size == 0 ||
+        !is_region_inside_aspace(aspace, r->base, r->obj_slice.size)) {
         LTRACEF("region was out of range\n");
         return ERR_OUT_OF_RANGE;
     }
@@ -278,7 +326,7 @@ static inline bool extract_gap(vmm_aspace_t* aspace,
     DEBUG_ASSERT(aspace->size != 0);
 
     if (low) {
-        if (__builtin_add_overflow(low->base, low->size, gap_low)) {
+        if (__builtin_add_overflow(low->base, low->obj_slice.size, gap_low)) {
             /* No valid address exists above the low region */
             return false;
         }
@@ -560,21 +608,22 @@ static vmm_region_t* alloc_region(vmm_aspace_t* aspace,
 }
 
 static status_t vmm_map_obj_locked(vmm_aspace_t* aspace, vmm_region_t* r,
-                                   struct vmm_obj* vmm_obj, size_t start_off,
                                    uint arch_mmu_flags) {
     /* map all of the pages */
     /* XXX use smarter algorithm that tries to build runs */
     status_t err;
     size_t off = 0;
-    while (off < r->size) {
+    struct vmm_obj *vmm_obj = r->obj_slice.obj;
+    while (off < r->obj_slice.size) {
         paddr_t pa;
         vaddr_t va;
         size_t pa_size;
-        err = vmm_obj->ops->get_page(vmm_obj, off + start_off, &pa, &pa_size);
+        err = vmm_obj->ops->get_page(vmm_obj, off + r->obj_slice.offset, &pa,
+                                     &pa_size);
         if (err) {
             goto err_map_loop;
         }
-        pa_size = MIN(pa_size, r->size - off);
+        pa_size = MIN(pa_size, r->obj_slice.size - off);
 
         DEBUG_ASSERT(IS_PAGE_ALIGNED(pa));
         DEBUG_ASSERT(pa_size);
@@ -584,7 +633,7 @@ static status_t vmm_map_obj_locked(vmm_aspace_t* aspace, vmm_region_t* r,
             DEBUG_ASSERT(false);
         }
         DEBUG_ASSERT(IS_PAGE_ALIGNED(va));
-        DEBUG_ASSERT(va <= r->base + (r->size - 1));
+        DEBUG_ASSERT(va <= r->base + (r->obj_slice.size - 1));
         err = arch_mmu_map(&aspace->arch_aspace, va, pa, pa_size / PAGE_SIZE,
                            arch_mmu_flags);
         if (err) {
@@ -710,7 +759,8 @@ status_t vmm_alloc_obj(vmm_aspace_t* aspace, const char* name,
         goto err_alloc_region;
     }
 
-    ret = vmm_map_obj_locked(aspace, r, vmm_obj, offset, arch_mmu_flags);
+    vmm_obj_slice_bind_locked(&r->obj_slice, vmm_obj, offset, size);
+    ret = vmm_map_obj_locked(aspace, r, arch_mmu_flags);
     if (ret) {
         goto err_map_obj;
     }
@@ -718,14 +768,11 @@ status_t vmm_alloc_obj(vmm_aspace_t* aspace, const char* name,
     /* return the vaddr */
     *ptr = (void*)r->base;
 
-    DEBUG_ASSERT(r->obj == NULL);
-    r->obj = vmm_obj;
-    obj_add_ref(&r->obj->obj, &r->obj_ref);
-
     mutex_release(&vmm_lock);
     return NO_ERROR;
 
 err_map_obj:
+    vmm_obj_slice_release_locked(&r->obj_slice);
     bst_delete(&aspace->regions, &r->node);
     free(r);
 err_alloc_region:
@@ -876,7 +923,7 @@ vmm_region_t* vmm_find_region(const vmm_aspace_t* aspace,
     /* search the region list */
     vmm_region_t r_ref;
     r_ref.base = vaddr;
-    r_ref.size = 1;
+    r_ref.obj_slice.size = 1;
     r = bst_search_type(&aspace->regions, &r_ref, vmm_region_cmp, vmm_region_t,
                         node);
     if (!r) {
@@ -896,7 +943,7 @@ static bool vmm_region_is_match(vmm_region_t* r,
     if (flags & VMM_FREE_REGION_FLAG_EXPAND) {
         return is_range_inside_region(r, va, size);
     } else {
-        return r->base == va && r->size == size;
+        return r->base == va && r->obj_slice.size == size;
     }
 }
 
@@ -918,14 +965,13 @@ status_t vmm_free_region_etc(vmm_aspace_t* aspace,
     bst_delete(&aspace->regions, &r->node);
 
     /* unmap it */
-    arch_mmu_unmap(&aspace->arch_aspace, r->base, r->size / PAGE_SIZE);
+    arch_mmu_unmap(&aspace->arch_aspace, r->base,
+                   r->obj_slice.size / PAGE_SIZE);
 
     mutex_release(&vmm_lock);
 
-    /* return physical pages or other obj if any */
-    if (r->obj) {
-        vmm_obj_del_ref(r->obj, &r->obj_ref);
-    }
+    /* release our hold on the backing object, if any */
+    vmm_obj_slice_release(&r->obj_slice);
 
     /* free it */
     free(r);
@@ -1001,22 +1047,21 @@ status_t vmm_free_aspace(vmm_aspace_t* aspace) {
     vmm_region_t* r;
     bst_for_every_entry(&aspace->regions, r, vmm_region_t, node) {
         /* unmap it */
-        arch_mmu_unmap(&aspace->arch_aspace, r->base, r->size / PAGE_SIZE);
+        arch_mmu_unmap(&aspace->arch_aspace, r->base,
+                       r->obj_slice.size / PAGE_SIZE);
 
         /* mark it as unmapped (only used for debug assert below) */
-        r->size = 0;
+        r->obj_slice.size = 0;
     }
     mutex_release(&vmm_lock);
 
     /* without the vmm lock held, free all of the pmm pages and the structure */
     bst_for_every_entry(&aspace->regions, r, vmm_region_t, node) {
-        DEBUG_ASSERT(!r->size);
+        DEBUG_ASSERT(!r->obj_slice.size);
         bst_delete(&aspace->regions, &r->node);
 
-        /* return physical pages or other obj if any */
-        if (r->obj) {
-            vmm_obj_del_ref(r->obj, &r->obj_ref);
-        }
+        /* release our hold on the backing object, if any */
+        vmm_obj_slice_release(&r->obj_slice);
 
         /* free it */
         free(r);
@@ -1068,8 +1113,8 @@ static void dump_region(const vmm_region_t* r) {
 
     printf("\tregion %p: name '%s' range 0x%lx - 0x%lx size 0x%zx flags 0x%x "
            "mmu_flags 0x%x\n",
-           r, r->name, r->base, r->base + (r->size - 1), r->size, r->flags,
-           r->arch_mmu_flags);
+           r, r->name, r->base, r->base + (r->obj_slice.size - 1),
+           r->obj_slice.size, r->flags, r->arch_mmu_flags);
 }
 
 static void dump_aspace(const vmm_aspace_t* a) {

@@ -232,6 +232,67 @@ typedef struct vmm_aspace {
 
 #define VMM_ASPACE_FLAG_KERNEL 0x1
 
+/**
+ * struct vmm_obj_slice - range of memory backed by a &struct vmm_obj
+ * @obj:     backing object for the slice
+ * @obj_ref: reference to keep the backing object alive
+ * @offset:  offset in bytes into the object at which the slice begins
+ * @size:    number of bytes in the slice
+ *
+ * &struct vmm_obj_slice is intended to represent a particular range of
+ * memory in a backing object for those cases where something other than
+ * the entire backing object will be used.
+ *
+ * Must be initialized with vmm_obj_slice_init() or
+ * VMM_OBJ_SLICE_INITIAL_VALUE.
+ */
+struct vmm_obj_slice {
+    struct vmm_obj *obj;
+    struct obj_ref obj_ref;
+    size_t offset;
+    size_t size;
+};
+
+#define VMM_OBJ_SLICE_INITIAL_VALUE(slice)                 \
+    {                                                      \
+        .obj = NULL,                                       \
+        .obj_ref = OBJ_REF_INITIAL_VALUE((slice).obj_ref), \
+        .offset = 0,                                       \
+        .size = 0,                                         \
+    }
+
+/**
+ * vmm_obj_slice_init() - initializes a &struct vmm_obj_slice
+ * @slice: slice to initialize
+ */
+void vmm_obj_slice_init(struct vmm_obj_slice *slice);
+
+/**
+ * vmm_obj_slice_bind() - bind a vmm_obj_slice to a particular vmm_obj
+ * @slice:  Slice to bind (should be initialized and unused).
+ * @obj:    vmm_obj to bind the slice to
+ * @offset: Starting offset into the vmm_obj
+ * @size:   Size of the slice.
+ *
+ * Attaches a subrange of a particular &struct vmm_obj to the slice.
+ * The caller is responsible for validating the offset and size.
+ */
+void vmm_obj_slice_bind(struct vmm_obj_slice *slice, struct vmm_obj *obj,
+                        size_t offset, size_t size);
+
+/**
+ * vmm_obj_slice_release() - release reference held by a &struct vmm_obj_slice
+ * @slice: slice to release
+ *
+ * Releases any resource attached to the slice.
+ *
+ * Note: This assumes that a non-NULL obj implies the obj_ref field is
+ *       releasable. This invariant will hold if you have used the API to
+ *       interact with the slice, but if you have updated a field manually,
+ *       it is the responsiblity of the caller to ensure this holds.
+ */
+void vmm_obj_slice_release(struct vmm_obj_slice *slice);
+
 typedef struct vmm_region {
     struct bst_node node;
     char name[32];
@@ -240,10 +301,8 @@ typedef struct vmm_region {
     uint arch_mmu_flags;
 
     vaddr_t base;
-    size_t  size;
 
-    struct vmm_obj *obj;
-    struct obj_ref obj_ref;
+    struct vmm_obj_slice obj_slice;
 } vmm_region_t;
 
 #define VMM_REGION_FLAG_RESERVED 0x1
