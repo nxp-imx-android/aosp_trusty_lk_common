@@ -374,6 +374,28 @@ status_t vmm_alloc(vmm_aspace_t *aspace, const char *name, size_t size, void **p
 /* find a region in which specified virtual address resides */
 vmm_region_t* vmm_find_region(const vmm_aspace_t* aspace, vaddr_t vaddr);
 
+/**
+ * vmm_get_obj() - Acquire a slice from a chunk of an &struct aspace
+ * @aspace: address space to extract from
+ * @vaddr:  base virtual address the slice should start at
+ * @size:   desired slice size
+ * @slice:  output parameter for the result slice, must not be null, should be
+ *          initialized
+ *
+ * Locates the &struct vmm_obj backing a particular address range within
+ * @aspace, and returns a slice representing it if possible. If the range
+ * is unmapped, has no vmm_obj backing, or spans multiple backing slices,
+ * an error will be returned.
+ *
+ * On success, @slice will be updated to refer to a subrange of the backing
+ * slice for the supplied virtual address range. On failure, @slice will be
+ * untouched.
+ *
+ * Return: Status code; any value other than NO_ERROR is a failure.
+ */
+status_t vmm_get_obj(const vmm_aspace_t *aspace, vaddr_t vaddr, size_t size,
+                     struct vmm_obj_slice *slice);
+
 #define VMM_FREE_REGION_FLAG_EXPAND 0x1
 
 /* Unmap previously allocated region and free physical memory pages backing it (if any).

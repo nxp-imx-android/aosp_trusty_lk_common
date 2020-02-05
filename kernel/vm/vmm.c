@@ -933,6 +933,70 @@ vmm_region_t* vmm_find_region(const vmm_aspace_t* aspace,
     return r;
 }
 
+status_t vmm_get_obj(const vmm_aspace_t *aspace, vaddr_t vaddr, size_t size,
+                     struct vmm_obj_slice *slice) {
+    status_t ret = NO_ERROR;
+
+    DEBUG_ASSERT(slice);
+
+    if (size == 0) {
+        return ERR_INVALID_ARGS;
+    }
+
+    mutex_acquire(&vmm_lock);
+
+    struct vmm_region *region = vmm_find_region(aspace, vaddr);
+    if (!region) {
+        ret = ERR_NOT_FOUND;
+        goto out;
+    }
+
+    /* vmm_find_region already checked that vaddr is in region */
+    vaddr_t last;
+    if (__builtin_add_overflow(vaddr, size - 1, &last)) {
+        /* vaddr + size overflows, this can't be a valid mapping */
+        ret = ERR_INVALID_ARGS;
+        goto out;
+    }
+
+    /*
+     * region base / size should already be invariant checked, so we
+     * need not check for overflow
+     */
+    vaddr_t region_last = region->base + (region->obj_slice.size - 1);
+    if (region_last < last) {
+        /* signal that we got an object, the whole range is not inside */
+        ret = ERR_OUT_OF_RANGE;
+        goto out;
+    }
+
+    if (!region->obj_slice.obj) {
+        /* while the range is inside a region, there's no backing obj */
+        ret = ERR_OUT_OF_RANGE;
+        goto out;
+    }
+
+    /*
+     * This should not overflow since the region is mapped already and our
+     * vmm_obj uses size_t for its get_page() offset calculation. If we
+     * extend to a larger type on 32-bit systems, we will need to switch to
+     * using another type for slice representation.
+     */
+    size_t offset = (vaddr - region->base) + region->obj_slice.offset;
+
+    /* all checks passed, we can update slice now */
+
+    slice->obj = region->obj_slice.obj;
+    slice->size = size;
+    slice->offset = offset;
+    /* direct use of obj_add_ref to operate inside the vmm mutex */
+    obj_add_ref(&slice->obj->obj, &slice->obj_ref);
+
+out:
+    mutex_release(&vmm_lock);
+    return ret;
+}
+
 static bool vmm_region_is_match(vmm_region_t* r,
                                 vaddr_t va,
                                 size_t size,
