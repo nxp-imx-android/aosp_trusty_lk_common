@@ -599,7 +599,7 @@ static void x86_mmu_unmap_entry(vaddr_t vaddr, int level, vaddr_t table_entry)
     }
 }
 
-status_t x86_mmu_unmap(map_addr_t pml4, vaddr_t vaddr, uint count)
+status_t x86_mmu_unmap(map_addr_t pml4, vaddr_t vaddr, size_t count)
 {
     vaddr_t next_aligned_v_addr;
 
@@ -624,12 +624,12 @@ status_t x86_mmu_unmap(map_addr_t pml4, vaddr_t vaddr, uint count)
     return NO_ERROR;
 }
 
-int arch_mmu_unmap(arch_aspace_t *aspace, vaddr_t vaddr, uint count)
+int arch_mmu_unmap(arch_aspace_t *aspace, vaddr_t vaddr, size_t count)
 {
     addr_t current_cr3_val;
     vmm_aspace_t *kernel_aspace = vmm_get_kernel_aspace();
 
-    LTRACEF("aspace %p, vaddr 0x%lx, count %u\n", aspace, vaddr, count);
+    LTRACEF("aspace %p, vaddr 0x%lx, count %zu\n", aspace, vaddr, count);
 
     ASSERT(aspace);
 
@@ -731,14 +731,14 @@ status_t arch_mmu_query(arch_aspace_t *aspace, vaddr_t vaddr, paddr_t *paddr, ui
     return NO_ERROR;
 }
 
-int arch_mmu_map(arch_aspace_t *aspace, vaddr_t vaddr, paddr_t paddr, uint count, uint flags)
+int arch_mmu_map(arch_aspace_t *aspace, vaddr_t vaddr, paddr_t paddr, size_t count, uint flags)
 {
     addr_t current_cr3_val;
     struct map_range range;
 
     DEBUG_ASSERT(aspace);
 
-    LTRACEF("aspace %p, vaddr 0x%lx paddr 0x%lx count %u flags 0x%x\n", aspace, vaddr, paddr, count, flags);
+    LTRACEF("aspace %p, vaddr 0x%lx paddr 0x%lx count %zu flags 0x%x\n", aspace, vaddr, paddr, count, flags);
 
     if ((!x86_mmu_check_paddr(paddr)))
         return ERR_INVALID_ARGS;

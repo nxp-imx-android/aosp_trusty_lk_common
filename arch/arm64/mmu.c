@@ -539,9 +539,9 @@ static void arm64_tlbflush_if_asid_changed(arch_aspace_t *aspace, asid_t asid)
     THREAD_UNLOCK(state);
 }
 
-int arch_mmu_map(arch_aspace_t *aspace, vaddr_t vaddr, paddr_t paddr, uint count, uint flags)
+int arch_mmu_map(arch_aspace_t *aspace, vaddr_t vaddr, paddr_t paddr, size_t count, uint flags)
 {
-    LTRACEF("vaddr 0x%lx paddr 0x%lx count %u flags 0x%x\n", vaddr, paddr, count, flags);
+    LTRACEF("vaddr 0x%lx paddr 0x%lx count %zu flags 0x%x\n", vaddr, paddr, count, flags);
 
     DEBUG_ASSERT(aspace);
     DEBUG_ASSERT(aspace->tt_virt);
@@ -583,9 +583,9 @@ int arch_mmu_map(arch_aspace_t *aspace, vaddr_t vaddr, paddr_t paddr, uint count
     return ret;
 }
 
-int arch_mmu_unmap(arch_aspace_t *aspace, vaddr_t vaddr, uint count)
+int arch_mmu_unmap(arch_aspace_t *aspace, vaddr_t vaddr, size_t count)
 {
-    LTRACEF("vaddr 0x%lx count %u\n", vaddr, count);
+    LTRACEF("vaddr 0x%lx count %zu\n", vaddr, count);
 
     DEBUG_ASSERT(aspace);
     DEBUG_ASSERT(aspace->tt_virt);

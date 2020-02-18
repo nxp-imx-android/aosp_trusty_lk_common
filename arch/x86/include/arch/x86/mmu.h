@@ -151,7 +151,7 @@ status_t x86_mmu_get_mapping(map_addr_t init_table, vaddr_t vaddr, uint32_t *ret
 status_t x86_mmu_map_range (map_addr_t pt, struct map_range *range, arch_flags_t flags);
 status_t x86_mmu_add_mapping(map_addr_t init_table, map_addr_t paddr,
                              vaddr_t vaddr, arch_flags_t flags);
-status_t x86_mmu_unmap(map_addr_t init_table, vaddr_t vaddr, uint count);
+status_t x86_mmu_unmap(map_addr_t init_table, vaddr_t vaddr, size_t count);
 
 void x86_mmu_early_init(void);
 void x86_mmu_init(void);

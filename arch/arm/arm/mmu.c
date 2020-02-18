@@ -540,9 +540,9 @@ vaddr_t arch_mmu_pick_spot(arch_aspace_t *aspace,
 #endif  /* WITH_ARCH_MMU_PICK_SPOT */
 
 
-int arch_mmu_map(arch_aspace_t *aspace, addr_t vaddr, paddr_t paddr, uint count, uint flags)
+int arch_mmu_map(arch_aspace_t *aspace, addr_t vaddr, paddr_t paddr, size_t count, uint flags)
 {
-    LTRACEF("vaddr 0x%lx paddr 0x%lx count %u flags 0x%x\n", vaddr, paddr, count, flags);
+    LTRACEF("vaddr 0x%lx paddr 0x%lx count %zu flags 0x%x\n", vaddr, paddr, count, flags);
 
     DEBUG_ASSERT(aspace);
     DEBUG_ASSERT(aspace->tt_virt);
@@ -651,7 +651,7 @@ done:
     return ERR_NO_MEMORY;
 }
 
-int arch_mmu_unmap(arch_aspace_t *aspace, vaddr_t vaddr, uint count)
+int arch_mmu_unmap(arch_aspace_t *aspace, vaddr_t vaddr, size_t count)
 {
     DEBUG_ASSERT(aspace);
     DEBUG_ASSERT(aspace->tt_virt);
@@ -665,7 +665,7 @@ int arch_mmu_unmap(arch_aspace_t *aspace, vaddr_t vaddr, uint count)
     if (!IS_PAGE_ALIGNED(vaddr))
         return ERR_INVALID_ARGS;
 
-    LTRACEF("vaddr 0x%lx count %u\n", vaddr, count);
+    LTRACEF("vaddr 0x%lx count %zu\n", vaddr, count);
 
     int unmapped = 0;
     while (count > 0) {

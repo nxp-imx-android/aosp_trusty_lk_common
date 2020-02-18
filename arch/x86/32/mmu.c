@@ -466,7 +466,7 @@ static void x86_mmu_unmap_entry(vaddr_t vaddr, int level, map_addr_t table_entry
     }
 }
 
-status_t x86_mmu_unmap(map_addr_t init_table, vaddr_t vaddr, uint count)
+status_t x86_mmu_unmap(map_addr_t init_table, vaddr_t vaddr, size_t count)
 {
     vaddr_t next_aligned_v_addr;
 
@@ -490,7 +490,7 @@ status_t x86_mmu_unmap(map_addr_t init_table, vaddr_t vaddr, uint count)
     return NO_ERROR;
 }
 
-int arch_mmu_unmap(arch_aspace_t *aspace, vaddr_t vaddr, uint count)
+int arch_mmu_unmap(arch_aspace_t *aspace, vaddr_t vaddr, size_t count)
 {
     map_addr_t init_table_from_cr3;
 
@@ -579,7 +579,7 @@ status_t arch_mmu_query(arch_aspace_t *aspace, vaddr_t vaddr, paddr_t *paddr, ui
     return NO_ERROR;
 }
 
-int arch_mmu_map(arch_aspace_t *aspace, vaddr_t vaddr, paddr_t paddr, uint count, uint flags)
+int arch_mmu_map(arch_aspace_t *aspace, vaddr_t vaddr, paddr_t paddr, size_t count, uint flags)
 {
     uint32_t current_cr3_val;
     struct map_range range;
