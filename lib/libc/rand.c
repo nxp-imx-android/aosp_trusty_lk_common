@@ -30,7 +30,7 @@ void srand(unsigned int seed)
     randseed = seed;
 }
 
-void rand_add_entropy(const void *buf, size_t len)
+void libc_trusty_rand_add_entropy(const void *buf, size_t len)
 {
     if (len == 0)
         return;
