@@ -25,6 +25,10 @@ MODULE_SRCS += \
 	$(LOCAL_DIR)/arm/faults.c \
 	$(LOCAL_DIR)/arm/dcc.S
 
+MODULE_DEPS += \
+	trusty/kernel/lib/backtrace \
+	trusty/kernel/lib/trusty \
+
 GLOBAL_DEFINES += \
 	ARCH_DEFAULT_STACK_SIZE=4096
 
