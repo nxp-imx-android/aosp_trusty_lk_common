@@ -258,7 +258,8 @@
                         MMU_TCR_SH0(MMU_SH_INNER_SHAREABLE) | \
                         MMU_TCR_ORGN0(MMU_RGN_WRITE_BACK_ALLOCATE) | \
                         MMU_TCR_IRGN0(MMU_RGN_WRITE_BACK_ALLOCATE) | \
-                        MMU_TCR_T0SZ(64 - MMU_USER_SIZE_SHIFT))
+                        MMU_TCR_T0SZ(64 - MMU_USER_SIZE_SHIFT) | \
+                        MMU_TCR_TBI0)
 #define MMU_TCR_FLAGS0_IDENT \
                        (MMU_TCR_TG0(MMU_TG0(MMU_IDENT_PAGE_SIZE_SHIFT)) | \
                         MMU_TCR_SH0(MMU_SH_INNER_SHAREABLE) | \
