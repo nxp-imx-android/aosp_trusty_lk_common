@@ -25,7 +25,7 @@
 #include <kernel/mutex.h>
 #include <kernel/vm.h>
 #include <lib/console.h>
-#include <rand.h>
+#include <lib/rand/rand.h>
 #include <string.h>
 #include <trace.h>
 
@@ -485,12 +485,7 @@ static vaddr_t alloc_spot(vmm_aspace_t* aspace,
 
     /* Grab the index through all choices */
 #ifdef ASLR
-    /*
-     * TODO this is biased for non power-of-two choices
-     * Fix delayed until we get a real RNG because it may include correct
-     * upper-bounding in its API
-     */
-    size_t index = ((size_t)rand()) % choices;
+    size_t index = rand_get_size(choices - 1);
 #else
     size_t index = 0;
 #endif
