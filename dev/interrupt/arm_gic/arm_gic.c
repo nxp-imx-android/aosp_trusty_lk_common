@@ -59,6 +59,7 @@
 
 void platform_fiq(struct iframe *frame);
 static status_t arm_gic_set_secure_locked(u_int irq, bool secure);
+static void gic_set_enable(uint vector, bool enable);
 
 static spin_lock_t gicd_lock;
 #if WITH_LIB_SM
@@ -67,6 +68,7 @@ static spin_lock_t gicd_lock;
 #define GICD_LOCK_FLAGS SPIN_LOCK_FLAG_INTERRUPTS
 #endif
 #define GIC_MAX_PER_CPU_INT 32
+#define GIC_MAX_SGI_INT 16
 
 #if ARM_GIC_USE_DOORBELL_NS_IRQ
 static bool doorbell_enabled;
@@ -142,6 +144,16 @@ void register_int_handler(unsigned int vector, int_handler handler, void *arg)
          */
         arm_gic_set_priority_locked(vector, 0xf7);
 #endif
+
+        /*
+         * For GICv3, SGIs are maskable, and on GICv2, whether they are
+         * maskable is implementation defined. As a result, the caller cannot
+         * rely on them being maskable, so we enable all registered SGIs as if
+         * they were non-maskable.
+         */
+        if (vector < GIC_MAX_SGI_INT) {
+            gic_set_enable(vector, true);
+        }
     }
 
     spin_unlock_restore(&gicd_lock, state, GICD_LOCK_FLAGS);
