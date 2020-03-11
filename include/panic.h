@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008 Travis Geiselbrecht
+ * Copyright (c) 2020 Google Inc. All rights reserved
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files
@@ -20,27 +20,16 @@
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-#ifndef __ASSERT_H
-#define __ASSERT_H
+#pragma once
 
 #include <compiler.h>
-#include <panic.h>
 
-#define ASSERT(x) \
-    do { if (unlikely(!(x))) { panic("ASSERT FAILED at (%s:%d): %s\n", __FILE__, __LINE__, #x); } } while (0)
+__BEGIN_CDECLS
 
-#if LK_DEBUGLEVEL > 1
-#define DEBUG_ASSERT(x) \
-    do { if (unlikely(!(x))) { panic("DEBUG ASSERT FAILED at (%s:%d): %s\n", __FILE__, __LINE__, #x); } } while (0)
-#else
-#define DEBUG_ASSERT(x) \
-    do { } while(0)
-#endif
+/* systemwide halts */
+void _panic(const char *fmt, ...) __PRINTFLIKE(1, 2) __NO_RETURN;
+#define panic(fmt, x...) _panic("panic (caller %p): " fmt, __GET_CALLER(), ##x)
 
-#define assert(e) DEBUG_ASSERT(e)
+#define PANIC_UNIMPLEMENTED panic("%s unimplemented\n", __PRETTY_FUNCTION__)
 
-#ifndef __cplusplus
-#define static_assert(e) STATIC_ASSERT(e)
-#endif
-
-#endif
+__END_CDECLS

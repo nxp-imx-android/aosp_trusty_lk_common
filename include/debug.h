@@ -25,6 +25,7 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <compiler.h>
+#include <panic.h>
 #include <platform/debug.h>
 
 #if !defined(LK_DEBUGLEVEL)
@@ -65,12 +66,6 @@ static inline void hexdump8(const void *ptr, size_t len)
 }
 
 #define dprintf(level, x...) do { if ((level) <= LK_DEBUGLEVEL) { printf(x); } } while (0)
-
-/* systemwide halts */
-void _panic(const char *fmt, ...) __PRINTFLIKE(1, 2) __NO_RETURN;
-#define panic(fmt, x...) _panic("panic (caller %p): " fmt, __GET_CALLER(), ##x)
-
-#define PANIC_UNIMPLEMENTED panic("%s unimplemented\n", __PRETTY_FUNCTION__)
 
 /* spin the cpu for a period of (short) time */
 void spin(uint32_t usecs);
