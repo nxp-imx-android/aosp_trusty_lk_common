@@ -39,5 +39,14 @@ enum {
 };
 status_t arm_gic_sgi(u_int irq, u_int flags, u_int cpu_mask);
 
+struct arm_gic_affinities {
+    uint8_t aff0;
+    uint8_t aff1;
+    uint8_t aff2;
+    uint8_t aff3;
+};
+
+struct arm_gic_affinities arch_cpu_num_to_gic_affinities(size_t cpu_num);
+
 #endif
 

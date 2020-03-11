@@ -388,15 +388,20 @@ static status_t arm_gic_set_priority_locked(u_int irq, uint8_t priority)
 
 status_t arm_gic_sgi(u_int irq, u_int flags, u_int cpu_mask)
 {
-#if GIC_VERSION > 2
-    /* This assumes that all CPUs are in the same cluster */
-    u_int val = ((irq & 0xf) << 24) | (cpu_mask & 0xffff);
-
-    if (irq >= (1U << 16))
+    if (irq >= 16) {
         return ERR_INVALID_ARGS;
+    }
 
-    LTRACEF("GICC_PRIMARY_SGIR: %x\n", val);
-    GICCREG_WRITE(0, GICC_PRIMARY_SGIR, val);
+#if GIC_VERSION > 2
+    for (size_t cpu = 0; cpu < SMP_MAX_CPUS; cpu++) {
+        if (!((cpu_mask >> cpu) & 1)) {
+            continue;
+        }
+
+        uint64_t val = arm_gicv3_sgir_val(irq, cpu);
+
+        GICCREG_WRITE(0, GICC_PRIMARY_SGIR, val);
+    }
 
 #else /* else GIC_VERSION > 2 */
 
@@ -405,9 +410,6 @@ status_t arm_gic_sgi(u_int irq, u_int flags, u_int cpu_mask)
         ((cpu_mask & 0xff) << 16) |
         ((flags & ARM_GIC_SGI_FLAG_NS) ? (1U << 15) : 0) |
         (irq & 0xf);
-
-    if (irq >= 16)
-        return ERR_INVALID_ARGS;
 
     LTRACEF("GICD_SGIR: %x\n", val);
 
@@ -695,13 +697,12 @@ status_t sm_intc_fiq_enter(void)
     if (irq >= 1020) {
 #if ARM_GIC_USE_DOORBELL_NS_IRQ
         uint cpu = arch_curr_cpu_num();
-        uint cpu_mask = 1U << cpu;
-        u_int val = (ARM_GIC_DOORBELL_IRQ << 24) | (cpu_mask & 0xffff);
+        uint64_t val = arm_gicv3_sgir_val(ARM_GIC_DOORBELL_IRQ, cpu);
 
         GICCREG_WRITE(0, icc_igrpen1_el1, 0); /* Disable secure Group 1 */
 
         if (doorbell_enabled) {
-            LTRACEF("GICD_SGIR: %x\n", val);
+            LTRACEF("GICD_SGIR: %llx\n", val);
             GICCREG_WRITE(0, icc_asgi1r_el1, val);
         }
 #else

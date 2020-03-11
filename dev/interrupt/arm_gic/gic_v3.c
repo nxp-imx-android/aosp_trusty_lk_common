@@ -26,6 +26,8 @@
 #include <bits.h>
 #include <stdint.h>
 
+#include <dev/interrupt/arm_gic.h>
+
 #include "arm_gic_common.h"
 #include "gic_v3.h"
 
@@ -277,4 +279,42 @@ void arm_gicv3_resume_cpu_locked(unsigned int cpu, bool gicd) {
           GICDREG_WRITE(0, GICD_ISENABLER(i / 32), enabled_spi_mask[i / 32]);
         }
     }
+}
+
+STATIC_ASSERT(SMP_CPU_CLUSTER_SHIFT <= 8);
+/* SMP_MAX_CPUs needs to be addressable with only two affinities */
+STATIC_ASSERT((SMP_MAX_CPUS >> SMP_CPU_CLUSTER_SHIFT) <= 0x100U);
+
+__WEAK struct arm_gic_affinities arch_cpu_num_to_gic_affinities(size_t cpu_num) {
+    const size_t max_cluster_size = 1U << SMP_CPU_CLUSTER_SHIFT;
+    const uint8_t cluster_mask = max_cluster_size - 1;
+    struct arm_gic_affinities out = {
+        .aff0 = cpu_num & cluster_mask,
+        .aff1 = cpu_num >> SMP_CPU_CLUSTER_SHIFT,
+        .aff2 = 0,
+        .aff3 = 0,
+    };
+    return out;
+}
+
+#define SGIR_AFF1_SHIFT (16)
+#define SGIR_AFF2_SHIFT (32)
+#define SGIR_AFF3_SHIFT (48)
+#define SGIR_IRQ_SHIFT (24)
+#define SGIR_RS_SHIFT (44)
+#define SGIR_TARGET_LIST_SHIFT (0)
+#define SGIR_ASSEMBLE(val, shift) ((uint64_t)val << shift)
+
+uint64_t arm_gicv3_sgir_val(u_int irq, size_t cpu_num) {
+    struct arm_gic_affinities affs = arch_cpu_num_to_gic_affinities(cpu_num);
+    DEBUG_ASSERT(irq < 16);
+
+    uint8_t range_selector = affs.aff0 >> 4;
+    uint16_t target_list = 1U << (affs.aff0 & 0xf);
+    return SGIR_ASSEMBLE(irq, SGIR_IRQ_SHIFT) |
+        SGIR_ASSEMBLE(affs.aff3, SGIR_AFF3_SHIFT) |
+        SGIR_ASSEMBLE(affs.aff2, SGIR_AFF2_SHIFT) |
+        SGIR_ASSEMBLE(affs.aff1, SGIR_AFF1_SHIFT) |
+        SGIR_ASSEMBLE(range_selector, SGIR_RS_SHIFT) |
+        SGIR_ASSEMBLE(target_list, SGIR_TARGET_LIST_SHIFT);
 }
