@@ -51,20 +51,21 @@ void arm64_context_switch(vaddr_t *old_sp, vaddr_t new_sp);
 
 /* exception handling */
 struct arm64_iframe_long {
-    uint64_t r[30];
+    uint64_t r[29];
     uint64_t lr;
     uint64_t usp;
-    uint64_t elr;
     uint64_t spsr;
+    uint64_t fp;
+    uint64_t elr;
 };
 
 struct arm64_iframe_short {
     uint64_t r[19];
-    uint64_t pad;
     uint64_t lr;
     uint64_t usp;
-    uint64_t elr;
     uint64_t spsr;
+    uint64_t fp;
+    uint64_t elr;
 };
 
 struct thread;

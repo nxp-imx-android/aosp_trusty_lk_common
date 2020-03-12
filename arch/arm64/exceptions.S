@@ -32,7 +32,7 @@
 
 .macro regsave_long
 sub  sp, sp, #32
-push x28, x29
+push x28, lr
 push x26, x27
 push x24, x25
 push x22, x23
@@ -50,13 +50,14 @@ push x0, x1
 mrs  x0, sp_el0
 mrs  x1, elr_el1
 mrs  x2, spsr_el1
-stp  lr, x0, [sp, #regsave_long_offset]
-stp  x1, x2, [sp, #regsave_long_offset + 16]
+stp  x0,  x2, [sp, #regsave_long_offset]
+stp  fp,  x1, [sp, #regsave_long_offset + 16]
+add  fp, sp, #regsave_long_offset + 16
 .endm
 
 .macro regsave_short
 sub  sp, sp, #32
-push x18, xzr
+push x18, lr
 push x16, x17
 push x14, x15
 push x12, x13
@@ -69,13 +70,14 @@ push x0, x1
 mrs  x0, sp_el0
 mrs  x1, elr_el1
 mrs  x2, spsr_el1
-stp  lr, x0, [sp, #regsave_short_offset]
-stp  x1, x2, [sp, #regsave_short_offset + 16]
+stp  x0, x2, [sp, #regsave_short_offset]
+stp  fp, x1, [sp, #regsave_short_offset + 16]
+add  fp, sp, #regsave_long_offset + 16
 .endm
 
 .macro regrestore_long
-ldp  lr, x0, [sp, #regsave_long_offset]
-ldp  x1, x2, [sp, #regsave_long_offset + 16]
+ldp  x0,  x2, [sp, #regsave_long_offset]
+ldp  fp,  x1, [sp, #regsave_long_offset + 16]
 msr  sp_el0, x0
 msr  elr_el1, x1
 msr  spsr_el1, x2
@@ -93,13 +95,13 @@ pop x20, x21
 pop x22, x23
 pop x24, x25
 pop x26, x27
-pop x28, x29
+pop x28, lr
 add sp, sp, #32
 .endm
 
 .macro regrestore_short
-ldp  lr, x0, [sp, #regsave_short_offset]
-ldp  x1, x2, [sp, #regsave_short_offset + 16]
+ldp  x0, x2, [sp, #regsave_short_offset]
+ldp  fp, x1, [sp, #regsave_short_offset + 16]
 msr  sp_el0, x0
 msr  elr_el1, x1
 msr  spsr_el1, x2
@@ -112,7 +114,7 @@ pop x10, x11
 pop x12, x13
 pop x14, x15
 pop x16, x17
-pop x18, xzr
+pop x18, lr
 add sp, sp, #32
 .endm
 
