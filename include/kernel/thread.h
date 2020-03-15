@@ -31,6 +31,7 @@
 #include <arch/thread.h>
 #include <kernel/wait.h>
 #include <kernel/spinlock.h>
+#include <stdatomic.h>
 #include <debug.h>
 
 #if WITH_KERNEL_VM
@@ -122,7 +123,7 @@ typedef struct thread {
     struct wait_queue retcode_wait_queue;
 
     /* thread local storage */
-    uintptr_t tls[MAX_TLS_ENTRY];
+    atomic_uintptr_t tls[MAX_TLS_ENTRY];
 
     char name[32];
 } thread_t;
@@ -206,23 +207,30 @@ static inline bool thread_lock_held(void)
 }
 
 /* thread local storage */
+static inline __ALWAYS_INLINE uintptr_t thread_tls_get(thread_t *t, uint entry)
+{
+    return atomic_load(&t->tls[entry]);
+}
+
 static inline __ALWAYS_INLINE uintptr_t tls_get(uint entry)
 {
-    return get_current_thread()->tls[entry];
+    return thread_tls_get(get_current_thread(), entry);
 }
 
-static inline __ALWAYS_INLINE uintptr_t __tls_set(uint entry, uintptr_t val)
+static inline __ALWAYS_INLINE uintptr_t __thread_tls_set(thread_t *t,
+                                                         uint entry,
+                                                         uintptr_t val)
 {
-    uintptr_t oldval = get_current_thread()->tls[entry];
-    get_current_thread()->tls[entry] = val;
-    return oldval;
+    return atomic_exchange(&t->tls[entry], val);
 }
 
-#define tls_set(e,v) \
+#define thread_tls_set(t,e,v) \
     ({ \
         STATIC_ASSERT((e) < MAX_TLS_ENTRY); \
-        __tls_set(e, v); \
+        __thread_tls_set(t, e, v); \
     })
+
+#define tls_set(e,v) thread_tls_set(get_current_thread(), e, v)
 
 /* thread level statistics */
 #if THREAD_STATS
