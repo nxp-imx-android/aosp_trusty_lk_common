@@ -281,6 +281,7 @@ void arm_gicv3_resume_cpu_locked(unsigned int cpu, bool gicd) {
     }
 }
 
+#if WITH_SMP
 STATIC_ASSERT(SMP_CPU_CLUSTER_SHIFT <= 8);
 /* SMP_MAX_CPUs needs to be addressable with only two affinities */
 STATIC_ASSERT((SMP_MAX_CPUS >> SMP_CPU_CLUSTER_SHIFT) <= 0x100U);
@@ -296,6 +297,7 @@ __WEAK struct arm_gic_affinities arch_cpu_num_to_gic_affinities(size_t cpu_num) 
     };
     return out;
 }
+#endif
 
 #define SGIR_AFF1_SHIFT (16)
 #define SGIR_AFF2_SHIFT (32)
