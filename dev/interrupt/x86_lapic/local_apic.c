@@ -20,12 +20,14 @@
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-#include <assert.h>
 #include <arch/x86.h>
 #include <arch/x86/mmu.h>
 #include <arch/arch_ops.h>
+#include <assert.h>
+#include <debug.h>
 #include <dev/interrupt/local_apic.h>
 #include <lk/init.h>
+#include <lk/macros.h>
 #include <kernel/vm.h>
 #include <reg.h>
 

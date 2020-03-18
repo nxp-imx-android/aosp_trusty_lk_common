@@ -24,6 +24,7 @@
 #include <arch/ops.h>
 #include <assert.h>
 #include <bits.h>
+#include <lk/macros.h>
 #include <stdint.h>
 
 #include <dev/interrupt/arm_gic.h>
