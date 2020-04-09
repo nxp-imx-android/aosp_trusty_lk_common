@@ -30,6 +30,23 @@
 
 #define TIMESTAMP_IRQ 0
 
+/*
+ * Use __thumb__ macro to determine where compiled C/C++ expects frame pointer
+ * to be. This assumes that most compiled C/C++ code is either ARM or Thumb.
+ *
+ * Tracing through functions compiled for different modes is not guaranteed to
+ * produce a correct trace, because code compiled for ARM saves r11 in the frame
+ * record, while Thumb saves r7. So, if a Thumb function calls an ARM function,
+ * the latter will save the wrong register in the frame record, and vice versa.
+ * In this case, it's possible that a partial trace will be produced if the
+ * frame pointer hasn't been clobbered by the time we generate the trace.
+ */
+#if defined(__thumb__)
+frame_pointer .req r7
+#else
+frame_pointer .req r11
+#endif
+
 /* macros to align and unalign the stack on 8 byte boundary for ABI compliance */
 .macro stack_align, tempreg
     /* make sure the stack is aligned */
@@ -81,6 +98,10 @@
     cpsid   i,#0x13
 #endif
 
+    /* save frame record */
+    push    { frame_pointer }
+    mov     frame_pointer, sp
+
     /* save callee trashed regs and lr */
     push    { r0-r3, r12, lr }
 
@@ -118,6 +139,7 @@
     add     sp, #8
 
     pop     { r0-r3, r12, lr }
+    pop     { frame_pointer }
 
     /* return to whence we came from */
     rfeia   sp!
@@ -136,6 +158,10 @@
 #else
     cpsid   i,#0x13
 #endif
+
+    /* save frame record */
+    push    { frame_pointer }
+    mov     frame_pointer, sp
 
     /* save all regs */
     push    { r0-r12, lr }
@@ -174,6 +200,7 @@
     add     sp, #8
 
     pop     { r0-r12, r14 }
+    pop     { frame_pointer }
 
     /* return to whence we came from */
     rfeia   sp!

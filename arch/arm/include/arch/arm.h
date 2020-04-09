@@ -89,6 +89,7 @@ struct arm_iframe {
     uint32_t r3;
     uint32_t r12;
     uint32_t lr;
+    uint32_t fp;
     uint32_t pc;
     uint32_t spsr;
 };
@@ -101,6 +102,7 @@ struct arm_fault_frame {
     uint32_t ulr;
     uint32_t r[13];
     uint32_t lr;
+    uint32_t fp;
     uint32_t pc;
     uint32_t spsr;
 };
