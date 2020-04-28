@@ -177,4 +177,11 @@
 #define __END_CDECLS
 #endif
 
+/*
+ * Macros to prevent merging or refetching of reads and writes. Don't use with
+ * struct types if you don't want compiler to generate calls to memcpy().
+ */
+#define READ_ONCE(x) (*((volatile __typeof__(x) *) &(x)))
+#define WRITE_ONCE(x, val) (*((volatile __typeof__(val) *) &(x)) = (val))
+
 #endif
