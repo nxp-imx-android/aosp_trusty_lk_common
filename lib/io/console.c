@@ -97,6 +97,9 @@ static void out_count(const char *str, size_t len)
         if (need_lock) {
             spin_unlock_restore(&print_spin_lock, state, PRINT_LOCK_FLAGS);
         }
+#if CONSOLE_CALLBACK_DISABLES_SERIAL
+        return;
+#endif
     }
 
     /* write out the serial port */
