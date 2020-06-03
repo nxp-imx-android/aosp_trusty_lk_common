@@ -23,7 +23,6 @@ $(OUTELF).hex: $(OUTELF)
 
 $(OUTELF): $(ALLMODULE_OBJS) $(EXTRA_OBJS) $(LINKER_SCRIPT) $(EXTRA_LINKER_SCRIPTS)
 	@echo linking $@
-	$(NOECHO)$(SIZE) -t --common $(sort $(ALLMODULE_OBJS)) $(EXTRA_OBJS)
 	$(NOECHO)$(LD) $(GLOBAL_LDFLAGS) -T $(LINKER_SCRIPT) $(addprefix -T,$(EXTRA_LINKER_SCRIPTS)) \
 		--start-group $(ALLMODULE_OBJS) $(EXTRA_OBJS) $(LIBGCC) --end-group -Map=$(OUTELF).map -o $@
 

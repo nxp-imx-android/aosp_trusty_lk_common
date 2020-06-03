@@ -14,6 +14,7 @@
 # MODULE_INCLUDES : include directories local to this module
 # MODULE_SRCDEPS : extra dependencies that all of this module's files depend on
 # MODULE_EXTRA_OBJS : extra .o files that should be linked with the module
+# MODULE_DISABLE_LTO : disable LTO for this module
 
 # MODULE_ARM_OVERRIDE_SRCS : list of source files, local path that should be force compiled with ARM (if applicable)
 
@@ -62,6 +63,27 @@ MODULE_DEFINES += MODULE_SRCDEPS=\"$(subst $(SPACE),_,$(MODULE_SRCDEPS))\"
 MODULE_DEFINES += MODULE_DEPS=\"$(subst $(SPACE),_,$(MODULE_DEPS))\"
 MODULE_DEFINES += MODULE_SRCS=\"$(subst $(SPACE),_,$(MODULE_SRCS))\"
 
+
+MODULE_LTO_ENABLED := false
+ifneq (true,$(call TOBOOL,$(MODULE_DISABLE_LTO)))
+ifeq (true,$(call TOBOOL,$(USER_TASK_MODULE)))
+
+ifeq (true,$(call TOBOOL,$(USER_LTO_ENABLED)))
+MODULE_LTO_ENABLED := true
+endif
+
+else
+
+ifeq (true,$(call TOBOOL,$(KENREL_LTO_ENABLED)))
+MODULE_LTO_ENABLED := true
+endif
+
+endif
+endif
+
+ifeq (true,$(call TOBOOL,$(MODULE_LTO_ENABLED)))
+MODULE_COMPILEFLAGS += -fvisibility=hidden -flto=thin
+endif
 
 # generate a per-module config.h file
 MODULE_CONFIG := $(MODULE_BUILDDIR)/module_config.h
@@ -125,3 +147,5 @@ MODULE_OBJECT :=
 MODULE_ARM_OVERRIDE_SRCS :=
 MODULE_SRCS_FIRST :=
 MODULE_INIT_OBJS :=
+MODULE_DISABLE_LTO :=
+MODULE_LTO_ENABLED :=
