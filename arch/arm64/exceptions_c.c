@@ -72,13 +72,23 @@ __WEAK void arm64_syscall(struct arm64_iframe_long *iframe, bool is_64bit)
     panic("unhandled syscall vector\n");
 }
 
-void arm64_sync_exception(struct arm64_iframe_long *iframe)
+void arm64_sync_exception(struct arm64_iframe_long *iframe, bool from_lower)
 {
     uint32_t esr = ARM64_READ_SYSREG(esr_el1);
     uint32_t ec = BITS_SHIFT(esr, 31, 26);
     uint32_t il = BIT(esr, 25);
     uint32_t iss = BITS(esr, 24, 0);
     uintptr_t display_pc = iframe->elr;
+
+    if (from_lower) {
+        /*
+         * load_bias may intentionally overflow to represent a shift
+         * down of the application base address
+         */
+        __builtin_sub_overflow(display_pc,
+                               current_trusty_app()->load_bias,
+                               &display_pc);
+    }
 
     switch (ec) {
         case 0b000111: /* floating point */
@@ -96,15 +106,6 @@ void arm64_sync_exception(struct arm64_iframe_long *iframe)
             return;
 #endif
         case 0b100000: /* instruction abort from lower level */
-            printf("load bias: 0x%lx\n", current_trusty_app()->load_bias);
-            /*
-             * load_bias may intentionally overflow to represent a shift
-             * down of the application base address
-             */
-            __builtin_sub_overflow(display_pc,
-                                   current_trusty_app()->load_bias,
-                                   &display_pc);
-            __FALLTHROUGH;
         case 0b100001: /* instruction abort from same level */
             if (check_fault_handler_table(iframe)) {
                 return;
@@ -113,15 +114,6 @@ void arm64_sync_exception(struct arm64_iframe_long *iframe)
                    display_pc);
             break;
         case 0b100100: /* data abort from lower level */
-            printf("load bias: 0x%lx\n", current_trusty_app()->load_bias);
-            /*
-             * load_bias may intentionally overflow to represent a shift
-             * down of the application base address
-             */
-            __builtin_sub_overflow(display_pc,
-                                   current_trusty_app()->load_bias,
-                                   &display_pc);
-            __FALLTHROUGH;
         case 0b100101: { /* data abort from same level */
             if (check_fault_handler_table(iframe)) {
                 return;
@@ -142,10 +134,14 @@ void arm64_sync_exception(struct arm64_iframe_long *iframe)
             break;
         }
         default:
-            printf("unhandled synchronous exception\n");
+            printf("unhandled synchronous exception: PC at 0x%llx(0x%lx)\n",
+                   iframe->elr, display_pc);
     }
 
     /* unhandled exception, die here */
+    if (from_lower) {
+        printf("load bias: 0x%lx\n", current_trusty_app()->load_bias);
+    }
     printf("ESR 0x%x: ec 0x%x, il 0x%x, iss 0x%x\n", esr, ec, il, iss);
     dump_iframe(iframe);
     dump_backtrace();

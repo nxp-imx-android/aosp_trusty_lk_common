@@ -176,6 +176,7 @@ LOCAL_FUNCTION(arm64_err_exc_current_el_SP0)
 LOCAL_FUNCTION(arm64_sync_exc_current_el_SPx)
     regsave_long
     mov x0, sp
+    mov x1, #0 /* from_lower = false */
     bl  arm64_sync_exception
     b  arm64_exc_shared_restore_long
 
@@ -196,6 +197,7 @@ LOCAL_FUNCTION(arm64_err_exc_current_el_SPx)
 LOCAL_FUNCTION(arm64_sync_exc_lower_el_64)
     regsave_long
     mov x0, sp
+    mov x1, #1 /* from_lower = true */
     bl  arm64_sync_exception
     b  arm64_exc_shared_restore_long
 
@@ -216,6 +218,7 @@ LOCAL_FUNCTION(arm64_err_exc_lower_el_64)
 LOCAL_FUNCTION(arm64_sync_exc_lower_el_32)
     regsave_long
     mov x0, sp
+    mov x1, #1 /* from_lower = true */
     bl  arm64_sync_exception
     b  arm64_exc_shared_restore_long
 
