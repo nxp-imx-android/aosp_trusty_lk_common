@@ -54,7 +54,8 @@ static bool check_fault_handler_table(struct arm64_iframe_long *iframe)
 
 static void dump_iframe(const struct arm64_iframe_long *iframe)
 {
-    printf("iframe %p:\n", iframe);
+    struct thread *thread = get_current_thread();
+    printf("thread: %p (%s), iframe %p:\n", thread, thread->name, iframe);
     printf("x0  0x%16llx x1  0x%16llx x2  0x%16llx x3  0x%16llx\n", iframe->r[0], iframe->r[1], iframe->r[2], iframe->r[3]);
     printf("x4  0x%16llx x5  0x%16llx x6  0x%16llx x7  0x%16llx\n", iframe->r[4], iframe->r[5], iframe->r[6], iframe->r[7]);
     printf("x8  0x%16llx x9  0x%16llx x10 0x%16llx x11 0x%16llx\n", iframe->r[8], iframe->r[9], iframe->r[10], iframe->r[11]);
