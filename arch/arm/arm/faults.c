@@ -92,7 +92,7 @@ static void dump_mode_regs(uint32_t spsr, uint32_t svc_r13, uint32_t svc_r14)
     }
 }
 
-static void dump_fault_frame(struct arm_fault_frame *frame)
+static void dump_thread_info(void)
 {
     struct thread *current_thread = get_current_thread();
 
@@ -104,6 +104,11 @@ static void dump_fault_frame(struct arm_fault_frame *frame)
         dprintf(CRITICAL, "load bias %lx\n", app->load_bias);
     }
 
+}
+
+static void dump_fault_frame(struct arm_fault_frame *frame)
+{
+    dump_thread_info();
     dprintf(CRITICAL, "r0  0x%08x r1  0x%08x r2  0x%08x r3  0x%08x\n", frame->r[0], frame->r[1], frame->r[2], frame->r[3]);
     dprintf(CRITICAL, "r4  0x%08x r5  0x%08x r6  0x%08x r7  0x%08x\n", frame->r[4], frame->r[5], frame->r[6], frame->r[7]);
     dprintf(CRITICAL, "r8  0x%08x r9  0x%08x r10 0x%08x r11 0x%08x\n", frame->r[8], frame->r[9], frame->r[10], frame->r[11]);
@@ -115,6 +120,7 @@ static void dump_fault_frame(struct arm_fault_frame *frame)
 
 static void dump_iframe(struct arm_iframe *frame)
 {
+    dump_thread_info();
     dprintf(CRITICAL, "r0  0x%08x r1  0x%08x r2  0x%08x r3  0x%08x\n", frame->r0, frame->r1, frame->r2, frame->r3);
     dprintf(CRITICAL, "r12 0x%08x usp 0x%08x ulr 0x%08x fp  0x%08x\n", frame->r12, frame->usp, frame->ulr, frame->fp);
     dprintf(CRITICAL, "pc  0x%08x spsr 0x%08x\n", frame->pc, frame->spsr);
