@@ -128,14 +128,25 @@ static void dump_iframe(struct arm_iframe *frame)
     dump_mode_regs(frame->spsr, (uintptr_t)(frame + 1), frame->lr);
 }
 
+static void halt_thread(uint32_t spsr)
+{
+    if ((spsr & CPSR_MODE_MASK) == CPSR_MODE_USR) {
+        arch_enable_fiqs();
+        arch_enable_ints();
+        trusty_app_crash();
+    }
+
+    platform_halt(HALT_ACTION_HALT, HALT_REASON_SW_PANIC);
+    for (;;);
+}
+
 static void exception_die(struct arm_fault_frame *frame, const char *msg)
 {
     dprintf(CRITICAL, "%s", msg);
     dump_fault_frame(frame);
     dump_backtrace();
 
-    platform_halt(HALT_ACTION_HALT, HALT_REASON_SW_PANIC);
-    for (;;);
+    halt_thread(frame->spsr);
 }
 
 static void exception_die_iframe(struct arm_iframe *frame, const char *msg)
@@ -144,8 +155,7 @@ static void exception_die_iframe(struct arm_iframe *frame, const char *msg)
     dump_iframe(frame);
     dump_backtrace();
 
-    platform_halt(HALT_ACTION_HALT, HALT_REASON_SW_PANIC);
-    for (;;);
+    halt_thread(frame->spsr);
 }
 
 __WEAK void arm_syscall_handler(struct arm_fault_frame *frame)

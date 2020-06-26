@@ -147,6 +147,11 @@ void arm64_sync_exception(struct arm64_iframe_long *iframe, bool from_lower)
     dump_iframe(iframe);
     dump_backtrace();
 
+    if (from_lower) {
+        arch_enable_fiqs();
+        arch_enable_ints();
+        trusty_app_crash();
+    }
     panic("die\n");
 }
 
