@@ -23,6 +23,7 @@
 
 #include <ctype.h>
 #include <debug.h>
+#include <err.h>
 #include <stdlib.h>
 #include <printf.h>
 #include <stdio.h>
@@ -31,6 +32,7 @@
 #include <platform.h>
 #include <platform/debug.h>
 #include <kernel/spinlock.h>
+#include <kernel/thread.h>
 
 void spin(uint32_t usecs)
 {
@@ -48,6 +50,12 @@ void spin(uint32_t usecs)
 void _panic(const char *fmt, ...)
 {
     va_list ap;
+    struct thread *curr = get_current_thread();
+
+    if (curr && thread_get_flag_exit_on_panic(curr)) {
+        thread_exit(ERR_FAULT);
+    }
+
     va_start(ap, fmt);
     vprintf(fmt, ap);
     va_end(ap);

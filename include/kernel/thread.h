@@ -82,6 +82,7 @@ enum thread_tls_list {
 #define THREAD_FLAG_REAL_TIME                 (1U<<3)
 #define THREAD_FLAG_IDLE                      (1U<<4)
 #define THREAD_FLAG_DEBUG_STACK_BOUNDS_CHECK  (1U<<5)
+#define THREAD_FLAG_EXIT_ON_PANIC             (1U<<6)
 
 #define THREAD_MAGIC (0x74687264) // 'thrd'
 
@@ -232,6 +233,46 @@ static inline __ALWAYS_INLINE uintptr_t __thread_tls_set(thread_t *t,
     })
 
 #define tls_set(e,v) thread_tls_set(get_current_thread(), e, v)
+
+static inline void thread_set_flag(thread_t *t, uint flag, bool enable)
+{
+    THREAD_LOCK(state);
+    if (enable) {
+        t->flags |= flag;
+    } else {
+        t->flags &= ~flag;
+    }
+    THREAD_UNLOCK(state);
+}
+
+static inline bool thread_get_flag(thread_t *t, uint flag)
+{
+    bool enabled;
+    THREAD_LOCK(state);
+    enabled = t->flags & flag;
+    THREAD_UNLOCK(state);
+    return enabled;
+}
+
+/**
+ * thread_set_flag_exit_on_panic - Set flag to ignore panic in specific thread
+ * @t:       Thread to set flag on
+ * @enable:  If %true, exit thread instead of halting system if panic is called
+ *           from @t. If %false, halt system if panic is called from @t
+ *           (default behavior).
+ *
+ * Should only be used for kernel test threads as it is generally not safe to
+ * proceed kernel execution after panic has been called.
+ */
+static inline void thread_set_flag_exit_on_panic(thread_t *t, bool enable)
+{
+    thread_set_flag(t, THREAD_FLAG_EXIT_ON_PANIC, enable);
+}
+
+static inline bool thread_get_flag_exit_on_panic(thread_t *t)
+{
+    return thread_get_flag(t, THREAD_FLAG_EXIT_ON_PANIC);
+}
 
 /* thread level statistics */
 #if THREAD_STATS
