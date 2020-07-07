@@ -136,7 +136,7 @@ static void halt_thread(uint32_t spsr)
         trusty_app_crash();
     }
 
-    platform_halt(HALT_ACTION_HALT, HALT_REASON_SW_PANIC);
+    panic("fault\n");
     for (;;);
 }
 
