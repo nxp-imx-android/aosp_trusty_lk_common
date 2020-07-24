@@ -4,7 +4,6 @@
 # args:
 # MODULE : module name (required)
 # MODULE_SRCS : list of source files, local path (required)
-# MODULE_STATIC_LIB : if true generate .a instead of .o
 # MODULE_DEPS : other modules that this one depends on
 # MODULE_DEFINES : #defines local to this module
 # MODULE_OPTFLAGS : OPTFLAGS local to this module
@@ -63,9 +62,6 @@ MODULE_DEFINES += MODULE_SRCDEPS=\"$(subst $(SPACE),_,$(MODULE_SRCDEPS))\"
 MODULE_DEFINES += MODULE_DEPS=\"$(subst $(SPACE),_,$(MODULE_DEPS))\"
 MODULE_DEFINES += MODULE_SRCS=\"$(subst $(SPACE),_,$(MODULE_SRCS))\"
 
-ifeq (true,$(call TOBOOL,$(MODULE_STATIC_LIB)))
-MODULE_DEFINES += MODULE_STATIC_LIB=1
-endif
 
 # generate a per-module config.h file
 MODULE_CONFIG := $(MODULE_BUILDDIR)/module_config.h
@@ -88,9 +84,7 @@ include make/compile.mk
 # MODULE_OBJS is passed back from compile.mk
 #$(info MODULE_OBJS = $(MODULE_OBJS))
 
-# build a ld -r style combined object
-ifeq (true,$(call TOBOOL,$(MODULE_STATIC_LIB)))
-
+# Archive the module's object files into a static library.
 MODULE_OBJECT := $(call TOBUILDDIR,$(MODULE_SRCDIR).mod.a)
 $(MODULE_OBJECT): $(MODULE_OBJS) $(MODULE_EXTRA_OBJS)
 	@$(MKDIR)
@@ -98,27 +92,17 @@ $(MODULE_OBJECT): $(MODULE_OBJS) $(MODULE_EXTRA_OBJS)
 	$(NOECHO)rm -f $@
 	$(NOECHO)$(AR) rcs $@ $^
 
-else
-
-MODULE_OBJECT := $(call TOBUILDDIR,$(MODULE_SRCDIR).mod.o)
-$(MODULE_OBJECT): $(MODULE_OBJS) $(MODULE_EXTRA_OBJS)
-	@$(MKDIR)
-	@echo linking $@
-	$(NOECHO)$(LD) $(GLOBAL_MODULE_LDFLAGS) -r $^ -o $@
-
-endif
-
-# track all of the source files compiled
-ALLSRCS += $(MODULE_SRCS)
-
-# track all the objects built
-ALLOBJS += $(MODULE_OBJS)
-
 # track the module object for make clean
 GENERATED += $(MODULE_OBJECT)
 
 # make the rest of the build depend on our output
-ALLMODULE_OBJS := $(ALLMODULE_OBJS) $(MODULE_OBJECT)
+ALLMODULE_OBJS := $(MODULE_INIT_OBJS) $(ALLMODULE_OBJS) $(MODULE_OBJECT)
+
+# track all of the source files compiled
+ALLSRCS += $(MODULE_SRCS_FIRST) $(MODULE_SRCS)
+
+# track all the objects built
+ALLOBJS += $(MODULE_INIT_OBJS) $(MODULE_OBJS)
 
 # empty out any vars set here
 MODULE :=
@@ -126,7 +110,6 @@ MODULE_SRCDIR :=
 MODULE_BUILDDIR :=
 MODULE_DEPS :=
 MODULE_SRCS :=
-MODULE_STATIC_LIB :=
 MODULE_OBJS :=
 MODULE_DEFINES :=
 MODULE_OPTFLAGS :=
@@ -140,3 +123,5 @@ MODULE_EXTRA_OBJS :=
 MODULE_CONFIG :=
 MODULE_OBJECT :=
 MODULE_ARM_OVERRIDE_SRCS :=
+MODULE_SRCS_FIRST :=
+MODULE_INIT_OBJS :=

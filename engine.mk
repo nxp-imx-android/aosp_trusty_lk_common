@@ -230,11 +230,12 @@ ifeq ($(CLANG_BINDIR),)
 $(error clang directory not specified, please set CLANG_BINDIR)
 endif
 CC := $(CCACHE) $(CLANG_BINDIR)/clang
+AR := $(CLANG_BINDIR)/llvm-ar
 else
 CC := $(CCACHE) $(TOOLCHAIN_PREFIX)gcc
+AR := $(TOOLCHAIN_PREFIX)ar
 endif
 LD := $(CLANG_BINDIR)/ld.lld
-AR := $(TOOLCHAIN_PREFIX)ar
 OBJDUMP := $(TOOLCHAIN_PREFIX)objdump
 OBJCOPY := $(TOOLCHAIN_PREFIX)objcopy
 CPPFILT := $(TOOLCHAIN_PREFIX)c++filt
