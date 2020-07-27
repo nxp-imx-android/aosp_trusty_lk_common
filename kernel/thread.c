@@ -922,6 +922,23 @@ void thread_sleep_ns(lk_time_ns_t delay_ns)
 }
 
 /**
+ * thread_sleep_until_ns - Put thread to sleep until specified time
+ * @target_time_ns:  Time to sleep until.
+ *
+ * Sleep until current_time_ns() returns a value greater or equal than
+ * @target_time_ns. If current_time_ns() is already greater or equal than
+ * @target_time_ns return immediately.
+ */
+void thread_sleep_until_ns(lk_time_ns_t target_time_ns)
+{
+    lk_time_ns_t now_ns = current_time_ns();
+    if (now_ns < target_time_ns) {
+        /* TODO: Support absolute time in timer api and improve accuracy. */
+        thread_sleep_ns(target_time_ns - now_ns);
+    }
+}
+
+/**
  * @brief  Initialize threading system
  *
  * This function is called once, from kmain()

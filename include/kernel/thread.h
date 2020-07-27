@@ -170,6 +170,7 @@ thread_t *thread_create_etc(thread_t *t, const char *name, thread_start_routine 
 status_t thread_resume(thread_t *);
 void thread_exit(int retcode) __NO_RETURN;
 void thread_sleep_ns(lk_time_ns_t delay_ns);
+void thread_sleep_until_ns(lk_time_ns_t target_time_ns);
 static inline void thread_sleep(lk_time_t delay_ms) {
     thread_sleep_ns(delay_ms * 1000ULL * 1000);
 }
