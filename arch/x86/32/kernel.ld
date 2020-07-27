@@ -48,7 +48,7 @@ SECTIONS
      * so we want to make sure this symbol comes after anything inserted above,
      * but not aligned to the next section necessarily.
      */
-    .dummy_post_rodata : {
+    .fake_post_rodata : {
         __rodata_end = .;
     }
 
@@ -76,7 +76,7 @@ SECTIONS
      * so we want to make sure this symbol comes after anything inserted above,
      * but not aligned to the next section necessarily.
      */
-    .dummy_post_data : {
+    .fake_post_data : {
         __data_end = .;
     }
 

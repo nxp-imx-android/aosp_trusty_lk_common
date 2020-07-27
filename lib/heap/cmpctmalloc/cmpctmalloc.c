@@ -194,8 +194,8 @@ static int size_to_index_allocating(size_t size, size_t *rounded_up_out)
 // Round down size to next bucket when freeing.
 static int size_to_index_freeing(size_t size)
 {
-    size_t dummy;
-    return size_to_index_helper(size, &dummy, 0, 0);
+    size_t unused;
+    return size_to_index_helper(size, &unused, 0, 0);
 }
 
 inline header_t *tag_as_free(void *left)

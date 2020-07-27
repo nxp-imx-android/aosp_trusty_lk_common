@@ -47,7 +47,7 @@ SECTIONS
     .ARM.exidx : { *(.ARM.exidx* .gnu.linkonce.armexidx.*) }
     __exidx_end = .;
 
-    .dummy_post_text : {
+    .fake_post_text : {
 	    __code_end = .;
     }
 
@@ -64,7 +64,7 @@ SECTIONS
      * so we want to make sure this symbol comes after anything inserted above,
      * but not aligned to the next section necessarily.
      */
-    .dummy_post_rodata : {
+    .fake_post_rodata : {
         __rodata_end = .;
     }
 
@@ -94,7 +94,7 @@ SECTIONS
      * so we want to make sure this symbol comes after anything inserted above,
      * but not aligned to the next section necessarily.
      */
-    .dummy_post_data : {
+    .fake_post_data : {
         __data_end = .;
     }
 

@@ -59,7 +59,7 @@ SECTIONS
      * needed because extra linker scripts tend to insert sections
      * just after .rodata
      */
-    .dummy_post_rodata : {
+    .fake_post_rodata : {
         /* end of rodata, start of data area */
         __rodata_end = . ;
         __rom_end = . ;
@@ -72,7 +72,7 @@ SECTIONS
     . = %MEMBASE%;
 
     /* start .data segment, force the physical address to be AT() __data_start_rom */
-    .data : AT ( ADDR (.dummy_post_rodata) + SIZEOF (.dummy_post_rodata) ) ALIGN(4) {
+    .data : AT ( ADDR (.fake_post_rodata) + SIZEOF (.fake_post_rodata) ) ALIGN(4) {
         __data_start = .;
         *(.data .data.* .gnu.linkonce.d.*)
     }
@@ -99,7 +99,7 @@ SECTIONS
      * so we want to make sure this symbol comes after anything inserted above,
      * but not aligned to the next section necessarily.
      */
-    .dummy_post_data : {
+    .fake_post_data : {
         __data_end = .;
     }
 
