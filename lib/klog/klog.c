@@ -191,7 +191,7 @@ ssize_t klog_recover(void *_ptr)
     if (crc != kbuf->header_crc32)
         return ERR_NOT_FOUND;
 
-    /* some sanity checks */
+    /* initial checks */
     if (kbuf->total_size > MAX_KLOG_SIZE)
         return ERR_NOT_FOUND;
     if (kbuf->current_log >= kbuf->log_count)
