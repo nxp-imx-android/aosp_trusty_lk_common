@@ -104,7 +104,6 @@ GLOBAL_DEFINES += \
 	ARCH_DEFAULT_STACK_SIZE=4096
 
 MODULE_DEPS += \
-	trusty/kernel/lib/backtrace \
 	trusty/kernel/lib/trusty \
 
 ARCH_OPTFLAGS := -O2

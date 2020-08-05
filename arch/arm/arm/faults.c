@@ -26,7 +26,6 @@
 #include <kernel/thread.h>
 #include <platform.h>
 #include <string.h>
-#include <lib/backtrace/backtrace.h>
 #include <lib/trusty/trusty_app.h>
 
 struct fault_handler_table_entry {
@@ -144,7 +143,6 @@ static void exception_die(struct arm_fault_frame *frame, const char *msg)
 {
     dprintf(CRITICAL, "%s", msg);
     dump_fault_frame(frame);
-    dump_backtrace();
 
     halt_thread(frame->spsr);
 }
@@ -153,7 +151,6 @@ static void exception_die_iframe(struct arm_iframe *frame, const char *msg)
 {
     dprintf(CRITICAL, "%s", msg);
     dump_iframe(frame);
-    dump_backtrace();
 
     halt_thread(frame->spsr);
 }

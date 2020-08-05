@@ -26,7 +26,6 @@ MODULE_SRCS += \
 	$(LOCAL_DIR)/arm/dcc.S
 
 MODULE_DEPS += \
-	trusty/kernel/lib/backtrace \
 	trusty/kernel/lib/trusty \
 
 GLOBAL_DEFINES += \

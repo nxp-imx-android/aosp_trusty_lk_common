@@ -27,6 +27,7 @@
 #include <stdlib.h>
 #include <printf.h>
 #include <stdio.h>
+#include <lib/backtrace/backtrace.h>
 #include <list.h>
 #include <arch/ops.h>
 #include <platform.h>
@@ -51,6 +52,8 @@ void _panic(const char *fmt, ...)
 {
     va_list ap;
     struct thread *curr = get_current_thread();
+
+    dump_backtrace();
 
     if (curr && thread_get_flag_exit_on_panic(curr)) {
         thread_exit(ERR_FAULT);
