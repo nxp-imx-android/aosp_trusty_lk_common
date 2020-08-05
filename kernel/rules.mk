@@ -6,7 +6,7 @@ MODULE_DEPS := \
 	lib/libc \
 	lib/debug \
 	lib/heap \
-	lib/rand
+	trusty/kernel/lib/rand
 
 MODULE_SRCS := \
 	$(LOCAL_DIR)/debug.c \
