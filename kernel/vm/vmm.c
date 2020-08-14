@@ -193,15 +193,39 @@ static vmm_region_t* alloc_region_struct(const char* name,
     return r;
 }
 
+static size_t vmm_flags_guard(uint low_flags, uint high_flags) {
+    if ((low_flags & VMM_FLAG_NO_END_GUARD) &&
+        (high_flags & VMM_FLAG_NO_START_GUARD)) {
+        /*
+         * Both regions have reported that they don't need a guard page on the
+         * potentially touching side.
+         */
+        return 0;
+    }
+
+    return PAGE_SIZE;
+}
+
+static size_t vmm_rguard(vmm_region_t *low, vmm_region_t *high) {
+    if (low->base >= high->base) {
+        /*
+         * Skip returning guard page if the regions are out of order to avoid
+         * possible overflow on last region in address space.
+         */
+        return 0;
+    }
+    return vmm_flags_guard(low->flags, high->flags);
+}
+
 /* Match any region that overlap */
 static int vmm_region_cmp(struct bst_node *_a, struct bst_node *_b) {
     vmm_region_t *a = containerof(_a, vmm_region_t, node);
     vmm_region_t *b = containerof(_b, vmm_region_t, node);
 
-    if ((b->base > a->base + (a->obj_slice.size - 1))) {
+    if (b->base > a->base + (a->obj_slice.size - 1) + vmm_rguard(a, b)) {
         return 1;
     }
-    if ((a->base > b->base + (b->obj_slice.size - 1))) {
+    if (a->base > b->base + (b->obj_slice.size - 1) + vmm_rguard(b, a)) {
         return -1;
     }
     return 0;
@@ -213,8 +237,9 @@ static status_t add_region_to_aspace(vmm_aspace_t* aspace, vmm_region_t* r) {
     DEBUG_ASSERT(aspace);
     DEBUG_ASSERT(r);
 
-    LTRACEF("aspace %p base 0x%lx size 0x%zx r %p base 0x%lx size 0x%zx\n",
-            aspace, aspace->base, aspace->size, r, r->base, r->obj_slice.size);
+    LTRACEF("aspace %p base 0x%lx size 0x%zx r %p base 0x%lx size 0x%zx flags 0x%x\n",
+            aspace, aspace->base, aspace->size, r, r->base, r->obj_slice.size,
+            r->flags);
 
     /* only try if the region will at least fit in the address space */
     if (r->obj_slice.size == 0 ||
@@ -228,6 +253,10 @@ static status_t add_region_to_aspace(vmm_aspace_t* aspace, vmm_region_t* r) {
     }
 
     LTRACEF("couldn't find spot\n");
+    vmm_region_t *r_coll  = bst_search_type(&aspace->regions, r,
+                                            vmm_region_cmp, vmm_region_t, node);
+    LTRACEF("colliding r %p base 0x%lx size 0x%zx flags 0x%x\n",
+            r_coll, r_coll->base, r_coll->obj_slice.size, r_coll->flags);
     return ERR_NO_MEMORY;
 }
 
@@ -308,6 +337,7 @@ static inline bool next_spot(arch_aspace_t* aspace,
  *            the first region.
  * @high:     The higher virtual region. May be null to indicate the area above
  *            the last region.
+ * @vmm_flags: vmm_flags of region that gap will be used for.
  * @gap_low:  Output parameter for the lowest open address.
  * @gap_high: Output parameter for the highest open address.
  *
@@ -318,6 +348,7 @@ static inline bool next_spot(arch_aspace_t* aspace,
 static inline bool extract_gap(vmm_aspace_t* aspace,
                                vmm_region_t* low,
                                vmm_region_t* high,
+                               uint vmm_flags,
                                vaddr_t* gap_low,
                                vaddr_t* gap_high) {
     DEBUG_ASSERT(aspace);
@@ -330,18 +361,33 @@ static inline bool extract_gap(vmm_aspace_t* aspace,
             /* No valid address exists above the low region */
             return false;
         }
+        if (__builtin_add_overflow(*gap_low,
+                                   vmm_flags_guard(low->flags, vmm_flags),
+                                   gap_low)) {
+            /* No valid address exists above the low region + guard page */
+            return false;
+        }
     } else {
         *gap_low = aspace->base;
+        /* Assume no adjacent address space so no guard page needed */
     }
 
     if (high) {
-        if ((*gap_low) == high->base) {
+        vaddr_t gap_high_val;
+        if (__builtin_sub_overflow(high->base,
+                                   vmm_flags_guard(vmm_flags, high->flags) + 1,
+                                   &gap_high_val)) {
+            /* No valid address exists below the high region + guard page */
+            return false;
+        }
+        if ((*gap_low) > gap_high_val) {
             /* No gap available */
             return false;
         }
-        *gap_high = high->base - 1;
+        *gap_high = gap_high_val;
     } else {
         *gap_high = aspace->base + (aspace->size - 1);
+        /* Assume no adjacent address space so no guard page needed */
     }
 
     return true;
@@ -373,10 +419,11 @@ static inline size_t scan_gap(vmm_aspace_t* aspace,
                               vmm_region_t* high,
                               vaddr_t alignment,
                               size_t size,
+                              uint vmm_flags,
                               uint arch_mmu_flags) {
     vaddr_t low_addr;
     vaddr_t high_addr;
-    if (!extract_gap(aspace, low, high, &low_addr, &high_addr)) {
+    if (!extract_gap(aspace, low, high, vmm_flags, &low_addr, &high_addr)) {
         /* There's no gap, so there are no available positions */
         return 0;
     }
@@ -428,6 +475,7 @@ static inline size_t scan_gap(vmm_aspace_t* aspace,
  *                  area above the last region.
  * @align:          The requested alignment of the region
  * @size:           The requested size of the region
+ * @vmm_flags:      The requested vmm_flags (used for requested guard pages)
  * @arch_mmu_flags: The requested MMU flags (RWX etc)
  * @index:          Which possibility to map the region at. This value must
  *                  be less than the value returned by scan_gap() for the
@@ -447,11 +495,12 @@ static inline vaddr_t spot_in_gap(vmm_aspace_t* aspace,
                                   vmm_region_t* high,
                                   vaddr_t align,
                                   size_t size,
+                                  uint vmm_flags,
                                   uint arch_mmu_flags,
                                   size_t index) {
     vaddr_t low_addr;
     vaddr_t high_addr;
-    if (!extract_gap(aspace, low, high, &low_addr, &high_addr)) {
+    if (!extract_gap(aspace, low, high, vmm_flags, &low_addr, &high_addr)) {
         panic("spot_in_gap() called on a 0-size region\n");
     }
 
@@ -499,6 +548,7 @@ static inline vaddr_t spot_in_gap(vmm_aspace_t* aspace,
 static vaddr_t alloc_spot(vmm_aspace_t* aspace,
                           size_t size,
                           uint8_t align_pow2,
+                          uint vmm_flags,
                           uint arch_mmu_flags) {
     DEBUG_ASSERT(aspace);
     DEBUG_ASSERT(size > 0 && IS_PAGE_ALIGNED(size));
@@ -521,11 +571,13 @@ static vaddr_t alloc_spot(vmm_aspace_t* aspace,
     /* Figure out how many options we have to size randomness appropriately */
     size_t choices = 0;
     bst_for_every_entry(&aspace->regions, right, vmm_region_t, node) {
-        choices += scan_gap(aspace, left, right, align, size, arch_mmu_flags);
+        choices += scan_gap(aspace, left, right, align, size, vmm_flags,
+                            arch_mmu_flags);
         left = right;
     }
     right = NULL;
-    choices += scan_gap(aspace, left, right, align, size, arch_mmu_flags);
+    choices += scan_gap(aspace, left, right, align, size, vmm_flags,
+                        arch_mmu_flags);
     if (!choices) {
         /* No available choices, bail */
         return (vaddr_t)-1;
@@ -540,10 +592,11 @@ static vaddr_t alloc_spot(vmm_aspace_t* aspace,
     left = NULL;
     bst_for_every_entry(&aspace->regions, right, vmm_region_t, node) {
         size_t local_spots =
-                scan_gap(aspace, left, right, align, size, arch_mmu_flags);
+                scan_gap(aspace, left, right, align, size, vmm_flags,
+                         arch_mmu_flags);
         if (local_spots > index) {
-            spot = spot_in_gap(aspace, left, right, align, size, arch_mmu_flags,
-                               index);
+            spot = spot_in_gap(aspace, left, right, align, size, vmm_flags,
+                               arch_mmu_flags, index);
             goto done;
         } else {
             index -= local_spots;
@@ -551,7 +604,8 @@ static vaddr_t alloc_spot(vmm_aspace_t* aspace,
         left = right;
     }
     right = NULL;
-    spot = spot_in_gap(aspace, left, right, align, size, arch_mmu_flags, index);
+    spot = spot_in_gap(aspace, left, right, align, size, vmm_flags,
+                       arch_mmu_flags, index);
 
 done:
     return spot;
@@ -559,7 +613,7 @@ done:
 
 bool vmm_find_spot(vmm_aspace_t* aspace, size_t size, vaddr_t* out) {
     mutex_acquire(&vmm_lock);
-    *out = alloc_spot(aspace, size, PAGE_SIZE_SHIFT, 0);
+    *out = alloc_spot(aspace, size, PAGE_SIZE_SHIFT, 0, 0);
     mutex_release(&vmm_lock);
     return *out != (vaddr_t)(-1);
 }
@@ -573,8 +627,10 @@ static vmm_region_t* alloc_region(vmm_aspace_t* aspace,
                                   uint vmm_flags,
                                   uint region_flags,
                                   uint arch_mmu_flags) {
+    DEBUG_ASSERT((vmm_flags & VMM_REGION_FLAG_INTERNAL_MASK) == 0);
     /* make a region struct for it and stick it in the list */
-    vmm_region_t* r = alloc_region_struct(name, vaddr, size, region_flags,
+    vmm_region_t* r = alloc_region_struct(name, vaddr, size,
+                                          region_flags | vmm_flags,
                                           arch_mmu_flags);
     if (!r)
         return NULL;
@@ -589,7 +645,7 @@ static vmm_region_t* alloc_region(vmm_aspace_t* aspace,
         }
     } else {
         /* allocate a virtual slot for it */
-        vaddr = alloc_spot(aspace, size, align_pow2, arch_mmu_flags);
+        vaddr = alloc_spot(aspace, size, align_pow2, vmm_flags, arch_mmu_flags);
         LTRACEF("alloc_spot returns 0x%lx\n", vaddr);
 
         if (vaddr == (vaddr_t)-1) {
@@ -920,16 +976,23 @@ vmm_region_t* vmm_find_region(const vmm_aspace_t* aspace,
     if (!aspace)
         return NULL;
 
+    vaddr = round_down(vaddr, PAGE_SIZE);
+
     /* search the region list */
     vmm_region_t r_ref;
+    r_ref.flags = VMM_FLAG_NO_START_GUARD | VMM_FLAG_NO_START_GUARD;
     r_ref.base = vaddr;
-    r_ref.obj_slice.size = 1;
+    r_ref.obj_slice.size = PAGE_SIZE;
     r = bst_search_type(&aspace->regions, &r_ref, vmm_region_cmp, vmm_region_t,
                         node);
     if (!r) {
         return NULL;
     }
-    DEBUG_ASSERT(is_inside_region(r, vaddr));
+    if (!is_inside_region(r, vaddr)) {
+        DEBUG_ASSERT(vaddr == r->base - PAGE_SIZE || vaddr == r->base + r->obj_slice.size);
+        /* don't return regions that only overlap with guard page */
+        return NULL;
+    }
     return r;
 }
 
@@ -1051,6 +1114,16 @@ status_t vmm_create_aspace(vmm_aspace_t** _aspace,
                            const char* name,
                            uint flags) {
     status_t err;
+
+    /* Make sure the kernel and user address spaces are not adjacent */
+    STATIC_ASSERT(USER_ASPACE_BASE >= PAGE_SIZE);
+    STATIC_ASSERT(KERNEL_ASPACE_BASE >= PAGE_SIZE);
+    STATIC_ASSERT(((KERNEL_ASPACE_BASE < USER_ASPACE_BASE) &&
+                   (KERNEL_ASPACE_BASE + KERNEL_ASPACE_SIZE) <=
+                   (USER_ASPACE_BASE - PAGE_SIZE)) ||
+                  ((USER_ASPACE_BASE < KERNEL_ASPACE_BASE) &&
+                   (USER_ASPACE_BASE + USER_ASPACE_SIZE) <=
+                   (KERNEL_ASPACE_BASE - PAGE_SIZE)));
 
     DEBUG_ASSERT(_aspace);
 

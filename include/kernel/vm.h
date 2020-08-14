@@ -307,6 +307,7 @@ typedef struct vmm_region {
 
 #define VMM_REGION_FLAG_RESERVED 0x1
 #define VMM_REGION_FLAG_PHYSICAL 0x2
+#define VMM_REGION_FLAG_INTERNAL_MASK 0xffff
 
 /* grab a handle to the kernel address space */
 extern vmm_aspace_t _kernel_aspace;
@@ -408,7 +409,19 @@ status_t vmm_free_region_etc(vmm_aspace_t *aspace, vaddr_t va, size_t size, uint
 status_t vmm_free_region(vmm_aspace_t *aspace, vaddr_t va);
 
 /* For the above region creation routines. Allocate virtual space at the passed in pointer. */
-#define VMM_FLAG_VALLOC_SPECIFIC 0x1
+#define VMM_FLAG_VALLOC_SPECIFIC 0x10000
+
+/*
+ * Disable default guard page before region. Can be used with
+ * VMM_FLAG_VALLOC_SPECIFIC if two regions need to be created with no gap.
+ */
+#define VMM_FLAG_NO_START_GUARD 0x20000
+
+/*
+ * Disable default guard page before region. Can be used with
+ * VMM_FLAG_VALLOC_SPECIFIC if two regions need to be created with no gap.
+ */
+#define VMM_FLAG_NO_END_GUARD 0x40000
 
 /* allocate a new address space */
 status_t vmm_create_aspace(vmm_aspace_t **aspace, const char *name, uint flags);
