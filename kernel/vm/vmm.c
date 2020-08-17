@@ -967,8 +967,8 @@ status_t vmm_alloc(vmm_aspace_t* aspace,
                          arch_mmu_flags, 0, 0);
 }
 
-vmm_region_t* vmm_find_region(const vmm_aspace_t* aspace,
-                              vaddr_t vaddr) {
+static vmm_region_t* vmm_find_region(const vmm_aspace_t* aspace,
+                                     vaddr_t vaddr) {
     vmm_region_t* r;
 
     DEBUG_ASSERT(aspace);

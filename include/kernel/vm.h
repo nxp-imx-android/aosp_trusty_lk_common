@@ -372,9 +372,6 @@ status_t vmm_alloc_contiguous(vmm_aspace_t *aspace, const char *name, size_t siz
 /* allocate a region of memory backed by newly allocated physical memory */
 status_t vmm_alloc(vmm_aspace_t *aspace, const char *name, size_t size, void **ptr, uint8_t align_log2, uint vmm_flags, uint arch_mmu_flags);
 
-/* find a region in which specified virtual address resides */
-vmm_region_t* vmm_find_region(const vmm_aspace_t* aspace, vaddr_t vaddr);
-
 /**
  * vmm_get_obj() - Acquire a slice from a chunk of an &struct aspace
  * @aspace: address space to extract from
