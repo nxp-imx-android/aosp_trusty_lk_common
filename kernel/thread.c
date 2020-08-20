@@ -165,6 +165,7 @@ static void init_thread_struct(thread_t *t, const char *name)
  */
 thread_t *thread_create_etc(thread_t *t, const char *name, thread_start_routine entry, void *arg, int priority, void *stack, size_t stack_size)
 {
+    int ret;
     unsigned int flags = 0;
 
     if (!t) {
@@ -197,8 +198,9 @@ thread_t *thread_create_etc(thread_t *t, const char *name, thread_start_routine 
         stack_size += THREAD_STACK_PADDING_SIZE;
         flags |= THREAD_FLAG_DEBUG_STACK_BOUNDS_CHECK;
 #endif
-        t->stack = malloc(stack_size);
-        if (!t->stack) {
+        ret = vmm_alloc(vmm_get_kernel_aspace(), "kernel-stack", stack_size,
+                        &t->stack, 0, 0, ARCH_MMU_FLAG_PERM_NO_EXECUTE);
+        if (ret) {
             if (flags & THREAD_FLAG_FREE_STRUCT)
                 free(t);
             return NULL;
@@ -384,7 +386,7 @@ static void thread_free(thread_t *t)
 {
     /* free its stack and the thread structure itself */
     if (t->flags & THREAD_FLAG_FREE_STACK && t->stack)
-        free(t->stack);
+        vmm_free_region(vmm_get_kernel_aspace(), (vaddr_t)t->stack);
 
     if (t->flags & THREAD_FLAG_FREE_STRUCT)
         free(t);
