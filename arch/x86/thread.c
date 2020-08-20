@@ -39,7 +39,7 @@ static void initial_thread_func(void)
     thread_t *current_thread = get_current_thread();
 
     /* release the thread lock that was implicitly held across the reschedule */
-    spin_unlock(&thread_lock);
+    thread_unlock_ints_disabled();
     arch_enable_ints();
 
     ret = current_thread->entry(current_thread->arg);

@@ -61,7 +61,7 @@ static void initial_thread_func(void)
     LTRACEF("initial_thread_func: thread %p calling %p with arg %p\n", current_thread, current_thread->entry, current_thread->arg);
 
     /* release the thread lock that was implicitly held across the reschedule */
-    spin_unlock(&thread_lock);
+    thread_unlock_ints_disabled();
     arch_enable_ints();
 
     ret = current_thread->entry(current_thread->arg);

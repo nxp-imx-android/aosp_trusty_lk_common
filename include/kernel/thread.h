@@ -23,6 +23,7 @@
 #ifndef __KERNEL_THREAD_H
 #define __KERNEL_THREAD_H
 
+#include <assert.h>
 #include <sys/types.h>
 #include <list.h>
 #include <compiler.h>
@@ -202,6 +203,15 @@ extern spin_lock_t thread_lock;
 
 #define THREAD_LOCK(state) spin_lock_saved_state_t state; spin_lock_irqsave(&thread_lock, state)
 #define THREAD_UNLOCK(state) spin_unlock_irqrestore(&thread_lock, state)
+
+static inline void thread_lock_ints_disabled(void) {
+    DEBUG_ASSERT(arch_ints_disabled());
+    spin_lock(&thread_lock);
+}
+
+static inline void thread_unlock_ints_disabled(void) {
+    spin_unlock(&thread_lock);
+}
 
 static inline bool thread_lock_held(void)
 {
