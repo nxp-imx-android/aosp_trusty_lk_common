@@ -44,3 +44,5 @@
 #else
 #define CACHE_LINE 32
 #endif
+
+#define ARM64_EXC_SP_EL1_BUF_SIZE (16)

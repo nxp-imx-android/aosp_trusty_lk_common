@@ -64,7 +64,7 @@ static void dump_iframe(const struct arm64_iframe_long *iframe)
     printf("x16 0x%16llx x17 0x%16llx x18 0x%16llx x19 0x%16llx\n", iframe->r[16], iframe->r[17], iframe->r[18], iframe->r[19]);
     printf("x20 0x%16llx x21 0x%16llx x22 0x%16llx x23 0x%16llx\n", iframe->r[20], iframe->r[21], iframe->r[22], iframe->r[23]);
     printf("x24 0x%16llx x25 0x%16llx x26 0x%16llx x27 0x%16llx\n", iframe->r[24], iframe->r[25], iframe->r[26], iframe->r[27]);
-    printf("x28 0x%16llx fp  0x%16llx lr  0x%16llx usp 0x%16llx\n", iframe->r[28], iframe->fp, iframe->lr, iframe->usp);
+    printf("x28 0x%16llx fp  0x%16llx lr  0x%16llx sp  0x%16llx\n", iframe->r[28], iframe->fp, iframe->lr, iframe->sp);
     printf("elr 0x%16llx\n", iframe->elr);
     printf("spsr 0x%16llx\n", iframe->spsr);
 }

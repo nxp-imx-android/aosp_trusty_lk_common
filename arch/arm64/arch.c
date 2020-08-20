@@ -122,7 +122,7 @@ void arch_enter_uspace(vaddr_t entry_point, vaddr_t user_stack_top, uint32_t fla
         "mov    x0, %[arg0];"
         "mov    x13, %[ustack];" /* AArch32 SP_usr */
         "mov    x14, %[entry];" /* AArch32 LR_usr */
-        "mov    sp, %[kstack];"
+        "msr    spsel, #1;" /* Switch to EL1h before setting a user-space sp */
         "msr    sp_el0, %[ustack];" /* AArch64 SP_usr */
         "msr    elr_el1, %[entry];"
         "msr    spsr_el1, %[spsr];"

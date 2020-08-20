@@ -346,6 +346,10 @@ arm_reset:
 #endif
 #endif /* WITH_KERNEL_VM */
 
+    ldr     tmp, =sp_el1_bufs
+    mov     sp, tmp
+
+    msr     spsel, #0 /* Use SP0 for kernel stacks */
     ldr tmp, =__stack_end
     mov sp, tmp
 
@@ -394,7 +398,14 @@ WEAK_FUNCTION(arm64_curr_cpu_num)
     cmp     cpuid, #SMP_MAX_CPUS
     bge     .Lunsupported_cpu_trap
 
-    /* Set up the stack */
+    /* Set up the stack pointers */
+    ldr     tmp, =sp_el1_bufs
+    mov     tmp2, #ARM64_EXC_SP_EL1_BUF_SIZE
+    mul     tmp2, tmp2, cpuid
+    add     sp, tmp, tmp2
+
+    msr     spsel, #0 /* Use SP0 for kernel stacks */
+
     ldr     tmp, =__stack_end
     mov     tmp2, #ARCH_DEFAULT_STACK_SIZE
     mul     tmp2, tmp2, cpuid
@@ -421,6 +432,11 @@ DATA(page_tables_not_ready)
 DATA(__stack)
     .skip ARCH_DEFAULT_STACK_SIZE * SMP_MAX_CPUS
 DATA(__stack_end)
+
+.section .bss.prebss.sp_el1_bufs
+    .align 4
+DATA(sp_el1_bufs)
+    .skip ARM64_EXC_SP_EL1_BUF_SIZE * SMP_MAX_CPUS
 
 #if WITH_KERNEL_VM
 .section ".bss.prebss.translation_table"

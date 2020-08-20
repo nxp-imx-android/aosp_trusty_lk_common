@@ -22,12 +22,12 @@
  */
 #pragma once
 
-.macro push ra, rb
-stp \ra, \rb, [sp,#-16]!
+.macro push ra, rb, rsp=sp, prealloc=0
+    stp     \ra, \rb, [\rsp,#-(16 + \prealloc)]!
 .endm
 
-.macro pop ra, rb
-ldp \ra, \rb, [sp], #16
+.macro pop ra, rb, rsp=sp, postfree=0
+    ldp     \ra, \rb, [\rsp], #(16 + \postfree)
 .endm
 
 .macro tbzmask, reg, mask, label, shift=0

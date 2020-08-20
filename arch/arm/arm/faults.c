@@ -268,6 +268,12 @@ void arm_data_abort_handler(struct arm_fault_frame *frame)
     exception_die(frame, "halting\n");
 }
 
+void arm_data_abort_handler_stack_overflow(struct arm_fault_frame *frame)
+{
+    arm_data_abort_handler(frame);
+    panic("kernel stack overflow, can't return\n");
+}
+
 void arm_prefetch_abort_handler(struct arm_fault_frame *frame)
 {
     uint32_t fsr = arm_read_ifsr();

@@ -232,14 +232,15 @@ arm_reset:
     cpsid   i,#0x11       /* fiq */
     mov     sp, r12
 
-    cpsid   i,#0x17       /* abort */
-    mov     sp, r12
-
     cpsid   i,#0x1b       /* undefined */
     mov     sp, r12
 
     cpsid   i,#0x1f       /* system */
     mov     sp, r12
+
+    cpsid   i,#0x17       /* abort */
+    ldr     r1, =arm_data_abort_state
+    mov     sp, r1
 
     cpsid   i,#0x13       /* supervisor */
     ldr     r12, =abort_stack
@@ -387,13 +388,17 @@ FUNCTION(arm_secondary_setup)
     cpsid   i,#0x11       /* fiq */
     mov     sp, r1
 
-    cpsid   i,#0x17       /* abort */
-    mov     sp, r1
-
     cpsid   i,#0x1b       /* undefined */
     mov     sp, r1
 
     cpsid   i,#0x1f       /* system */
+    mov     sp, r1
+
+    cpsid   i,#0x17       /* abort */
+    ldr     r1, =arm_data_abort_state
+    mov     r2, #4
+    mul     r2, r2, r0
+    add     r1, r2
     mov     sp, r1
 
     cpsid   i,#0x13       /* supervisor */

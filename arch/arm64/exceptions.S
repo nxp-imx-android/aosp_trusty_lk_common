@@ -30,73 +30,114 @@
 #define regsave_long_offset (30 * 8)
 #define regsave_short_offset (20 * 8)
 
-.macro regsave, regsave_offset:req
-sub  sp, sp, #32
+.macro regsave, regsave_offset:req, reset_stack:req, double_fault=0
+.if \double_fault
+    /*
+     * Use elr of original fault instead of new fault to get a more useful
+     * stack trace. Report new elr as lr instead.
+     */
+    mrs     lr, elr_el1
+.else
+    /* Save x0 and x1 in sp_el1 scratch space so we have some free registers */
+    stp     x0, x1, [sp]
+    mrs     x0, elr_el1 /* Save elr_el1 early in x0 in case we fault again */
+.endif
+
+    /* x1 = new sp_el0 */
+.if \reset_stack
+    mrs     x1, tpidr_el1
+    ldr     x1, [x1, 8]
+    bic     x1, x1, #0xf /* align stack */
+.else
+    mrs     x1, sp_el0
+.endif
+
 .if \regsave_offset == regsave_long_offset
-push x28, lr
-push x26, x27
-push x24, x25
-push x22, x23
-push x20, x21
-push x18, x19
+    push    x28, lr, rsp=x1, prealloc=32
+    push    x26, x27, rsp=x1
+    push    x24, x25, rsp=x1
+    push    x22, x23, rsp=x1
+    push    x20, x21, rsp=x1
+    push    x18, x19, rsp=x1
 .elseif \regsave_offset == regsave_short_offset
-push x18, lr
+    push    x18, lr, rsp=x1, prealloc=32
 .else
     .error  "regsave: unsupported regsave_offset, \regsave_offset"
 .endif
-push x16, x17
-push x14, x15
-push x12, x13
-push x10, x11
-push x8, x9
-push x6, x7
-push x4, x5
-push x2, x3
-push x0, x1
-mrs  x0, sp_el0
-mrs  x1, elr_el1
-mrs  x2, spsr_el1
-stp  x0,  x2, [sp, #\regsave_offset]
-stp  fp,  x1, [sp, #\regsave_offset + 16]
-add  fp, sp, #\regsave_offset + 16
+
+    push    x16, x17, rsp=x1
+    push    x14, x15, rsp=x1
+    push    x12, x13, rsp=x1
+    push    x10, x11, rsp=x1
+    push    x8, x9, rsp=x1
+    push    x6, x7, rsp=x1
+    push    x4, x5, rsp=x1
+    push    x2, x3, rsp=x1
+
+    /*
+     * Push entry values of x0 and x1 saved in sp_el1 scratch space. If we fault
+     * again below this point, the new iframe will not have the correct values
+     * for x2 and x3, but we should still be able to get a stack trace. spsr
+     * will also be wrong for double faults as the code below will read the new
+     * spsr not the one from the original exception.
+     */
+    ldp     x2, x3, [sp]
+    push    x2, x3, rsp=x1
+
+    mrs     x2, sp_el0
+    mrs     x3, spsr_el1
+    stp     x2, x3, [x1, #\regsave_offset]
+    stp     fp, x0, [x1, #\regsave_offset + 16]
+    msr     spsel, #0
+    mov     sp, x1
+    add     fp, sp, #\regsave_offset + 16
 .endm
 
-.macro regsave_long
-    regsave regsave_offset=regsave_long_offset
+.macro regsave_long, reset_stack, double_fault=0
+    regsave regsave_offset=regsave_long_offset, reset_stack=\reset_stack, \
+            double_fault=\double_fault
 .endm
 
-.macro regsave_short
-    regsave regsave_offset=regsave_short_offset
+.macro regsave_short, reset_stack
+    regsave regsave_offset=regsave_short_offset, reset_stack=\reset_stack
 .endm
 
 .macro regrestore, regsave_offset:req
-ldp  x0,  x2, [sp, #\regsave_offset]
-ldp  fp,  x1, [sp, #\regsave_offset + 16]
-msr  sp_el0, x0
-msr  elr_el1, x1
-msr  spsr_el1, x2
-pop x0, x1
-pop x2, x3
-pop x4, x5
-pop x6, x7
-pop x8, x9
-pop x10, x11
-pop x12, x13
-pop x14, x15
-pop x16, x17
+    mov     lr, sp
+
+    /*
+     * Switch to EL1h so a fault after restoring sp_el0 to a user-space stack
+     * pointer does not cause the kernel fault handler to run on the user-space
+     * stack.
+     */
+    msr     spsel, #1
+
+    ldp     x0, x2, [lr, #\regsave_offset]
+    ldp     fp, x1, [lr, #\regsave_offset + 16]
+    msr     sp_el0, x0
+    msr     elr_el1, x1
+    msr     spsr_el1, x2
+    pop     x0, x1, rsp=lr
+    pop     x2, x3, rsp=lr
+    pop     x4, x5, rsp=lr
+    pop     x6, x7, rsp=lr
+    pop     x8, x9, rsp=lr
+    pop     x10, x11, rsp=lr
+    pop     x12, x13, rsp=lr
+    pop     x14, x15, rsp=lr
+    pop     x16, x17, rsp=lr
 .if \regsave_offset == regsave_long_offset
-pop x18, x19
-pop x20, x21
-pop x22, x23
-pop x24, x25
-pop x26, x27
-pop x28, lr
+    pop     x18, x19, rsp=lr
+    pop     x20, x21, rsp=lr
+    pop     x22, x23, rsp=lr
+    pop     x24, x25, rsp=lr
+    pop     x26, x27, rsp=lr
+    ldp     x28, lr, [lr]
 .elseif \regsave_offset == regsave_short_offset
-pop x18, lr
+    ldp     x18, lr, [lr]
 .else
     .error  "regsave: unsupported regsave_offset, \regsave_offset"
 .endif
-add sp, sp, #32
 .endm
 
 .macro regrestore_long
@@ -107,16 +148,16 @@ add sp, sp, #32
     regrestore regsave_offset=regsave_short_offset
 .endm
 
-.macro invalid_exception, which
-    regsave_long
+.macro invalid_exception, which, reset_stack, double_fault=0
+    regsave_long reset_stack=\reset_stack, double_fault=\double_fault
     mov x1, #\which
     mov x0, sp
     bl  arm64_invalid_exception
     b   .
 .endm
 
-.macro irq_exception
-    regsave_short
+.macro irq_exception, reset_stack
+    regsave_short reset_stack=\reset_stack
 #if !ARM_MERGE_FIQ_IRQ
     msr daifclr, #1 /* reenable fiqs once elr and spsr have been saved */
 #endif
@@ -131,11 +172,11 @@ add sp, sp, #32
     b   arm64_exc_shared_restore_short
 .endm
 
-.macro fiq_exception
+.macro fiq_exception, reset_stack
 #if ARM_MERGE_FIQ_IRQ
-    irq_exception
+    irq_exception reset_stack=\reset_stack
 #else
-    regsave_short
+    regsave_short reset_stack=\reset_stack
     mov x0, sp
     bl  platform_fiq
     b  arm64_exc_shared_restore_short
@@ -146,45 +187,58 @@ FUNCTION(arm64_exception_base)
 
 /* exceptions from current EL, using SP0 */
 LOCAL_FUNCTION(arm64_sync_exc_current_el_SP0)
-    invalid_exception 0
-
-.org 0x080
-LOCAL_FUNCTION(arm64_irq_current_el_SP0)
-    invalid_exception 1
-
-.org 0x100
-LOCAL_FUNCTION(arm64_fiq_current_el_SP0)
-    invalid_exception 2
-
-.org 0x180
-LOCAL_FUNCTION(arm64_err_exc_current_el_SP0)
-    invalid_exception 3
-
-/* exceptions from current EL, using SPx */
-.org 0x200
-LOCAL_FUNCTION(arm64_sync_exc_current_el_SPx)
-    regsave_long
+    regsave_long reset_stack=0
     mov x0, sp
     mov x1, #0 /* from_lower = false */
     bl  arm64_sync_exception
     b  arm64_exc_shared_restore_long
 
+.org 0x080
+LOCAL_FUNCTION(arm64_irq_current_el_SP0)
+    irq_exception reset_stack=0
+
+.org 0x100
+LOCAL_FUNCTION(arm64_fiq_current_el_SP0)
+    fiq_exception reset_stack=0
+
+.org 0x180
+LOCAL_FUNCTION(arm64_err_exc_current_el_SP0)
+    invalid_exception 3, reset_stack=0
+
+/* exceptions from current EL, using SPx */
+.org 0x200
+LOCAL_FUNCTION(arm64_sync_exc_current_el_SPx)
+    /*
+     * This fault will occur of we the kernel stack pointer is not valid when
+     * we try to push or pop the iframe. Reset the stack pointer in this case
+     * so panic can run. This should work for faults caused by stack overflows,
+     * but not if the stack in the thread struct is also bad.
+     */
+    invalid_exception 0x10, reset_stack=1, double_fault=1
+
 .org 0x280
 LOCAL_FUNCTION(arm64_irq_current_el_SPx)
-    irq_exception
+    invalid_exception 0x11, reset_stack=0
 
 .org 0x300
 LOCAL_FUNCTION(arm64_fiq_current_el_SPx)
-    fiq_exception
+    invalid_exception 0x12, reset_stack=0
 
 .org 0x380
 LOCAL_FUNCTION(arm64_err_exc_current_el_SPx)
-    invalid_exception 0x13
+    invalid_exception 0x13, reset_stack=0
 
 /* exceptions from lower EL, running arm64 */
 .org 0x400
 LOCAL_FUNCTION(arm64_sync_exc_lower_el_64)
-    regsave_long
+    /*
+     * Reset the stack pointer for this and all other exceptions from user-space
+     * since the kernel stack should be empty when user-space is running, and we
+     * don't want to use the user-space stack, which is the current stack
+     * pointer, while in the kernel. The user-space stack pointer will be saved
+     * on entry and restored on return.
+     */
+    regsave_long reset_stack=1
     mov x0, sp
     mov x1, #1 /* from_lower = true */
     bl  arm64_sync_exception
@@ -192,20 +246,20 @@ LOCAL_FUNCTION(arm64_sync_exc_lower_el_64)
 
 .org 0x480
 LOCAL_FUNCTION(arm64_irq_lower_el_64)
-    irq_exception
+    irq_exception reset_stack=1
 
 .org 0x500
 LOCAL_FUNCTION(arm64_fiq_lower_el_64)
-    fiq_exception
+    fiq_exception reset_stack=1
 
 .org 0x580
 LOCAL_FUNCTION(arm64_err_exc_lower_el_64)
-    invalid_exception 0x23
+    invalid_exception 0x23, reset_stack=1
 
 /* exceptions from lower EL, running arm32 */
 .org 0x600
 LOCAL_FUNCTION(arm64_sync_exc_lower_el_32)
-    regsave_long
+    regsave_long reset_stack=1
     mov x0, sp
     mov x1, #1 /* from_lower = true */
     bl  arm64_sync_exception
@@ -213,15 +267,15 @@ LOCAL_FUNCTION(arm64_sync_exc_lower_el_32)
 
 .org 0x680
 LOCAL_FUNCTION(arm64_irq_lower_el_32)
-    irq_exception
+    irq_exception reset_stack=1
 
 .org 0x700
 LOCAL_FUNCTION(arm64_fiq_lower_el_32)
-    fiq_exception
+    fiq_exception reset_stack=1
 
 .org 0x780
 LOCAL_FUNCTION(arm64_err_exc_lower_el_32)
-    invalid_exception 0x33
+    invalid_exception 0x33, reset_stack=1
 
 LOCAL_FUNCTION(arm64_exc_shared_restore_long)
     regrestore_long

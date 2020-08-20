@@ -233,12 +233,42 @@ FUNCTION(arm_prefetch_abort)
     restoreall
 
 FUNCTION(arm_data_abort)
+    str     r0, [sp]
+    cpsid   i,#0x13       /* supervisor */
+    mrc     p15, 0, r0, c13, c0, 4 /* r0 = tpidrprw */
+    ldr     r0, [r0]
+
+    /*
+     * Reserve some stack space so exception handler at least get a chance to
+     * move the stack if it faults again.
+     * TODO: adjust to space needed to never trigger a stack overflow in the
+     * exception handler?
+     */
+    add     r0, #8
+
+    cmp     sp, r0
+    bls     .Lstack_overflow
+    cpsid   i,#0x17       /* abort */
+    ldr     r0, [sp]
+
     saveall_offset #8
     /* r0 now holds pointer to iframe */
 
     bl      arm_data_abort_handler
 
     restoreall
+
+.Lstack_overflow:
+    add     sp, r0, #0x800 /* stack overflow, move stack back */
+    cpsid   i,#0x17       /* abort */
+    ldr     r0, [sp]
+
+    saveall_offset #8
+    /* r0 now holds pointer to iframe */
+
+    bl      arm_data_abort_handler_stack_overflow
+    /* should not return */
+    b       .
 
 FUNCTION(arm_reserved)
     b   .
@@ -307,3 +337,6 @@ DATA(__irq_cycle_count)
 .data
 DATA(__arm_in_handler)
     .word   0
+
+DATA(arm_data_abort_state)
+    .skip 4 * SMP_MAX_CPUS
