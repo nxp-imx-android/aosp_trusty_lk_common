@@ -200,22 +200,53 @@ void set_current_thread(thread_t *);
 
 /* scheduler lock */
 extern spin_lock_t thread_lock;
+extern atomic_uint thread_lock_owner;
 
-#define THREAD_LOCK(state) spin_lock_saved_state_t state; spin_lock_irqsave(&thread_lock, state)
-#define THREAD_UNLOCK(state) spin_unlock_irqrestore(&thread_lock, state)
+static inline uint thread_lock_owner_get(void) {
+    return atomic_load_explicit(&thread_lock_owner, memory_order_relaxed);
+}
+
+static inline void thread_lock_complete(void) {
+    DEBUG_ASSERT(thread_lock_owner_get() == SMP_MAX_CPUS);
+    atomic_store_explicit(&thread_lock_owner, arch_curr_cpu_num(),
+                          memory_order_relaxed);
+}
+
+static inline void thread_unlock_prepare(void) {
+    DEBUG_ASSERT(arch_ints_disabled());
+    DEBUG_ASSERT(thread_lock_owner_get() == arch_curr_cpu_num());
+    atomic_store_explicit(&thread_lock_owner, SMP_MAX_CPUS,
+                          memory_order_relaxed);
+}
+
+#define THREAD_LOCK(state) \
+    spin_lock_saved_state_t state; \
+    spin_lock_irqsave(&thread_lock, state); \
+    thread_lock_complete()
+
+#define THREAD_UNLOCK(state) \
+    thread_unlock_prepare(); \
+    spin_unlock_irqrestore(&thread_lock, state)
 
 static inline void thread_lock_ints_disabled(void) {
     DEBUG_ASSERT(arch_ints_disabled());
     spin_lock(&thread_lock);
+    thread_lock_complete();
 }
 
 static inline void thread_unlock_ints_disabled(void) {
+    thread_unlock_prepare();
     spin_unlock(&thread_lock);
 }
 
 static inline bool thread_lock_held(void)
 {
-    return spin_lock_held(&thread_lock);
+    bool ret;
+    spin_lock_saved_state_t state;
+    arch_interrupt_save(&state, SPIN_LOCK_FLAG_INTERRUPTS);
+    ret = thread_lock_owner_get() == arch_curr_cpu_num();
+    arch_interrupt_restore(state, SPIN_LOCK_FLAG_INTERRUPTS);
+    return ret;
 }
 
 /* thread local storage */

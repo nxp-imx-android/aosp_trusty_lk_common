@@ -64,6 +64,8 @@ static struct list_node thread_list;
 /* master thread spinlock */
 spin_lock_t thread_lock = SPIN_LOCK_INITIAL_VALUE;
 
+atomic_uint thread_lock_owner = SMP_MAX_CPUS;
+
 /* the run queue */
 static struct list_node run_queue[NUM_PRIORITIES];
 static uint32_t run_queue_bitmap;
