@@ -53,6 +53,10 @@ void _panic(const char *fmt, ...)
     va_list ap;
     struct thread *curr = get_current_thread();
 
+    if (thread_lock_held()) {
+        printf("panic called with thread lock held\n");
+        thread_unlock_ints_disabled();
+    }
     dump_backtrace();
 
     if (curr && thread_get_flag_exit_on_panic(curr)) {
