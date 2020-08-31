@@ -70,7 +70,7 @@ enum thread_tls_list {
 #ifdef WITH_LIB_LKUSER
     TLS_ENTRY_LKUSER,
 #endif
-#ifdef UBSAN_ENABLED
+#if defined(UBSAN_ENABLED) || defined(CFI_ENABLED)
     TLS_ENTRY_UBSAN,
 #endif
     MAX_TLS_ENTRY

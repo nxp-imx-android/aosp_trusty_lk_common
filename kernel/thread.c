@@ -86,6 +86,8 @@ static thread_t _idle_thread;
 /* local routines */
 static void thread_resched(void);
 static void idle_thread_routine(void) __NO_RETURN;
+static enum handler_return thread_timer_callback(struct timer *t,
+                                                 lk_time_ns_t now, void *arg);
 
 #if PLATFORM_HAS_DYNAMIC_TIMER
 /* preemption timer */
@@ -686,7 +688,7 @@ void thread_resched(void)
                 cpu, oldthread, oldthread->name, newthread, newthread->name);
 #endif
         timer_set_periodic_ns(&preempt_timer[cpu], MS2NS(10),
-                              (timer_callback)thread_timer_tick, NULL);
+                              thread_timer_callback, NULL);
     }
 #endif
 
@@ -845,6 +847,12 @@ void thread_unblock(thread_t *t, bool resched)
 }
 
 enum handler_return thread_timer_tick(void)
+{
+    return thread_timer_callback(NULL, 0, NULL);
+}
+
+static enum handler_return thread_timer_callback(struct timer *t, lk_time_ns_t now,
+                                              void *arg)
 {
     thread_t *current_thread = get_current_thread();
 

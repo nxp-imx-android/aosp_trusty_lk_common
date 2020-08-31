@@ -69,7 +69,15 @@ struct arm64_iframe_short {
 };
 
 struct thread;
-extern void arm64_exception_base(void);
+
+/*
+ * This declaration is made to avoid issues with CFI while setting
+ * vector base, with CFI enabled VBAR_EL1 was set wrong, so instead
+ * of jumping to the correct exception entrypoint it was jumping into
+ * the middle of an unrelated function
+ */
+extern uint32_t arm64_exception_base[];
+
 void arm64_el3_to_el1(void);
 void arm64_fpu_exception(struct arm64_iframe_long *iframe);
 void arm64_fpu_save_state(struct thread *thread);

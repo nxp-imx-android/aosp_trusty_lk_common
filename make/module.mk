@@ -15,6 +15,7 @@
 # MODULE_SRCDEPS : extra dependencies that all of this module's files depend on
 # MODULE_EXTRA_OBJS : extra .o files that should be linked with the module
 # MODULE_DISABLE_LTO : disable LTO for this module
+# MODULE_DISABLE_CFI : disable CFI for this module
 
 # MODULE_ARM_OVERRIDE_SRCS : list of source files, local path that should be force compiled with ARM (if applicable)
 
@@ -83,6 +84,18 @@ endif
 
 ifeq (true,$(call TOBOOL,$(MODULE_LTO_ENABLED)))
 MODULE_COMPILEFLAGS += -fvisibility=hidden -flto=thin
+
+ifneq (true,$(call TOBOOL,$(MODULE_DISABLE_CFI)))
+ifeq (true,$(call TOBOOL,$(CFI_ENABLED)))
+MODULE_COMPILEFLAGS += -fsanitize=cfi -DCFI_ENABLED
+MODULES += trusty/kernel/lib/ubsan
+
+ifeq (true,$(call TOBOOL,$(CFI_DIAGNOSTICS)))
+MODULE_COMPILEFLAGS += -fno-sanitize-trap=cfi
+endif
+endif
+endif
+
 endif
 
 # generate a per-module config.h file
@@ -149,3 +162,4 @@ MODULE_SRCS_FIRST :=
 MODULE_INIT_OBJS :=
 MODULE_DISABLE_LTO :=
 MODULE_LTO_ENABLED :=
+MODULE_DISABLE_CFI :=
