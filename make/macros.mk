@@ -11,8 +11,8 @@ TOBUILDDIR = $(addprefix $(BUILDDIR)/,$(1))
 TOBOOL = $(if $(filter-out 0 false,$1),true,false)
 
 COMMA := ,
-SPACE :=
-SPACE +=
+EMPTY :=
+SPACE := $(EMPTY) $(EMPTY)
 
 # test if two files are different, replacing the first
 # with the second if so
