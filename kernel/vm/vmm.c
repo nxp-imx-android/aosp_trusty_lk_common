@@ -980,7 +980,7 @@ static vmm_region_t* vmm_find_region(const vmm_aspace_t* aspace,
 
     /* search the region list */
     vmm_region_t r_ref;
-    r_ref.flags = VMM_FLAG_NO_START_GUARD | VMM_FLAG_NO_START_GUARD;
+    r_ref.flags = VMM_FLAG_NO_START_GUARD | VMM_FLAG_NO_END_GUARD;
     r_ref.base = vaddr;
     r_ref.obj_slice.size = PAGE_SIZE;
     r = bst_search_type(&aspace->regions, &r_ref, vmm_region_cmp, vmm_region_t,
