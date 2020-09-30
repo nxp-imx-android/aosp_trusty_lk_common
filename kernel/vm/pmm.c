@@ -167,11 +167,6 @@ static int pmm_vmm_obj_get_page(struct vmm_obj *obj, size_t offset,
     size_t index;
     size_t chunk_offset;
 
-    if (!IS_PAGE_ALIGNED(offset)) {
-        TRACEF("invalid offset %zd\n", offset);
-        return ERR_INVALID_ARGS;
-    }
-
     index = offset / pmm_obj->chunk_size;
     chunk_offset = offset % pmm_obj->chunk_size;
 

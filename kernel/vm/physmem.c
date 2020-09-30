@@ -110,11 +110,6 @@ static int phys_mem_obj_get_page(struct vmm_obj* obj,
 
     LTRACEF("offset %zd phys_obj paddr 0x%lx\n", offset, phys_obj->paddr);
 
-    if (!IS_PAGE_ALIGNED(offset)) {
-        TRACEF("invalid offset %zd\n", offset);
-        return ERR_INVALID_ARGS;
-    }
-
     if (offset >= phys_obj->size) {
         TRACEF("offset %zd out of range size %zd\n", offset,
                phys_obj->size);
