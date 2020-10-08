@@ -1,11 +1,3 @@
-# use linker garbage collection, if requested
-ifeq ($(WITH_LINKER_GC),1)
-GLOBAL_COMPILEFLAGS += -ffunction-sections -fdata-sections
-GLOBAL_LDFLAGS += --gc-sections
-endif
-
-GLOBAL_LDFLAGS += --whole-archive
-
 ifneq (,$(EXTRA_BUILDRULES))
 -include $(EXTRA_BUILDRULES)
 endif

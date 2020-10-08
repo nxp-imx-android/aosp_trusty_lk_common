@@ -62,19 +62,19 @@ GLOBAL_SHARED_INCLUDES := $(addsuffix /include/shared,$(LKINC))
 GLOBAL_USER_INCLUDES := $(addsuffix /include/user,$(LKINC))
 GLOBAL_INCLUDES := $(BUILDDIR) $(GLOBAL_UAPI_INCLUDES) $(GLOBAL_SHARED_INCLUDES) $(GLOBAL_KERNEL_INCLUDES)
 GLOBAL_OPTFLAGS ?= $(ARCH_OPTFLAGS)
-GLOBAL_COMPILEFLAGS := -g -finline -include $(CONFIGHEADER)
-GLOBAL_COMPILEFLAGS += -Werror -Wall -Wsign-compare -Wno-multichar -Wno-unused-function -Wno-unused-label
-GLOBAL_COMPILEFLAGS += -fno-short-enums -fno-common
-GLOBAL_COMPILEFLAGS += -fno-omit-frame-pointer
-GLOBAL_CFLAGS := --std=c17 -Wstrict-prototypes -Wwrite-strings
-GLOBAL_CPPFLAGS := --std=c++17 -fno-exceptions -fno-rtti -fno-threadsafe-statics
+GLOBAL_SHARED_COMPILEFLAGS := -g -finline -include $(CONFIGHEADER)
+GLOBAL_SHARED_COMPILEFLAGS += -Werror -Wall -Wsign-compare -Wno-multichar -Wno-unused-function -Wno-unused-label
+GLOBAL_SHARED_COMPILEFLAGS += -fno-short-enums -fno-common
+GLOBAL_SHARED_COMPILEFLAGS += -fno-omit-frame-pointer
+GLOBAL_SHARED_CFLAGS := --std=c17 -Wstrict-prototypes -Wwrite-strings
+GLOBAL_SHARED_CPPFLAGS := --std=c++17 -fno-exceptions -fno-rtti -fno-threadsafe-statics
 # c99 array designators are not part of C++, but they are convenient and help avoid errors.
-GLOBAL_CPPFLAGS += -Wno-c99-designator
+GLOBAL_SHARED_CPPFLAGS += -Wno-c99-designator
 #GLOBAL_CPPFLAGS += -Weffc++
-GLOBAL_ASMFLAGS := -DASSEMBLY
+GLOBAL_SHARED_ASMFLAGS := -DASSEMBLY
 GLOBAL_LDFLAGS :=
 
-GLOBAL_LDFLAGS += $(addprefix -L,$(LKINC))
+GLOBAL_KERNEL_LDFLAGS += $(addprefix -L,$(LKINC))
 
 # Architecture specific compile flags
 ARCH_COMPILEFLAGS :=
@@ -142,10 +142,10 @@ CLANGBUILD ?= true
 override CLANGBUILD := $(call TOBOOL,$(CLANGBUILD))
 
 ifeq ($(call TOBOOL,$(CLANGBUILD)), true)
-GLOBAL_COMPILEFLAGS += -Wimplicit-fallthrough
+GLOBAL_SHARED_COMPILEFLAGS += -Wimplicit-fallthrough
 endif
 # VLAs can have subtle security bugs and assist exploits, so ban them.
-GLOBAL_COMPILEFLAGS += -Wvla
+GLOBAL_SHARED_COMPILEFLAGS += -Wvla
 
 # try to include the project file
 -include project/$(PROJECT).mk
@@ -157,6 +157,40 @@ ifndef PLATFORM
 $(error couldn't find target or target doesn't define platform)
 endif
 include platform/$(PLATFORM)/rules.mk
+
+# use linker garbage collection, if requested
+ifeq ($(WITH_LINKER_GC),1)
+GLOBAL_SHARED_COMPILEFLAGS += -ffunction-sections -fdata-sections
+GLOBAL_SHARED_LDFLAGS += --gc-sections
+endif
+
+# We need all .lk_init entries to be included, even though they are not
+# referenced by symbol, so the linker needs to include all objects from each
+# module archive.
+GLOBAL_KERNEL_LDFLAGS += --whole-archive
+
+ifneq ($(GLOBAL_COMPILEFLAGS),)
+$(error Setting GLOBAL_COMPILEFLAGS directly from project or platform makefiles is no longer supported. Please use either GLOBAL_SHARED_COMPILEFLAGS or GLOBAL_KERNEL_COMPILEFLAGS.)
+endif
+ifneq ($(GLOBAL_CFLAGS),)
+$(error Setting GLOBAL_CFLAGS directly from project or platform makefiles is no longer supported. Please use either GLOBAL_SHARED_CFLAGS or GLOBAL_KERNEL_CFLAGS.)
+endif
+ifneq ($(GLOBAL_CPPFLAGS),)
+$(error Setting GLOBAL_CPPFLAGS directly from project or platform makefiles is no longer supported. Please use either GLOBAL_SHARED_CPPFLAGS or GLOBAL_KERNEL_CPPFLAGS.)
+endif
+ifneq ($(GLOBAL_ASMFLAGS),)
+$(error Setting GLOBAL_ASMFLAGS directly from project or platform makefiles is no longer supported. Please use either GLOBAL_SHARED_ASMFLAGS or GLOBAL_KERNEL_ASMFLAGS.)
+endif
+ifneq ($(GLOBAL_LDFLAGS),)
+$(error Setting GLOBAL_LDFLAGS directly from project or platform makefiles is no longer supported. Please use either GLOBAL_SHARED_LDFLAGS or GLOBAL_KERNEL_LDFLAGS.)
+endif
+
+# Global flags should be set by now, we're moving on to building modules
+GLOBAL_COMPILEFLAGS := $(GLOBAL_SHARED_COMPILEFLAGS) $(GLOBAL_KERNEL_COMPILEFLAGS)
+GLOBAL_CFLAGS := $(GLOBAL_SHARED_CFLAGS) $(GLOBAL_KERNEL_CFLAGS)
+GLOBAL_CPPFLAGS := $(GLOBAL_SHARED_CPPFLAGS) $(GLOBAL_KERNEL_CPPFLAGS)
+GLOBAL_ASMFLAGS := $(GLOBAL_SHARED_ASMFLAGS) $(GLOBAL_KERNEL_ASMFLAGS)
+GLOBAL_LDFLAGS := $(GLOBAL_SHARED_LDFLAGS) $(GLOBAL_KERNEL_LDFLAGS)
 
 $(info PROJECT = $(PROJECT))
 $(info PLATFORM = $(PLATFORM))
