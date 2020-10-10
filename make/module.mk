@@ -42,6 +42,10 @@ $(warning OBJS = $(OBJS))
 $(error MODULE $(MODULE) is probably setting OBJS, change to MODULE_SRCS)
 endif
 
+ifeq ($(call TOBOOL,$(TRUSTY_NEW_MODULE_SYSTEM)),true)
+$(error MODULE $(MODULE) was included through the new module system and therefore must include library.mk or trusted_app.mk)
+endif
+
 MODULE_SRCDIR := $(MODULE)
 MODULE_BUILDDIR := $(call TOBUILDDIR,$(MODULE_SRCDIR))
 
