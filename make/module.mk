@@ -74,7 +74,7 @@ endif
 
 else
 
-ifeq (true,$(call TOBOOL,$(KENREL_LTO_ENABLED)))
+ifeq (true,$(call TOBOOL,$(KERNEL_LTO_ENABLED)))
 MODULE_LTO_ENABLED := true
 endif
 
