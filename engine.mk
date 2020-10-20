@@ -66,8 +66,8 @@ GLOBAL_COMPILEFLAGS := -g -finline -include $(CONFIGHEADER)
 GLOBAL_COMPILEFLAGS += -Werror -Wall -Wsign-compare -Wno-multichar -Wno-unused-function -Wno-unused-label
 GLOBAL_COMPILEFLAGS += -fno-short-enums -fno-common
 GLOBAL_COMPILEFLAGS += -fno-omit-frame-pointer
-GLOBAL_CFLAGS := --std=c11 -Wstrict-prototypes -Wwrite-strings
-GLOBAL_CPPFLAGS := --std=c++11 -fno-exceptions -fno-rtti -fno-threadsafe-statics
+GLOBAL_CFLAGS := --std=c17 -Wstrict-prototypes -Wwrite-strings
+GLOBAL_CPPFLAGS := --std=c++17 -fno-exceptions -fno-rtti -fno-threadsafe-statics
 # c99 array designators are not part of C++, but they are convenient and help avoid errors.
 GLOBAL_CPPFLAGS += -Wno-c99-designator
 #GLOBAL_CPPFLAGS += -Weffc++
