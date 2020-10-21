@@ -205,6 +205,13 @@ GLOBAL_DEFINES += \
 	ASLR=1
 endif
 
+# shadow call stack for user tasks
+ifeq (true,$(call TOBOOL,$(USER_SCS_ENABLED)))
+# guards allocation and deallocation of the SCS guard region in the kernel
+GLOBAL_DEFINES += \
+	USER_SCS_ENABLED=1
+endif
+
 # allow additional defines from outside the build system
 ifneq ($(EXTERNAL_DEFINES),)
 GLOBAL_DEFINES += $(EXTERNAL_DEFINES)

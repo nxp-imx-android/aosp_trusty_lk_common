@@ -168,6 +168,16 @@
 #define __FALLTHROUGH
 #endif
 
+#ifndef __has_feature
+#define __has_feature(x) 0
+#endif
+
+#if __has_feature(shadow_call_stack)
+#define __NO_SHADOW_CALL_STACK  __attribute__((no_sanitize("shadow-call-stack")))
+#else
+#define __NO_SHADOW_CALL_STACK
+#endif
+
 /* CPP header guards */
 #ifdef __cplusplus
 #define __BEGIN_CDECLS  extern "C" {

@@ -114,8 +114,10 @@ void arch_chain_load(void *entry, ulong arg0, ulong arg1, ulong arg2, ulong arg3
     PANIC_UNIMPLEMENTED;
 }
 
-void arch_enter_uspace(vaddr_t entry_point, vaddr_t user_stack_top, uint32_t flags, ulong arg0)
+void arch_enter_uspace(vaddr_t entry_point, vaddr_t user_stack_top, vaddr_t shadow_stack_base, uint32_t flags, ulong arg0)
 {
+    DEBUG_ASSERT(shadow_stack_base == 0);
+
     PANIC_UNIMPLEMENTED;
 #if 0
     DEBUG_ASSERT(IS_ALIGNED(user_stack_top, 16));

@@ -8,6 +8,12 @@ else
 ARCH_arm64_COMPILEFLAGS :=
 endif
 
+ARCH_arm64_SUPPORTS_SCS := true
+ifeq (true,$(call TOBOOL,$(SCS_ENABLED)))
+# architecture-specific flag required for shadow call stack
+ARCH_arm64_COMPILEFLAGS += -ffixed-x18
+endif
+
 ifeq ($(call TOBOOL,$(CLANGBUILD)),true)
 
 CLANG_ARM64_TARGET_SYS ?= linux

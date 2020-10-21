@@ -156,6 +156,13 @@ typedef struct thread {
 #define DEFAULT_STACK_SIZE ARCH_DEFAULT_STACK_SIZE
 #endif
 
+/* shadow stack size */
+#ifdef CUSTOM_DEFAULT_SHADOW_STACK_SIZE
+#define DEFAULT_SHADOW_STACK_SIZE CUSTOM_DEFAULT_SHADOW_STACK_SIZE
+#else
+#define DEFAULT_SHADOW_STACK_SIZE PAGE_SIZE
+#endif
+
 /* functions */
 void thread_init_early(void);
 void thread_init(void);

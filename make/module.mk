@@ -18,6 +18,7 @@
 # MODULE_DISABLE_LTO : disable LTO for this module
 # MODULE_DISABLE_CFI : disable CFI for this module
 # MODULE_DISABLE_STACK_PROTECTOR : disable stack protector for this module
+# MODULE_DISABLE_SCS : disable shadow call stack for this module
 
 # MODULE_ARM_OVERRIDE_SRCS : list of source files, local path that should be force compiled with ARM (if applicable)
 
@@ -110,6 +111,21 @@ else
 MODULE_COMPILEFLAGS += -fno-stack-protector
 endif
 
+ifeq (true,$(call TOBOOL,$(SCS_ENABLED)))
+# set in arch/$(ARCH)/toolchain.mk iff shadow call stack is supported
+ifeq (false,$(call TOBOOL,$(ARCH_$(ARCH)_SUPPORTS_SCS)))
+$(error Error: Shadow call stack is not supported for $(ARCH))
+endif
+
+ifeq (false,$(call TOBOOL,$(MODULE_DISABLE_SCS)))
+# architectures that support SCS should set the flag that reserves
+# a register for the shadow call stack in their toolchain.mk file
+MODULE_COMPILEFLAGS += \
+	-fsanitize=shadow-call-stack \
+
+endif
+endif
+
 # generate a per-module config.h file
 MODULE_CONFIG := $(MODULE_BUILDDIR)/module_config.h
 
@@ -177,3 +193,4 @@ MODULE_DISABLE_LTO :=
 MODULE_LTO_ENABLED :=
 MODULE_DISABLE_CFI :=
 MODULE_DISABLE_STACK_PROTECTOR :=
+MODULE_DISABLE_SCS :=

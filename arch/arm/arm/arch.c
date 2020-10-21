@@ -418,8 +418,10 @@ static void spinlock_test_secondary(void)
 }
 
 /* switch to user mode, set the user stack pointer to user_stack_top, put the svc stack pointer to the top of the kernel stack */
-void arch_enter_uspace(vaddr_t entry_point, vaddr_t user_stack_top, uint32_t flags, ulong arg0)
+void arch_enter_uspace(vaddr_t entry_point, vaddr_t user_stack_top, vaddr_t shadow_stack_base, uint32_t flags, ulong arg0)
 {
+    DEBUG_ASSERT(shadow_stack_base == 0);
+
     user_stack_top = round_down(user_stack_top, 8);
 
     thread_t *ct = get_current_thread();

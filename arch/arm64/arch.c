@@ -97,8 +97,12 @@ void arch_chain_load(void *entry, ulong arg0, ulong arg1, ulong arg2, ulong arg3
     PANIC_UNIMPLEMENTED;
 }
 
-/* switch to user mode, set the user stack pointer to user_stack_top, put the svc stack pointer to the top of the kernel stack */
-void arch_enter_uspace(vaddr_t entry_point, vaddr_t user_stack_top, uint32_t flags, ulong arg0)
+/*
+ * switch to user mode, set the user stack pointer to user_stack_top, set
+ * x18 to shadow_stack_base, put the svc stack pointer to the top of the
+ * kernel stack.
+ */
+void arch_enter_uspace(vaddr_t entry_point, vaddr_t user_stack_top, vaddr_t shadow_stack_base, uint32_t flags, ulong arg0)
 {
     bool is_32bit_uspace = (flags & ARCH_ENTER_USPACE_FLAG_32BIT);
     user_stack_top = round_down(user_stack_top, is_32bit_uspace ? 8 : 16);
@@ -107,6 +111,10 @@ void arch_enter_uspace(vaddr_t entry_point, vaddr_t user_stack_top, uint32_t fla
 
     vaddr_t kernel_stack_top = (uintptr_t)ct->stack + ct->stack_size;
     kernel_stack_top = round_down(kernel_stack_top, 16);
+
+#if !USER_SCS_ENABLED
+    assert(shadow_stack_base == 0);
+#endif
 
     /* set up a default spsr to get into 64bit user space:
      * zeroed NZCV
@@ -122,6 +130,7 @@ void arch_enter_uspace(vaddr_t entry_point, vaddr_t user_stack_top, uint32_t fla
         "mov    x0, %[arg0];"
         "mov    x13, %[ustack];" /* AArch32 SP_usr */
         "mov    x14, %[entry];" /* AArch32 LR_usr */
+        "mov    x18, %[sstack];" /* AArch64 shadow stack (zero if disabled) */
         "msr    spsel, #1;" /* Switch to EL1h before setting a user-space sp */
         "msr    sp_el0, %[ustack];" /* AArch64 SP_usr */
         "msr    elr_el1, %[entry];"
@@ -141,7 +150,6 @@ void arch_enter_uspace(vaddr_t entry_point, vaddr_t user_stack_top, uint32_t fla
         "mov    x15, xzr;"
         "mov    x16, xzr;"
         "mov    x17, xzr;"
-        "mov    x18, xzr;"
         "mov    x19, xzr;"
         "mov    x20, xzr;"
         "mov    x21, xzr;"
@@ -158,10 +166,11 @@ void arch_enter_uspace(vaddr_t entry_point, vaddr_t user_stack_top, uint32_t fla
         :
         : [arg0]"r"(arg0),
         [ustack]"r"(user_stack_top),
+        [sstack]"r"(shadow_stack_base),
         [kstack]"r"(kernel_stack_top),
         [entry]"r"(entry_point),
         [spsr]"r"(spsr)
-        : "x0", "x13", "x14", "memory");
+        : "x0", "x13", "x14", "x18", "memory");
     __UNREACHABLE;
 }
 
