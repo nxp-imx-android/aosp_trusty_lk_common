@@ -30,14 +30,20 @@
 #define regsave_long_offset (30 * 8)
 #define regsave_short_offset (20 * 8)
 
-.macro regsave_long
+.macro regsave, regsave_offset:req
 sub  sp, sp, #32
+.if \regsave_offset == regsave_long_offset
 push x28, lr
 push x26, x27
 push x24, x25
 push x22, x23
 push x20, x21
 push x18, x19
+.elseif \regsave_offset == regsave_short_offset
+push x18, lr
+.else
+    .error  "regsave: unsupported regsave_offset, \regsave_offset"
+.endif
 push x16, x17
 push x14, x15
 push x12, x13
@@ -50,34 +56,22 @@ push x0, x1
 mrs  x0, sp_el0
 mrs  x1, elr_el1
 mrs  x2, spsr_el1
-stp  x0,  x2, [sp, #regsave_long_offset]
-stp  fp,  x1, [sp, #regsave_long_offset + 16]
-add  fp, sp, #regsave_long_offset + 16
+stp  x0,  x2, [sp, #\regsave_offset]
+stp  fp,  x1, [sp, #\regsave_offset + 16]
+add  fp, sp, #\regsave_offset + 16
+.endm
+
+.macro regsave_long
+    regsave regsave_offset=regsave_long_offset
 .endm
 
 .macro regsave_short
-sub  sp, sp, #32
-push x18, lr
-push x16, x17
-push x14, x15
-push x12, x13
-push x10, x11
-push x8, x9
-push x6, x7
-push x4, x5
-push x2, x3
-push x0, x1
-mrs  x0, sp_el0
-mrs  x1, elr_el1
-mrs  x2, spsr_el1
-stp  x0, x2, [sp, #regsave_short_offset]
-stp  fp, x1, [sp, #regsave_short_offset + 16]
-add  fp, sp, #regsave_long_offset + 16
+    regsave regsave_offset=regsave_short_offset
 .endm
 
-.macro regrestore_long
-ldp  x0,  x2, [sp, #regsave_long_offset]
-ldp  fp,  x1, [sp, #regsave_long_offset + 16]
+.macro regrestore, regsave_offset:req
+ldp  x0,  x2, [sp, #\regsave_offset]
+ldp  fp,  x1, [sp, #\regsave_offset + 16]
 msr  sp_el0, x0
 msr  elr_el1, x1
 msr  spsr_el1, x2
@@ -90,32 +84,27 @@ pop x10, x11
 pop x12, x13
 pop x14, x15
 pop x16, x17
+.if \regsave_offset == regsave_long_offset
 pop x18, x19
 pop x20, x21
 pop x22, x23
 pop x24, x25
 pop x26, x27
 pop x28, lr
+.elseif \regsave_offset == regsave_short_offset
+pop x18, lr
+.else
+    .error  "regsave: unsupported regsave_offset, \regsave_offset"
+.endif
 add sp, sp, #32
 .endm
 
+.macro regrestore_long
+    regrestore regsave_offset=regsave_long_offset
+.endm
+
 .macro regrestore_short
-ldp  x0, x2, [sp, #regsave_short_offset]
-ldp  fp, x1, [sp, #regsave_short_offset + 16]
-msr  sp_el0, x0
-msr  elr_el1, x1
-msr  spsr_el1, x2
-pop x0, x1
-pop x2, x3
-pop x4, x5
-pop x6, x7
-pop x8, x9
-pop x10, x11
-pop x12, x13
-pop x14, x15
-pop x16, x17
-pop x18, lr
-add sp, sp, #32
+    regrestore regsave_offset=regsave_short_offset
 .endm
 
 .macro invalid_exception, which
