@@ -85,6 +85,10 @@ static thread_t _idle_thread;
 #define idle_thread(cpu) (&_idle_thread)
 #endif
 
+/* list of dead detached thread and wait queue to signal reaper */
+static struct list_node dead_threads;
+static struct wait_queue reaper_wait_queue;
+
 /* local routines */
 static void thread_resched(void);
 static void idle_thread_routine(void) __NO_RETURN;
@@ -376,6 +380,16 @@ status_t thread_detach_and_resume(thread_t *t)
     return thread_resume(t);
 }
 
+static void thread_free(thread_t *t)
+{
+    /* free its stack and the thread structure itself */
+    if (t->flags & THREAD_FLAG_FREE_STACK && t->stack)
+        free(t->stack);
+
+    if (t->flags & THREAD_FLAG_FREE_STRUCT)
+        free(t);
+}
+
 status_t thread_join(thread_t *t, int *retcode, lk_time_t timeout)
 {
     DEBUG_ASSERT(t->magic == THREAD_MAGIC);
@@ -414,12 +428,7 @@ status_t thread_join(thread_t *t, int *retcode, lk_time_t timeout)
 
     THREAD_UNLOCK(state);
 
-    /* free its stack and the thread structure itself */
-    if (t->flags & THREAD_FLAG_FREE_STACK && t->stack)
-        free(t->stack);
-
-    if (t->flags & THREAD_FLAG_FREE_STRUCT)
-        free(t);
+    thread_free(t);
 
     return NO_ERROR;
 }
@@ -443,6 +452,27 @@ status_t thread_detach(thread_t *t)
         t->flags |= THREAD_FLAG_DETACHED;
         THREAD_UNLOCK(state);
         return NO_ERROR;
+    }
+}
+
+static int reaper_thread_routine(void *arg)
+{
+    THREAD_LOCK(state);
+    while (true) {
+        wait_queue_block(&reaper_wait_queue, INFINITE_TIME);
+
+        while(true) {
+            thread_t *t = list_remove_head_type(&dead_threads,
+                                                thread_t, thread_list_node);
+            if (!t) {
+                break;
+            }
+            /* clear the structure's magic */
+            t->magic = 0;
+            THREAD_UNLOCK(state);
+            thread_free(t);
+            THREAD_LOCK(state);
+        }
     }
 }
 
@@ -474,19 +504,9 @@ void thread_exit(int retcode)
         /* remove it from the master thread list */
         list_delete(&current_thread->thread_list_node);
 
-        /* clear the structure's magic */
-        current_thread->magic = 0;
-
-        /* free its stack and the thread structure itself */
-        if (current_thread->flags & THREAD_FLAG_FREE_STACK && current_thread->stack) {
-            heap_delayed_free(current_thread->stack);
-
-            /* make sure its not going to get a bounds check performed on the half-freed stack */
-            current_thread->flags &= ~THREAD_FLAG_DEBUG_STACK_BOUNDS_CHECK;
-        }
-
-        if (current_thread->flags & THREAD_FLAG_FREE_STRUCT)
-            heap_delayed_free(current_thread);
+        /* add it to list of threads to free and wake up reaper */
+        list_add_tail(&dead_threads, &current_thread->thread_list_node);
+        wait_queue_wake_all(&reaper_wait_queue, false, 0);
     } else {
         /* signal if anyone is waiting */
         wait_queue_wake_all(&current_thread->retcode_wait_queue, false, 0);
@@ -966,6 +986,9 @@ void thread_init_early(void)
     /* initialize the thread list */
     list_initialize(&thread_list);
 
+    list_initialize(&dead_threads);
+    wait_queue_init(&reaper_wait_queue);
+
     /* create a thread to cover the current running state */
     thread_t *t = idle_thread(0);
     init_thread_struct(t, "bootstrap");
@@ -982,6 +1005,17 @@ void thread_init_early(void)
     set_current_thread(t);
 }
 
+static void thread_reaper_init(void)
+{
+    thread_t *t = thread_create("reaper", reaper_thread_routine, NULL,
+                                HIGH_PRIORITY, DEFAULT_STACK_SIZE);
+    if (!t) {
+        dprintf(CRITICAL, "Failed to start reaper thread\n");
+        return;
+    }
+    thread_detach_and_resume(t);
+}
+
 /**
  * @brief Complete thread initialization
  *
@@ -994,6 +1028,7 @@ void thread_init(void)
         timer_initialize(&preempt_timer[i]);
     }
 #endif
+    thread_reaper_init();
 }
 
 /**
