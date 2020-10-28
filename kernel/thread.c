@@ -194,10 +194,6 @@ thread_t *thread_create_etc(thread_t *t, const char *name, thread_start_routine 
 
     /* create the stack */
     if (!stack) {
-#if THREAD_STACK_BOUNDS_CHECK
-        stack_size += THREAD_STACK_PADDING_SIZE;
-        flags |= THREAD_FLAG_DEBUG_STACK_BOUNDS_CHECK;
-#endif
         ret = vmm_alloc(vmm_get_kernel_aspace(), "kernel-stack", stack_size,
                         &t->stack, 0, 0, ARCH_MMU_FLAG_PERM_NO_EXECUTE);
         if (ret) {
@@ -206,19 +202,11 @@ thread_t *thread_create_etc(thread_t *t, const char *name, thread_start_routine 
             return NULL;
         }
         flags |= THREAD_FLAG_FREE_STACK;
-#if THREAD_STACK_BOUNDS_CHECK
-        memset(t->stack, STACK_DEBUG_BYTE, THREAD_STACK_PADDING_SIZE);
-#endif
     } else {
         t->stack = stack;
     }
 #if THREAD_STACK_HIGHWATER
-    if (flags & THREAD_FLAG_DEBUG_STACK_BOUNDS_CHECK) {
-        memset(t->stack + THREAD_STACK_PADDING_SIZE, STACK_DEBUG_BYTE,
-               stack_size - THREAD_STACK_PADDING_SIZE);
-    } else {
-        memset(t->stack, STACK_DEBUG_BYTE, stack_size);
-    }
+    memset(t->stack, STACK_DEBUG_BYTE, stack_size);
 #endif
 
     t->stack_size = stack_size;
@@ -728,23 +716,6 @@ void thread_resched(void)
             cpu, oldthread, oldthread->name, oldthread->priority,
             oldthread->flags, newthread, newthread->name,
             newthread->priority, newthread->flags);
-#endif
-
-#if THREAD_STACK_BOUNDS_CHECK
-    /* check that the old thread has not blown its stack just before pushing its context */
-    if (oldthread->flags & THREAD_FLAG_DEBUG_STACK_BOUNDS_CHECK) {
-        STATIC_ASSERT((THREAD_STACK_PADDING_SIZE % sizeof(uint32_t)) == 0);
-        uint32_t *s = (uint32_t *)oldthread->stack;
-        for (size_t i = 0; i < THREAD_STACK_PADDING_SIZE / sizeof(uint32_t); i++) {
-            if (unlikely(s[i] != STACK_DEBUG_WORD)) {
-                /* NOTE: will probably blow the stack harder here, but hopefully enough
-                 * state exists to at least get some sort of debugging done.
-                 */
-                panic("stack overrun at %p: thread %p (%s), stack %p\n", &s[i],
-                      oldthread, oldthread->name, oldthread->stack);
-            }
-        }
-    }
 #endif
 
 #if WITH_KERNEL_VM
