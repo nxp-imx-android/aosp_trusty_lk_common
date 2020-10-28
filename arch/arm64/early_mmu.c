@@ -83,9 +83,10 @@ void arm64_early_mmu_init(ulong ram_size, uintptr_t* relr_start,
     relocate_kernel(relr_start, relr_end, kernel_initial_vaddr, kernel_paddr);
 
     vm_assign_initial_dynamic(kernel_paddr, ram_size);
+    vaddr_t kernel_final_vaddr =
+        aslr_randomize_kernel_base(kernel_initial_vaddr);
     vm_map_initial_mappings();
 
     /* Relocate the kernel to its final virtual address */
-    vaddr_t kernel_final_vaddr = kernel_initial_vaddr;
     relocate_kernel(relr_start, relr_end, kernel_paddr, kernel_final_vaddr);
 }
