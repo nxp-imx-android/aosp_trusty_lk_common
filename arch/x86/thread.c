@@ -47,6 +47,17 @@ static void initial_thread_func(void)
     thread_exit(ret);
 }
 
+void arch_init_thread_initialize(struct thread *thread, uint cpu)
+{
+    extern uint8_t _kstack[];
+    size_t stack_size = PAGE_SIZE;
+    uint8_t *cpu_stack = _kstack;
+    ASSERT(cpu == 0);
+    thread->stack = cpu_stack;
+    thread->stack_high = cpu_stack + stack_size;
+    thread->stack_size = stack_size;
+}
+
 void arch_thread_initialize(thread_t *t)
 {
     // create a default stack frame on the stack

@@ -209,6 +209,7 @@ thread_t *thread_create_etc(thread_t *t, const char *name, thread_start_routine 
     memset(t->stack, STACK_DEBUG_BYTE, stack_size);
 #endif
 
+    t->stack_high = t->stack + stack_size;
     t->stack_size = stack_size;
 
     /* save whether or not we need to free the thread struct and/or stack */
@@ -966,6 +967,8 @@ void thread_init_early(void)
     thread_t *t = idle_thread(0);
     init_thread_struct(t, "bootstrap");
 
+    arch_init_thread_initialize(t, 0);
+
     /* half construct this thread, since we're already running */
     t->priority = HIGHEST_PRIORITY;
     t->state = THREAD_RUNNING;
@@ -1095,6 +1098,8 @@ void thread_secondary_cpu_init_early(void)
     thread_set_curr_cpu(t, cpu);
     thread_set_pinned_cpu(t, cpu);
     wait_queue_init(&t->retcode_wait_queue);
+
+    arch_init_thread_initialize(t, cpu);
 
     THREAD_LOCK(state);
 

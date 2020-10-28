@@ -84,6 +84,11 @@ enum thread_tls_list {
 #define THREAD_MAGIC (0x74687264) // 'thrd'
 
 typedef struct thread {
+    /* stack stuff, don't move, used by assembly code to validate stack */
+    void *stack;
+    void *stack_high;
+    size_t stack_size;
+
     int magic;
     struct list_node thread_list_node;
 
@@ -107,10 +112,6 @@ typedef struct thread {
 
     /* architecture stuff */
     struct arch_thread arch;
-
-    /* stack stuff */
-    void *stack;
-    size_t stack_size;
 
     /* entry point */
     thread_start_routine entry;
