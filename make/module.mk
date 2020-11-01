@@ -17,6 +17,7 @@
 # MODULE_EXTRA_OBJS : extra .o files that should be linked with the module
 # MODULE_DISABLE_LTO : disable LTO for this module
 # MODULE_DISABLE_CFI : disable CFI for this module
+# MODULE_DISABLE_STACK_PROTECTOR : disable stack protector for this module
 
 # MODULE_ARM_OVERRIDE_SRCS : list of source files, local path that should be force compiled with ARM (if applicable)
 
@@ -97,6 +98,16 @@ endif
 endif
 endif
 
+endif
+
+ifneq (true,$(call TOBOOL,$(MODULE_DISABLE_STACK_PROTECTOR)))
+ifeq (true,$(call TOBOOL,$(USER_TASK_MODULE)))
+ifeq (true,$(call TOBOOL,$(USER_STACK_PROTECTOR)))
+MODULE_COMPILEFLAGS += -fstack-protector-strong
+endif
+endif
+else
+MODULE_COMPILEFLAGS += -fno-stack-protector
 endif
 
 # generate a per-module config.h file
