@@ -21,10 +21,57 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
+#include <arch/arm64/mmu.h>
 #include <assert.h>
 #include <kernel/vm.h>
 #include <lk/compiler.h>
+#include <panic.h>
 #include <sys/types.h>
+
+/* the main translation table */
+pte_t arm64_kernel_translation_table[MMU_KERNEL_PAGE_TABLE_ENTRIES_TOP]
+    __ALIGNED(MMU_KERNEL_PAGE_TABLE_ENTRIES_TOP * 8);
+
+static void* early_mmu_paddr_to_kvaddr(paddr_t paddr) {
+    return (void*)paddr;
+}
+
+static int alloc_page_table(paddr_t* paddrp, uint page_size_shift) {
+    const size_t size = 1UL << page_size_shift;
+    paddr_t paddr = (paddr_t)boot_alloc_memalign(size, size);
+    *paddrp = paddr;
+    return 0;
+}
+
+static void free_page_table(void* vaddr,
+                            paddr_t paddr,
+                            uint page_size_shift) {
+    /* If we get here then we can't boot, so halt */
+    panic("reached free_page_table during early boot\n");
+}
+
+/*
+ * Override paddr_to_kvaddr since it's implemented in kernel/vm.c
+ * and we don't want to change that.
+ */
+#define paddr_to_kvaddr early_mmu_paddr_to_kvaddr
+#define EARLY_MMU
+#include "mmu.c"
+#undef paddr_to_kvaddr
+
+void arch_mmu_map_early(vaddr_t vaddr,
+                        paddr_t paddr,
+                        size_t size,
+                        uint flags) {
+    pte_t attr = mmu_flags_to_pte_attr(flags);
+    const uintptr_t vaddr_top_mask = ~0UL << MMU_KERNEL_SIZE_SHIFT;
+    ASSERT((vaddr & vaddr_top_mask) == vaddr_top_mask);
+    int ret = arm64_mmu_map_pt(vaddr, vaddr ^ vaddr_top_mask, paddr, size, attr,
+                               MMU_KERNEL_TOP_SHIFT, MMU_KERNEL_PAGE_SIZE_SHIFT,
+                               arm64_kernel_translation_table,
+                               MMU_ARM64_GLOBAL_ASID);
+    ASSERT(!ret);
+}
 
 void arm64_early_mmu_init(ulong ram_size, uintptr_t* relr_start,
                           uintptr_t* relr_end, paddr_t kernel_paddr) {
@@ -34,6 +81,9 @@ void arm64_early_mmu_init(ulong ram_size, uintptr_t* relr_start,
 
     /* Relocate the kernel to its physical address */
     relocate_kernel(relr_start, relr_end, kernel_initial_vaddr, kernel_paddr);
+
+    vm_assign_initial_dynamic(kernel_paddr, ram_size);
+    vm_map_initial_mappings();
 
     /* Relocate the kernel to its final virtual address */
     vaddr_t kernel_final_vaddr = kernel_initial_vaddr;

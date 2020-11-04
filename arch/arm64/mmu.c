@@ -47,9 +47,7 @@ STATIC_ASSERT(MMU_KERNEL_SIZE_SHIFT >= 25);
 STATIC_ASSERT(USER_ASPACE_BASE + USER_ASPACE_SIZE <= 1UL << MMU_USER_SIZE_SHIFT);
 
 /* the main translation table */
-pte_t arm64_kernel_translation_table[MMU_KERNEL_PAGE_TABLE_ENTRIES_TOP]
-    __ALIGNED(MMU_KERNEL_PAGE_TABLE_ENTRIES_TOP * 8)
-    __SECTION(".bss.prebss.translation_table");
+extern pte_t arm64_kernel_translation_table[];
 
 /* This is explicitly a check for overflows, so don't sanitize it */
 __attribute__((no_sanitize("unsigned-integer-overflow")))
@@ -120,6 +118,7 @@ static pte_t mmu_flags_to_pte_attr(uint flags)
     return attr;
 }
 
+#ifndef EARLY_MMU
 status_t arch_mmu_query(arch_aspace_t *aspace, vaddr_t vaddr, paddr_t *paddr, uint *flags)
 {
     uint index;
@@ -285,6 +284,7 @@ static void free_page_table(void *vaddr, paddr_t paddr, uint page_size_shift)
         free(vaddr);
     }
 }
+#endif /* EARLY_MMU */
 
 static pte_t *arm64_mmu_get_page_table(vaddr_t index, uint page_size_shift, pte_t *page_table)
 {
@@ -491,6 +491,7 @@ err:
     return ERR_GENERIC;
 }
 
+#ifndef EARLY_MMU
 int arm64_mmu_map(vaddr_t vaddr, paddr_t paddr, size_t size, pte_t attrs,
                   vaddr_t vaddr_base, uint top_size_shift,
                   uint top_index_shift, uint page_size_shift,
@@ -730,3 +731,4 @@ void arch_mmu_context_switch(arch_aspace_t *aspace)
         DSB;
     }
 }
+#endif /* EARLY_MMU */
