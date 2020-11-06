@@ -284,3 +284,52 @@ LOCAL_FUNCTION(arm64_exc_shared_restore_long)
 LOCAL_FUNCTION(arm64_exc_shared_restore_short)
     regrestore_short
     eret
+
+/*
+ * void arm64_enter_uspace(ulong arg0, vaddr_t entry_point,
+ *                         vaddr_t user_stack_top, vaddr_t shadow_stack_base,
+ *                         uint64_t spsr)
+ */
+FUNCTION(arm64_enter_uspace)
+    /*
+     * Put input registers (x1-x4) into their destination registers before
+     * zeroing them. Register x0 already contains the desired value (arg0).
+     */
+    mov    x13, x2      /* AArch32 SP_usr = user_stack_top */
+    msr    spsel, #1    /* Switch to EL1h before setting a user-space sp */
+    msr    sp_el0, x2   /* AArch64 SP_usr = user_stack_top  */
+    mov    x18, x3      /* AArch64 shadow stack = shadow_stack_base */
+    msr    elr_el1, x1  /* entry_point */
+    msr    spsr_el1, x4 /* spsr */
+
+    /* zero remaining registers */
+    mov    x1, xzr
+    mov    x2, xzr
+    mov    x3, xzr
+    mov    x4, xzr
+    mov    x5, xzr
+    mov    x6, xzr
+    mov    x7, xzr
+    mov    x8, xzr
+    mov    x9, xzr
+    mov    x10, xzr
+    mov    x11, xzr
+    mov    x12, xzr
+    mov    x14, xzr     /* AArch32 LR_usr */
+    mov    x15, xzr
+    mov    x16, xzr
+    mov    x17, xzr
+    mov    x19, xzr
+    mov    x20, xzr
+    mov    x21, xzr
+    mov    x22, xzr
+    mov    x23, xzr
+    mov    x24, xzr
+    mov    x25, xzr
+    mov    x26, xzr
+    mov    x27, xzr
+    mov    x28, xzr
+    mov    x29, xzr
+    mov    x30, xzr     /* AArch64 LR_usr */
+
+    eret

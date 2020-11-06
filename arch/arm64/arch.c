@@ -42,6 +42,11 @@ static spin_lock_t arm_boot_cpu_lock = 1;
 static volatile int secondaries_to_init = 0;
 #endif
 
+extern void arm64_enter_uspace(ulong arg0, vaddr_t entry_point,
+                               vaddr_t user_stack_top,
+                               vaddr_t shadow_stack_base,
+                               uint64_t spsr) __NO_RETURN;
+
 static void arm64_cpu_early_init(void)
 {
     /* set the vector base */
@@ -126,51 +131,8 @@ void arch_enter_uspace(vaddr_t entry_point, vaddr_t user_stack_top, vaddr_t shad
 
     arch_disable_ints();
 
-    __asm__ volatile(
-        "mov    x0, %[arg0];"
-        "mov    x13, %[ustack];" /* AArch32 SP_usr */
-        "mov    x14, %[entry];" /* AArch32 LR_usr */
-        "mov    x18, %[sstack];" /* AArch64 shadow stack (zero if disabled) */
-        "msr    spsel, #1;" /* Switch to EL1h before setting a user-space sp */
-        "msr    sp_el0, %[ustack];" /* AArch64 SP_usr */
-        "msr    elr_el1, %[entry];"
-        "msr    spsr_el1, %[spsr];"
-        "mov    x1, xzr;"
-        "mov    x2, xzr;"
-        "mov    x3, xzr;"
-        "mov    x4, xzr;"
-        "mov    x5, xzr;"
-        "mov    x6, xzr;"
-        "mov    x7, xzr;"
-        "mov    x8, xzr;"
-        "mov    x9, xzr;"
-        "mov    x10, xzr;"
-        "mov    x11, xzr;"
-        "mov    x12, xzr;"
-        "mov    x15, xzr;"
-        "mov    x16, xzr;"
-        "mov    x17, xzr;"
-        "mov    x19, xzr;"
-        "mov    x20, xzr;"
-        "mov    x21, xzr;"
-        "mov    x22, xzr;"
-        "mov    x23, xzr;"
-        "mov    x24, xzr;"
-        "mov    x25, xzr;"
-        "mov    x26, xzr;"
-        "mov    x27, xzr;"
-        "mov    x28, xzr;"
-        "mov    x29, xzr;"
-        "mov    x30, xzr;"
-        "eret;"
-        :
-        : [arg0]"r"(arg0),
-        [ustack]"r"(user_stack_top),
-        [sstack]"r"(shadow_stack_base),
-        [kstack]"r"(kernel_stack_top),
-        [entry]"r"(entry_point),
-        [spsr]"r"(spsr)
-        : "x0", "x13", "x14", "x18", "memory");
+    arm64_enter_uspace(arg0, entry_point, user_stack_top, shadow_stack_base,
+                       spsr);
     __UNREACHABLE;
 }
 
