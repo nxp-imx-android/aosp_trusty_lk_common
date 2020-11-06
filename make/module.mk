@@ -13,6 +13,7 @@
 # MODULE_ASMFLAGS : ASMFLAGS local to this module
 # MODULE_INCLUDES : include directories local to this module
 # MODULE_SRCDEPS : extra dependencies that all of this module's files depend on
+# MODULE_EXTRA_ARCHIVES : extra .a files that should be linked with the module
 # MODULE_EXTRA_OBJS : extra .o files that should be linked with the module
 # MODULE_DISABLE_LTO : disable LTO for this module
 # MODULE_DISABLE_CFI : disable CFI for this module
@@ -131,7 +132,7 @@ $(MODULE_OBJECT): $(MODULE_OBJS) $(MODULE_EXTRA_OBJS)
 GENERATED += $(MODULE_OBJECT)
 
 # make the rest of the build depend on our output
-ALLMODULE_OBJS := $(MODULE_INIT_OBJS) $(ALLMODULE_OBJS) $(MODULE_OBJECT)
+ALLMODULE_OBJS := $(MODULE_INIT_OBJS) $(ALLMODULE_OBJS) $(MODULE_OBJECT) $(MODULE_EXTRA_ARCHIVES)
 
 # track all of the source files compiled
 ALLSRCS += $(MODULE_SRCS_FIRST) $(MODULE_SRCS)
@@ -154,6 +155,7 @@ MODULE_CPPFLAGS :=
 MODULE_ASMFLAGS :=
 MODULE_SRCDEPS :=
 MODULE_INCLUDES :=
+MODULE_EXTRA_ARCHIVES :=
 MODULE_EXTRA_OBJS :=
 MODULE_CONFIG :=
 MODULE_OBJECT :=
