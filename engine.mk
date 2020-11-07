@@ -266,6 +266,20 @@ GLOBAL_DEFINES += \
 	KERNEL_SCS_ENABLED=1
 endif
 
+ifeq (true,$(call TOBOOL,$(PIE_KERNEL)))
+# Build a PIE kernel binary
+GLOBAL_COMPILEFLAGS += -fPIE -fvisibility=hidden
+GLOBAL_LDFLAGS += -pie --no-dynamic-linker -z text -Bsymbolic
+# Use the very compact SHT_RELR encoding for dynamic relative relocations.
+GLOBAL_LDFLAGS += --pack-dyn-relocs=relr
+# lld can emit either the DT_RELR or DT_ANDROID_RELR tags.
+# Neither objcopy nor objdump recognize the former tags
+# and complain very loudly when seeing them, while silently
+# ignoring the DT_ANDROID_RELR tags because they're above DT_LOOS.
+# Passing --use-android-relr-tags tells lld to use DT_ANDROID_RELR.
+GLOBAL_LDFLAGS += --use-android-relr-tags
+endif
+
 # allow additional defines from outside the build system
 ifneq ($(EXTERNAL_DEFINES),)
 GLOBAL_DEFINES += $(EXTERNAL_DEFINES)
