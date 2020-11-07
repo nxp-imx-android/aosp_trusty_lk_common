@@ -66,9 +66,10 @@ arm_reset:
     mov     cpuid, x0
     /* Restore registers */
     mov     x0, size
-    cbnz    cpuid, .Lmmu_enable_secondary
+    cbnz    cpuid, .Ltt_trampoline_check_secondary
 #endif
 
+    /* Zero the top level kernel page table */
     mov     tmp, #0
 
     /* walk through all the entries in the translation table, setting them up */
@@ -77,6 +78,106 @@ arm_reset:
     add     tmp, tmp, #1
     cmp     tmp, #MMU_KERNEL_PAGE_TABLE_ENTRIES_TOP
     bne     .Lclear_top_page_table_loop
+
+    /* Prepare tt_trampoline page table */
+
+    /* Zero tt_trampoline translation tables */
+    mov     tmp, #0
+.Lclear_tt_trampoline:
+    str     xzr, [page_table0, tmp, lsl#3]
+    add     tmp, tmp, #1
+    cmp     tmp, #MMU_PAGE_TABLE_ENTRIES_IDENT
+    blt     .Lclear_tt_trampoline
+
+    /* Setup mapping at phys -> phys */
+    /*
+     * Map from the start of the kernel to the end of RAM
+     * so we have enough pages for boot_alloc memory.
+     */
+    adr     index, _start
+    lsr     tmp, index, #MMU_IDENT_TOP_SHIFT    /* tmp = paddr index */
+
+    /* Check that the start index falls inside the table */
+    cmp     tmp, #MMU_PAGE_TABLE_ENTRIES_IDENT
+    b.hs    platform_early_halt
+
+    /*
+     * The physical address of last byte of the kernel image is (_start + x0 - 1),
+     * and we round that down to a multiple of 1<<MMU_IDENT_TOP_SHIFT
+     * to get the inclusive upper bound of the tt_trampoline range.
+     */
+    add     index, index, x0
+    sub     index, index, #1
+    lsr     index, index, #MMU_IDENT_TOP_SHIFT
+
+    /* Clamp the end index to the last possible entry */
+    cmp     index, #MMU_PAGE_TABLE_ENTRIES_IDENT
+    b.lo    .Lset_tt_trampoline_loop
+    mov     index, #(MMU_PAGE_TABLE_ENTRIES_IDENT - 1)
+
+.Lset_tt_trampoline_loop:
+    cmp     tmp, index
+    b.hi   .Lset_tt_trampoline_done
+
+    ldr     tmp2, =MMU_PTE_IDENT_FLAGS
+    add     tmp2, tmp2, tmp, lsl #MMU_IDENT_TOP_SHIFT  /* tmp2 = pt entry */
+    str     tmp2, [page_table0, tmp, lsl #3]     /* tt_trampoline[paddr index] = pt entry */
+    add     tmp, tmp, #1
+    b       .Lset_tt_trampoline_loop
+
+.Lset_tt_trampoline_done:
+
+#if WITH_SMP
+    /* Release the first lock on the secondary CPUs */
+    adrl    tmp, tt_trampoline_not_ready
+    str     wzr, [tmp]
+    b       .Ltt_trampoline_ready
+
+.Ltt_trampoline_check_secondary:
+    adrl    tmp, tt_trampoline_not_ready
+.Ltt_trampoline_not_ready:
+    ldr     wtmp2, [tmp]
+    cbnz    wtmp2, .Ltt_trampoline_not_ready
+.Ltt_trampoline_ready:
+#endif
+
+    /* set up the mmu */
+
+    /* Invalidate TLB */
+    tlbi    vmalle1is
+    isb
+    dsb     sy
+
+    /* Initialize Memory Attribute Indirection Register */
+    ldr     tmp, =MMU_MAIR_VAL
+    msr     mair_el1, tmp
+
+    /* Initialize TCR_EL1 */
+    /* set cacheable attributes on translation walk */
+    /* (SMP extensions) non-shareable, inner write-back write-allocate */
+    ldr     tmp, =MMU_TCR_FLAGS_IDENT
+    msr     tcr_el1, tmp
+
+    isb
+
+    /* Write ttbr with phys addr of the translation table */
+    msr     ttbr0_el1, page_table0
+    msr     ttbr1_el1, page_table1
+    isb
+
+    /* Read SCTLR */
+    mrs     tmp, sctlr_el1
+
+    /* Turn on the MMU */
+    orr     tmp, tmp, #0x1
+
+    /* Write back SCTLR */
+    msr     sctlr_el1, tmp
+    isb
+
+#if WITH_SMP
+    cbnz    cpuid, .Lpage_tables_check_secondary
+#endif
 
     /* load the address of the mmu_initial_mappings table and start processing */
     adrl    mmu_initial_mapping, mmu_initial_mappings
@@ -256,70 +357,19 @@ arm_reset:
 
 .Linitial_mapping_done:
 
-    /* Prepare tt_trampoline page table */
-
-    /* Zero tt_trampoline translation tables */
-    mov     tmp, #0
-.Lclear_tt_trampoline:
-    str     xzr, [page_table0, tmp, lsl#3]
-    add     tmp, tmp, #1
-    cmp     tmp, #MMU_PAGE_TABLE_ENTRIES_IDENT
-    blt     .Lclear_tt_trampoline
-
-    /* Setup mapping at phys -> phys */
-    adr     tmp, .Lmmu_on_pc
-    lsr     tmp, tmp, #MMU_IDENT_TOP_SHIFT    /* tmp = paddr index */
-    ldr     tmp2, =MMU_PTE_IDENT_FLAGS
-    add     tmp2, tmp2, tmp, lsl #MMU_IDENT_TOP_SHIFT  /* tmp2 = pt entry */
-
-    str     tmp2, [page_table0, tmp, lsl #3]     /* tt_trampoline[paddr index] = pt entry */
-
 #if WITH_SMP
+    /* Release the second lock on the secondary CPUs */
     adrl    tmp, page_tables_not_ready
-    str     wzr, [tmp]
+    stlr    wzr, [tmp]
     b       .Lpage_tables_ready
 
-.Lmmu_enable_secondary:
+.Lpage_tables_check_secondary:
     adrl    tmp, page_tables_not_ready
 .Lpage_tables_not_ready:
-    ldr     wtmp2, [tmp]
+    ldar    wtmp2, [tmp]
     cbnz    wtmp2, .Lpage_tables_not_ready
 .Lpage_tables_ready:
 #endif
-
-    /* set up the mmu */
-
-    /* Invalidate TLB */
-    tlbi    vmalle1is
-    isb
-    dsb     sy
-
-    /* Initialize Memory Attribute Indirection Register */
-    ldr     tmp, =MMU_MAIR_VAL
-    msr     mair_el1, tmp
-
-    /* Initialize TCR_EL1 */
-    /* set cacheable attributes on translation walk */
-    /* (SMP extensions) non-shareable, inner write-back write-allocate */
-    ldr     tmp, =MMU_TCR_FLAGS_IDENT
-    msr     tcr_el1, tmp
-
-    isb
-
-    /* Write ttbr with phys addr of the translation table */
-    msr     ttbr0_el1, page_table0
-    msr     ttbr1_el1, page_table1
-    isb
-
-    /* Read SCTLR */
-    mrs     tmp, sctlr_el1
-
-    /* Turn on the MMU */
-    orr     tmp, tmp, #0x1
-
-    /* Write back SCTLR */
-    msr     sctlr_el1, tmp
-.Lmmu_on_pc:
     isb
 
     /* Jump to virtual code address */
@@ -447,7 +497,19 @@ DATA(mmu_on_vaddr_ptr)
 
 #if WITH_SMP
 .data
+DATA(tt_trampoline_not_ready)
+    /*
+     * The primary processor clears this when the ttbr0 page tables
+     * are ready and all processors can enable their MMUs. Before
+     * passing this semaphore, all CPUs should have MMUs off, and
+     * turn them on immediately after.
+     */
+    .long       1
 DATA(page_tables_not_ready)
+    /*
+     * The primary processor clears this when the final (ttbr1)
+     * page tables are ready.
+     */
     .long       1
 #endif
 
