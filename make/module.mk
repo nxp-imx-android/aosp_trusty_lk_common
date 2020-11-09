@@ -126,6 +126,16 @@ MODULE_COMPILEFLAGS += \
 endif
 endif
 
+ifeq (true,$(call TOBOOL,$(USER_COVERAGE_ENABLED)))
+ifeq (true,$(call TOBOOL,$(USER_TASK_MODULE)))
+MODULES += trusty/user/base/lib/sancov
+MODULE_COMPILEFLAGS += \
+	-fsanitize-coverage-blocklist=trusty/user/base/lib/sancov/exemptlist \
+	-fsanitize-coverage=trace-pc-guard \
+
+endif
+endif
+
 # generate a per-module config.h file
 MODULE_CONFIG := $(MODULE_BUILDDIR)/module_config.h
 
