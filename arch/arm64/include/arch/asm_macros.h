@@ -93,7 +93,7 @@
 .macro set_fault_handler, handler
 .Lfault_location\@:
 .pushsection .rodata.fault_handler_table
-    .quad    .Lfault_location\@
-    .quad    \handler
+    .quad    .Lfault_location\@ - .
+    .quad    \handler - .
 .popsection
 .endm

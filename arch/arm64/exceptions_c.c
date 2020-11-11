@@ -35,13 +35,32 @@
 
 #define SHUTDOWN_ON_FATAL 1
 
+/**
+ * struct fault_handler_table_entry - Fault handler table entry.
+ * @pc: Address of the faulting instruction.
+ * @fault_handler: Address of the corresponding fault handler.
+ *
+ * Both addresses are position-relative, i.e., each field contains the offset
+ * from the field itself to its target.
+ */
 struct fault_handler_table_entry {
-    uint64_t pc;
-    uint64_t fault_handler;
+    int64_t pc;
+    int64_t fault_handler;
 };
 
 extern struct fault_handler_table_entry __fault_handler_table_start[];
 extern struct fault_handler_table_entry __fault_handler_table_end[];
+
+/**
+ * prel_to_abs_u64() - Convert a position-relative value to an absolute.
+ * @ptr: Pointer to a 64-bit position-relative value.
+ * @result: Pointer to the location for the result.
+ *
+ * Return: %true in case of success, %false for overflow.
+ */
+static inline bool prel_to_abs_u64(const int64_t* ptr, uint64_t* result) {
+    return !__builtin_add_overflow((uintptr_t)ptr, *ptr, result);
+}
 
 static bool check_fault_handler_table(struct arm64_iframe_long *iframe)
 {
@@ -49,8 +68,22 @@ static bool check_fault_handler_table(struct arm64_iframe_long *iframe)
     for (fault_handler = __fault_handler_table_start;
             fault_handler < __fault_handler_table_end;
             fault_handler++) {
-        if (fault_handler->pc == iframe->elr) {
-            iframe->elr = fault_handler->fault_handler;
+        uint64_t addr;
+        if (!prel_to_abs_u64(&fault_handler->pc, &addr)) {
+            /* Invalid entry, ignore it */
+            continue;
+        }
+        if (addr == iframe->elr) {
+            if (!prel_to_abs_u64(&fault_handler->fault_handler, &addr)) {
+                /*
+                 * An entry with an invalid handler address. We don't expect
+                 * another entry with the same pc, so we break out of
+                 * the loop early.
+                 */
+                return false;
+            }
+
+            iframe->elr = addr;
             return true;
         }
     }
