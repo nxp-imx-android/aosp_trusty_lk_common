@@ -49,13 +49,11 @@ arm_reset:
     /* set up the mmu according to mmu_initial_mappings */
 
     /* load the base of the translation table and clear the table */
-    adrp    page_table1, arm64_kernel_translation_table
-    add     page_table1, page_table1, #:lo12:arm64_kernel_translation_table
+    adrl    page_table1, arm64_kernel_translation_table
 
     /* Prepare tt_trampoline page table */
     /* Calculate pagetable physical addresses */
-    adrp    page_table0, tt_trampoline
-    add     page_table0, page_table0, #:lo12:tt_trampoline
+    adrl    page_table0, tt_trampoline
 
 #if WITH_SMP
     /*
@@ -81,8 +79,7 @@ arm_reset:
     bne     .Lclear_top_page_table_loop
 
     /* load the address of the mmu_initial_mappings table and start processing */
-    adrp    mmu_initial_mapping, mmu_initial_mappings
-    add     mmu_initial_mapping, mmu_initial_mapping, #:lo12:mmu_initial_mappings
+    adrl    mmu_initial_mapping, mmu_initial_mappings
 
 .Linitial_mapping_loop:
 /* Read entry of mmu_initial_mappings (likely defined in platform.c) */
@@ -129,23 +126,23 @@ arm_reset:
  */
 .Lmapping_size_loop:
     ldr     attr, =MMU_PTE_KERNEL_DATA_FLAGS
-    ldr     tmp, =__code_start
-    subs    size, tmp, vaddr
+    adrl    tmp, __code_start
+    subs    size, tmp, paddr
     /* If page is below  the entry point (_start) mark as kernel data */
     b.hi    .Lmem_type_done
 
     ldr     attr, =MMU_PTE_KERNEL_RO_FLAGS
-    ldr     tmp, =__rodata_start
-    subs    size, tmp, vaddr
+    adrl    tmp, __rodata_start
+    subs    size, tmp, paddr
     b.hi    .Lmem_type_done
     orr     attr, attr, #MMU_PTE_ATTR_PXN
-    ldr     tmp, =__data_start
-    subs    size, tmp, vaddr
+    adrl    tmp, __data_start
+    subs    size, tmp, paddr
     b.hi    .Lmem_type_done
     ldr     attr, =MMU_PTE_KERNEL_DATA_FLAGS
-    ldr     tmp, =_end
-    subs    size, tmp, vaddr
-    b.lo    . /* Error: _end < vaddr */
+    adrl    tmp, _end
+    subs    size, tmp, paddr
+    b.lo    . /* Error: phys(_end) < paddr */
     cmp     mapping_size, size
     b.lo    . /* Error: mapping_size < size => RAM size too small for data/bss */
     mov     size, mapping_size
@@ -230,9 +227,9 @@ arm_reset:
 
     /* Calculate phys offset (needed for memory allocation) */
 .Lphys_offset:
-    adr     phys_offset, .Lphys_offset /* phys */
-    ldr     tmp, =.Lphys_offset /* virt */
-    sub     phys_offset, tmp, phys_offset
+    ldr     phys_offset, =(KERNEL_BASE + KERNEL_LOAD_OFFSET)
+    adrl    tmp, __code_start
+    sub     phys_offset, phys_offset, tmp
 
     /* Allocate new page table */
     calloc_bootmem_aligned new_page_table, tmp, tmp2, MMU_KERNEL_PAGE_SIZE_SHIFT, phys_offset
@@ -278,14 +275,12 @@ arm_reset:
     str     tmp2, [page_table0, tmp, lsl #3]     /* tt_trampoline[paddr index] = pt entry */
 
 #if WITH_SMP
-    adrp    tmp, page_tables_not_ready
-    add     tmp, tmp, #:lo12:page_tables_not_ready
+    adrl    tmp, page_tables_not_ready
     str     wzr, [tmp]
     b       .Lpage_tables_ready
 
 .Lmmu_enable_secondary:
-    adrp    tmp, page_tables_not_ready
-    add     tmp, tmp, #:lo12:page_tables_not_ready
+    adrl    tmp, page_tables_not_ready
 .Lpage_tables_not_ready:
     ldr     wtmp2, [tmp]
     cbnz    wtmp2, .Lpage_tables_not_ready
@@ -328,7 +323,8 @@ arm_reset:
     isb
 
     /* Jump to virtual code address */
-    ldr     tmp, =.Lmmu_on_vaddr
+    adrl    tmp, mmu_on_vaddr_ptr
+    ldr     tmp, [tmp]
     br      tmp
 
 .Lmmu_on_vaddr:
@@ -348,23 +344,23 @@ arm_reset:
 #endif
 #endif /* WITH_KERNEL_VM */
 
-    ldr     tmp, =sp_el1_bufs
+    adrl    tmp, sp_el1_bufs
     mov     sp, tmp
 
     msr     spsel, #0 /* Use SP0 for kernel stacks */
-    ldr tmp, =__stack_end
+    adrl    tmp, __stack_end
     mov sp, tmp
 
 #if KERNEL_SCS_ENABLED
-    ldr ssp, = __shadow_stack
+    adrl    ssp, __shadow_stack
 #endif
 
     /* clear bss */
 .L__do_bss:
     /* clear out the bss excluding the stack and kernel translation table  */
     /* NOTE: relies on __post_prebss_bss_start and __bss_end being 8 byte aligned */
-    ldr     tmp, =__post_prebss_bss_start
-    ldr     tmp2, =__bss_end
+    adrl    tmp, __post_prebss_bss_start
+    adrl    tmp2, __bss_end
     sub     tmp2, tmp2, tmp
     cbz     tmp2, .L__bss_loop_done
 .L__bss_loop:
@@ -405,21 +401,21 @@ WEAK_FUNCTION(arm64_curr_cpu_num)
     bge     .Lunsupported_cpu_trap
 
     /* Set up the stack pointers */
-    ldr     tmp, =sp_el1_bufs
+    adrl    tmp, sp_el1_bufs
     mov     tmp2, #ARM64_EXC_SP_EL1_BUF_SIZE
     mul     tmp2, tmp2, cpuid
     add     sp, tmp, tmp2
 
     msr     spsel, #0 /* Use SP0 for kernel stacks */
 
-    ldr     tmp, =__stack_end
+    adrl    tmp, __stack_end
     mov     tmp2, #ARCH_DEFAULT_STACK_SIZE
     mul     tmp2, tmp2, cpuid
     sub     sp, tmp, tmp2
 
 #if KERNEL_SCS_ENABLED
     /* Set up the shadow stack pointer */
-    ldr     ssp, = __shadow_stack
+    adrl    ssp, __shadow_stack
     mov     tmp, #ARCH_DEFAULT_SHADOW_STACK_SIZE
     mul     tmp, tmp, cpuid
     add     ssp, ssp, tmp
@@ -434,6 +430,20 @@ WEAK_FUNCTION(arm64_curr_cpu_num)
 #endif
 
 .ltorg
+
+#if WITH_KERNEL_VM
+.data
+DATA(mmu_on_vaddr_ptr)
+.hidden mmu_on_vaddr_ptr
+    /*
+     * Store a pointer to the virtual address of .Lmmu_on_vaddr inside a
+     * pointer quad that KASLR can relocate. We compute the address explicitly
+     * here because the linker script places the kernel at its physical
+     * address, and we want the virtual address instead.
+     */
+    .align 3
+    .quad ((.Lmmu_on_vaddr - _start) + KERNEL_BASE + KERNEL_LOAD_OFFSET)
+#endif
 
 #if WITH_SMP
 .data

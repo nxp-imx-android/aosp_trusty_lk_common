@@ -30,6 +30,11 @@
     ldp     \ra, \rb, [\rsp], #(16 + \postfree)
 .endm
 
+.macro adrl reg, sym
+    adrp    \reg, \sym
+    add     \reg, \reg, #:lo12:\sym
+.endm
+
 .macro tbzmask, reg, mask, label, shift=0
 .if \shift >= 64
     .error "tbzmask: unsupported mask, \mask"
