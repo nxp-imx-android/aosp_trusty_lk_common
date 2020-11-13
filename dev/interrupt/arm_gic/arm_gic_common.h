@@ -33,6 +33,19 @@
 #include <arch/arm64.h>
 #endif
 
+struct arm_gic {
+    vaddr_t gicc_vaddr;
+    size_t gicc_size;
+    vaddr_t gicd_vaddr;
+    size_t gicd_size;
+    vaddr_t gicr_vaddr;
+    size_t gicr_size;
+};
+
+#define NUM_ARM_GICS 1
+
+extern struct arm_gic arm_gics[NUM_ARM_GICS];
+
 #if GIC_VERSION > 2
 
 #if WITH_LIB_SM
@@ -110,10 +123,27 @@ GEN_CP15_REG64_FUNCS(icc_sgi0r_el1, 2, c12);
 #define GICC_PRIMARY_SGIR        icc_sgi1r_el1
 #endif
 
+#define GICC_LIMIT (0x0000)
+#define GICC_MIN_SIZE (0x0000)
+
 #else /* GIC_VERSION > 2 */
 
-#define GICCREG_READ(gic, reg) (*REG32(GICBASE(gic) + (reg)))
-#define GICCREG_WRITE(gic, reg, val) (*REG32(GICBASE(gic) + (reg)) = (val))
+#ifndef GICC_OFFSET
+#define GICC_OFFSET (0x0000)
+#endif
+
+#define GICCREG_READ(gic, reg) ({ \
+        ASSERT(gic < NUM_ARM_GICS); \
+        ASSERT(reg >= GICC_OFFSET); \
+        ASSERT(reg < GICC_LIMIT); \
+        (*REG32(arm_gics[(gic)].gicc_vaddr + ((reg) - GICC_OFFSET))); \
+    })
+#define GICCREG_WRITE(gic, reg, val) ({ \
+        ASSERT(gic < NUM_ARM_GICS); \
+        ASSERT(reg >= GICC_OFFSET); \
+        ASSERT(reg < GICC_LIMIT); \
+        (*REG32(arm_gics[(gic)].gicc_vaddr + ((reg) - GICC_OFFSET)) = (val)); \
+    })
 /* main cpu regs */
 #define GICC_CTLR               (GICC_OFFSET + 0x0000)
 #define GICC_PMR                (GICC_OFFSET + 0x0004)
@@ -129,7 +159,11 @@ GEN_CP15_REG64_FUNCS(icc_sgi0r_el1, 2, c12);
 #define GICC_APR(n)             (GICC_OFFSET + 0x00d0 + (n) * 4)
 #define GICC_NSAPR(n)           (GICC_OFFSET + 0x00e0 + (n) * 4)
 #define GICC_IIDR               (GICC_OFFSET + 0x00fc)
+#if 0 /* GICC_DIR is not currently used by anything */
 #define GICC_DIR                (GICC_OFFSET + 0x1000)
+#endif
+#define GICC_LIMIT              (GICC_OFFSET + 0x1000)
+#define GICC_MIN_SIZE           (GICC_LIMIT - GICC_OFFSET)
 
 #if WITH_LIB_SM
 #define GICC_PRIMARY_HPPIR      GICC_AHPPIR
@@ -143,8 +177,22 @@ GEN_CP15_REG64_FUNCS(icc_sgi0r_el1, 2, c12);
 
 #endif /* GIC_VERSION > 2 */
 
-#define GICDREG_READ(gic, reg) (*REG32(GICBASE(gic) + (reg)))
-#define GICDREG_WRITE(gic, reg, val) (*REG32(GICBASE(gic) + (reg)) = (val))
+#ifndef GICD_OFFSET
+#define GICD_OFFSET (GICC_LIMIT)
+#endif
+
+#define GICDREG_READ(gic, reg) ({ \
+        ASSERT(gic < NUM_ARM_GICS); \
+        ASSERT(reg >= GICD_OFFSET); \
+        ASSERT(reg < GICD_LIMIT); \
+        (*REG32(arm_gics[(gic)].gicd_vaddr + ((reg) - GICD_OFFSET))); \
+    })
+#define GICDREG_WRITE(gic, reg, val) ({ \
+        ASSERT(gic < NUM_ARM_GICS); \
+        ASSERT(reg >= GICD_OFFSET); \
+        ASSERT(reg < GICD_LIMIT); \
+        (*REG32(arm_gics[(gic)].gicd_vaddr + ((reg) - GICD_OFFSET)) = (val)); \
+    })
 /* distribution regs */
 #define GICD_CTLR               (GICD_OFFSET + 0x000)
 #define GICD_TYPER              (GICD_OFFSET + 0x004)
@@ -163,20 +211,32 @@ GEN_CP15_REG64_FUNCS(icc_sgi0r_el1, 2, c12);
 #define GICD_SGIR               (GICD_OFFSET + 0xf00)
 #define GICD_CPENDSGIR(n)       (GICD_OFFSET + 0xf10 + (n) * 4)
 #define GICD_SPENDSGIR(n)       (GICD_OFFSET + 0xf20 + (n) * 4)
+#define GICD_LIMIT              (GICD_OFFSET + 0x1000)
+#define GICD_MIN_SIZE           (GICD_LIMIT - GICD_OFFSET)
 
 #if GIC_VERSION > 2
 /* some registers of GICD are 64 bit */
-#define GICDREG_READ64(gic, reg) (*REG64(GICBASE(gic) + (reg)))
-#define GICDREG_WRITE64(gic, reg, val) (*REG64(GICBASE(gic) + (reg)) = (val))
+#define GICDREG_READ64(gic, reg) ({ \
+        ASSERT(gic < NUM_ARM_GICS); \
+        ASSERT(reg >= GICD_OFFSET); \
+        ASSERT(reg < GICD_LIMIT); \
+        (*REG64(arm_gics[(gic)].gicd_vaddr + ((reg) - GICD_OFFSET))); \
+    })
+#define GICDREG_WRITE64(gic, reg, val) ({ \
+        ASSERT(gic < NUM_ARM_GICS); \
+        ASSERT(reg >= GICD_OFFSET); \
+        ASSERT(reg < GICD_LIMIT); \
+        (*REG64(arm_gics[(gic)].gicd_vaddr + ((reg) - GICD_OFFSET)) = (val)); \
+    })
 
 /* GICv3/v4 Distributor interface */
-#define GICD_STATUSR            (GICD_OFFSET + 0x0010)
-#define GICD_SETSPI_NSR         (GICD_OFFSET + 0x0040)
-#define GICD_CLRSPI_NSR         (GICD_OFFSET + 0x0048)
-#define GICD_SETSPI_SR          (GICD_OFFSET + 0x0050)
-#define GICD_CLRSPI_SR          (GICD_OFFSET + 0x0058)
-#define GICD_IGRPMODR(n)        (GICD_OFFSET + 0x0D00 + (n) * 4)
-#define GICD_IROUTER(n)         (GICD_OFFSET + 0x6000 + (n) * 8)
+#define GICD_STATUSR            (0x0010)
+#define GICD_SETSPI_NSR         (0x0040)
+#define GICD_CLRSPI_NSR         (0x0048)
+#define GICD_SETSPI_SR          (0x0050)
+#define GICD_CLRSPI_SR          (0x0058)
+#define GICD_IGRPMODR(n)        (0x0D00 + (n) * 4)
+#define GICD_IROUTER(n)         (0x6000 + (n) * 8)
 
 /* GICv3/v4 Redistrubutor interface */
 #if GIC_VERSION == 3
@@ -186,8 +246,24 @@ GEN_CP15_REG64_FUNCS(icc_sgi0r_el1, 2, c12);
 #define GICR_CPU_OFFSET(cpu) ((cpu) * 0x30000)
 #endif
 
-#define GICRREG_READ(gic, cpu, reg) (*REG32(GICBASE(gic) + GICR_CPU_OFFSET(cpu) + (reg)))
-#define GICRREG_WRITE(gic, cpu, reg, val) (*REG32(GICBASE(gic) + GICR_CPU_OFFSET(cpu) + (reg)) = (val))
+#ifndef GICR_OFFSET
+#define GICR_OFFSET (GICD_LIMIT)
+#endif
+
+#define GICRREG_READ(gic, cpu, reg) ({ \
+        ASSERT(gic < NUM_ARM_GICS); \
+        ASSERT(cpu < SMP_MAX_CPUS); \
+        ASSERT(reg >= GICR_OFFSET); \
+        ASSERT(reg < GICR_LIMIT); \
+        (*REG32(arm_gics[(gic)].gicr_vaddr + GICR_CPU_OFFSET(cpu) + ((reg) - GICR_OFFSET))); \
+    })
+#define GICRREG_WRITE(gic, cpu, reg, val) ({ \
+        ASSERT(gic < NUM_ARM_GICS); \
+        ASSERT(cpu < SMP_MAX_CPUS); \
+        ASSERT(reg >= GICR_OFFSET); \
+        ASSERT(reg < GICR_LIMIT); \
+        (*REG32(arm_gics[(gic)].gicr_vaddr + GICR_CPU_OFFSET(cpu) + ((reg) - GICR_OFFSET)) = (val)); \
+    })
 
 #define GICR_CTRL               (GICR_OFFSET + 0x0000)
 #define GICR_IIDR               (GICR_OFFSET + 0x0004)
@@ -208,4 +284,6 @@ GEN_CP15_REG64_FUNCS(icc_sgi0r_el1, 2, c12);
 #define GICR_ICFGR(n)           (GICR_SGI_OFFSET + 0x0C00 + (n) * 4)
 #define GICR_IGRPMODR0          (GICR_SGI_OFFSET + 0x0D00)
 #define GICR_NSACR              (GICR_SGI_OFFSET + 0x0E00)
+#define GICR_LIMIT              (GICR_SGI_OFFSET + 0x1000)
+#define GICR_MIN_SIZE           (GICR_LIMIT - GICR_OFFSET)
 #endif /* GIC_VERSION > 2 */

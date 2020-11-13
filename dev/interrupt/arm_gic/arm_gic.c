@@ -29,6 +29,7 @@
 #include <reg.h>
 #include <kernel/thread.h>
 #include <kernel/debug.h>
+#include <kernel/vm.h>
 #include <lk/init.h>
 #include <lk/macros.h>
 #include <platform/interrupts.h>
@@ -60,6 +61,7 @@
 void platform_fiq(struct iframe *frame);
 static status_t arm_gic_set_secure_locked(u_int irq, bool secure);
 static void gic_set_enable(uint vector, bool enable);
+static void arm_gic_init_hw(void);
 
 static spin_lock_t gicd_lock;
 #if WITH_LIB_SM
@@ -73,6 +75,8 @@ static spin_lock_t gicd_lock;
 #if ARM_GIC_USE_DOORBELL_NS_IRQ
 static bool doorbell_enabled;
 #endif
+
+struct arm_gic arm_gics[NUM_ARM_GICS];
 
 #if WITH_LIB_SM
 static bool arm_gic_non_secure_interrupts_frozen;
@@ -239,7 +243,7 @@ static void arm_gic_resume_cpu(uint level)
     if (!(GICDREG_READ(0, GICD_CTLR) & 1)) {
 #endif
         dprintf(SPEW, "%s: distibutor is off, calling arm_gic_init instead\n", __func__);
-        arm_gic_init();
+        arm_gic_init_hw();
         resume_gicd = true;
     } else {
         arm_gic_init_percpu(0);
@@ -271,7 +275,7 @@ static int arm_gic_max_cpu(void)
     return (GICDREG_READ(0, GICD_TYPER) >> 5) & 0x7;
 }
 
-void arm_gic_init(void)
+static void arm_gic_init_hw(void)
 {
 #if GIC_VERSION > 2
     /* GICv3/v4 */
@@ -306,6 +310,75 @@ void arm_gic_init(void)
 #endif
 #endif /* GIC_VERSION > 2 */
     arm_gic_init_percpu(0);
+}
+
+void arm_gic_init(void) {
+#ifdef GICBASE
+    arm_gics[0].gicc_vaddr = GICBASE(0) + GICC_OFFSET;
+    arm_gics[0].gicc_size = GICC_MIN_SIZE;
+    arm_gics[0].gicd_vaddr = GICBASE(0) + GICD_OFFSET;
+    arm_gics[0].gicd_size = GICD_MIN_SIZE;
+#if GIC_VERSION > 2
+    arm_gics[0].gicr_vaddr = GICBASE(0) + GICR_OFFSET;
+    arm_gics[0].gicr_size = GICR_CPU_OFFSET(SMP_MAX_CPUS - 1) + GICR_MIN_SIZE;
+#endif  // GIC_VERSION
+#else
+    /* Platforms should define GICBASE if they want to call this */
+    panic("%s: GICBASE not defined\n", __func__);
+#endif  // GICBASE
+
+    arm_gic_init_hw();
+}
+
+static void arm_map_regs(const char* name,
+                         vaddr_t* vaddr,
+                         paddr_t paddr,
+                         size_t size) {
+    status_t ret;
+    void* vaddrp = (void*)vaddr;
+
+    if (!size) {
+        return;
+    }
+
+    ret = vmm_alloc_physical(vmm_get_kernel_aspace(), "gic", size, &vaddrp, 0,
+                             paddr, 0, ARCH_MMU_FLAG_UNCACHED_DEVICE);
+    if (ret) {
+        panic("%s: failed %d\n", __func__, ret);
+    }
+
+    *vaddr = (vaddr_t)vaddrp;
+}
+
+void arm_gic_init_map(struct arm_gic_init_info* init_info)
+{
+    if (init_info->gicc_size < GICC_MIN_SIZE) {
+        panic("%s: gicc mapping too small %zu\n", __func__,
+              init_info->gicc_size);
+    }
+    arm_map_regs("gicc", &arm_gics[0].gicc_vaddr, init_info->gicc_paddr,
+                 init_info->gicc_size);
+    arm_gics[0].gicc_size = init_info->gicc_size;
+
+    if (init_info->gicd_size < GICD_MIN_SIZE) {
+        panic("%s: gicd mapping too small %zu\n", __func__,
+              init_info->gicd_size);
+    }
+    arm_map_regs("gicd", &arm_gics[0].gicd_vaddr, init_info->gicd_paddr,
+                 init_info->gicd_size);
+    arm_gics[0].gicd_size = init_info->gicd_size;
+
+#if GIC_VERSION > 2
+    if (init_info->gicr_size < GICR_CPU_OFFSET(SMP_MAX_CPUS - 1) + GICR_MIN_SIZE) {
+        panic("%s: gicr mapping too small %zu\n", __func__,
+              init_info->gicr_size);
+    }
+    arm_map_regs("gicr", &arm_gics[0].gicr_vaddr, init_info->gicr_paddr,
+                 init_info->gicr_size);
+    arm_gics[0].gicr_size = init_info->gicr_size;
+#endif
+
+    arm_gic_init_hw();
 }
 
 static status_t arm_gic_set_secure_locked(u_int irq, bool secure)
