@@ -129,9 +129,13 @@ endif
 ifeq (true,$(call TOBOOL,$(USER_COVERAGE_ENABLED)))
 ifeq (true,$(call TOBOOL,$(USER_TASK_MODULE)))
 MODULES += trusty/user/base/lib/sancov
+
+# -fno-optimize-sibling-calls is necessary to get correct caller information in
+# the sancov instrumentation.
 MODULE_COMPILEFLAGS += \
 	-fsanitize-coverage-blocklist=trusty/user/base/lib/sancov/exemptlist \
 	-fsanitize-coverage=trace-pc-guard \
+	-fno-optimize-sibling-calls
 
 endif
 endif
