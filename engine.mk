@@ -87,6 +87,8 @@ GLOBAL_LDFLAGS :=
 
 GLOBAL_KERNEL_LDFLAGS += $(addprefix -L,$(LKINC))
 
+GLOBAL_LTO_COMPILEFLAGS += -fvisibility=hidden -flto=thin
+
 # Architecture specific compile flags
 ARCH_COMPILEFLAGS :=
 ARCH_CFLAGS :=

@@ -67,26 +67,14 @@ MODULE_DEFINES += MODULE_SRCDEPS=\"$(subst $(SPACE),_,$(MODULE_SRCDEPS))\"
 MODULE_DEFINES += MODULE_DEPS=\"$(subst $(SPACE),_,$(MODULE_DEPS))\"
 MODULE_DEFINES += MODULE_SRCS=\"$(subst $(SPACE),_,$(MODULE_SRCS))\"
 
+# Handle common kernel module flags. Common userspace flags are found in
+# user/base/make/common_flags.mk
+ifneq (true,$(call TOBOOL,$(USER_TASK_MODULE)))
+
 # LTO
-MODULE_LTO_ENABLED := false
 ifneq (true,$(call TOBOOL,$(MODULE_DISABLE_LTO)))
-ifeq (true,$(call TOBOOL,$(USER_TASK_MODULE)))
-
-ifeq (true,$(call TOBOOL,$(USER_LTO_ENABLED)))
-MODULE_LTO_ENABLED := true
-endif
-
-else
-
 ifeq (true,$(call TOBOOL,$(KERNEL_LTO_ENABLED)))
-MODULE_LTO_ENABLED := true
-endif
-
-endif
-endif
-
-ifeq (true,$(call TOBOOL,$(MODULE_LTO_ENABLED)))
-MODULE_COMPILEFLAGS += -fvisibility=hidden -flto=thin
+MODULE_COMPILEFLAGS += $(GLOBAL_LTO_COMPILEFLAGS)
 
 # CFI
 MODULE_CFI_ENABLED := false
@@ -95,19 +83,10 @@ ifeq (true,$(call TOBOOL,$(CFI_ENABLED)))
 MODULE_CFI_ENABLED := true
 endif
 
-ifeq (true,$(call TOBOOL,$(USER_TASK_MODULE)))
-
-ifdef USER_CFI_ENABLED
-MODULE_CFI_ENABLED := $(call TOBOOL,$(USER_CFI_ENABLED))
-endif
-
-else
-
 ifdef KERNEL_CFI_ENABLED
 MODULE_CFI_ENABLED := $(call TOBOOL,$(KERNEL_CFI_ENABLED))
 endif
 
-endif
 endif
 
 ifeq (true,$(call TOBOOL,$(MODULE_CFI_ENABLED)))
@@ -124,16 +103,6 @@ endif
 endif
 
 endif
-
-# Stack protector
-ifneq (true,$(call TOBOOL,$(MODULE_DISABLE_STACK_PROTECTOR)))
-ifeq (true,$(call TOBOOL,$(USER_TASK_MODULE)))
-ifeq (true,$(call TOBOOL,$(USER_STACK_PROTECTOR)))
-MODULE_COMPILEFLAGS += -fstack-protector-strong
-endif
-endif
-else
-MODULE_COMPILEFLAGS += -fno-stack-protector
 endif
 
 # Shadow call stack
@@ -152,39 +121,6 @@ MODULE_COMPILEFLAGS += \
 endif
 endif
 
-# Code coverage
-ifeq (true,$(call TOBOOL,$(USER_COVERAGE_ENABLED)))
-ifeq (true,$(call TOBOOL,$(USER_TASK_MODULE)))
-ifeq (false,$(call TOBOOL, $(APP_DISABLE_COVERAGE)))
-MODULES += trusty/user/base/lib/sancov
-
-# -fno-optimize-sibling-calls is necessary to get correct caller information in
-# the sancov instrumentation.
-MODULE_COMPILEFLAGS += \
-	-fsanitize-coverage-blocklist=trusty/user/base/lib/sancov/exemptlist \
-	-fsanitize-coverage=trace-pc-guard \
-	-fno-optimize-sibling-calls
-
-endif
-endif
-endif
-
-# HWASan
-ifeq (true,$(call TOBOOL,$(USER_HWASAN_ENABLED)))
-MODULE_DEFINES += \
-	HWASAN_ENABLED=1 \
-	HWASAN_SHADOW_SCALE=4 \
-
-ifeq (true,$(call TOBOOL,$(USER_TASK_MODULE)))
-MODULES += trusty/user/base/lib/hwasan
-MODULE_COMPILEFLAGS += \
-	-fsanitize-blacklist=trusty/user/base/lib/hwasan/exemptlist \
-	-fsanitize=hwaddress \
-	-mllvm -hwasan-with-tls=0 \
-	-mllvm -hwasan-globals=0 \
-	-mllvm -hwasan-use-short-granules=0 \
-
-endif
 endif
 
 # generate a per-module config.h file
