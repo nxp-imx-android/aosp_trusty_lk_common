@@ -212,6 +212,9 @@ $(info TARGET = $(TARGET))
 # Derive the standard arch name.
 $(eval $(call standard_name_for_arch,STANDARD_ARCH_NAME,$(ARCH),$(SUBARCH)))
 
+# Set arch-specific flags for shadow call stack?
+SCS_ENABLED = $(KERNEL_SCS_ENABLED)
+
 include arch/$(ARCH)/rules.mk
 include top/rules.mk
 
@@ -253,6 +256,12 @@ ifeq (true,$(call TOBOOL,$(USER_SCS_ENABLED)))
 # guards allocation and deallocation of the SCS guard region in the kernel
 GLOBAL_DEFINES += \
 	USER_SCS_ENABLED=1
+endif
+
+# shadow call stack in the kernel
+ifeq (true,$(call TOBOOL,$(KERNEL_SCS_ENABLED)))
+GLOBAL_DEFINES += \
+	KERNEL_SCS_ENABLED=1
 endif
 
 # allow additional defines from outside the build system

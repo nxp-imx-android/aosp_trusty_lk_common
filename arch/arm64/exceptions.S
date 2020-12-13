@@ -40,39 +40,39 @@
 .else
     /* Save x0 and x1 in sp_el1 scratch space so we have some free registers */
     stp     x0, x1, [sp]
-    mrs     x0, elr_el1 /* Save elr_el1 early in x0 in case we fault again */
+    mrs     x1, elr_el1 /* Save elr_el1 early in x1 in case we fault again */
 .endif
 
-    /* x1 = new sp_el0 */
+    /* x0 = new sp_el0. Instructions following regsave may rely on property. */
 .if \reset_stack
-    mrs     x1, tpidr_el1
-    ldr     x1, [x1, 8]
-    bic     x1, x1, #0xf /* align stack */
+    mrs     x0, tpidr_el1
+    ldr     x0, [x0, 8]
+    bic     x0, x0, #0xf /* align stack */
 .else
-    mrs     x1, sp_el0
+    mrs     x0, sp_el0
 .endif
 
 .if \regsave_offset == regsave_long_offset
-    push    x28, lr, rsp=x1, prealloc=32
-    push    x26, x27, rsp=x1
-    push    x24, x25, rsp=x1
-    push    x22, x23, rsp=x1
-    push    x20, x21, rsp=x1
-    push    x18, x19, rsp=x1
+    push    x28, lr, rsp=x0, prealloc=32
+    push    x26, x27, rsp=x0
+    push    x24, x25, rsp=x0
+    push    x22, x23, rsp=x0
+    push    x20, x21, rsp=x0
+    push    x18, x19, rsp=x0
 .elseif \regsave_offset == regsave_short_offset
-    push    x18, lr, rsp=x1, prealloc=32
+    push    x18, lr, rsp=x0, prealloc=32
 .else
     .error  "regsave: unsupported regsave_offset, \regsave_offset"
 .endif
 
-    push    x16, x17, rsp=x1
-    push    x14, x15, rsp=x1
-    push    x12, x13, rsp=x1
-    push    x10, x11, rsp=x1
-    push    x8, x9, rsp=x1
-    push    x6, x7, rsp=x1
-    push    x4, x5, rsp=x1
-    push    x2, x3, rsp=x1
+    push    x16, x17, rsp=x0
+    push    x14, x15, rsp=x0
+    push    x12, x13, rsp=x0
+    push    x10, x11, rsp=x0
+    push    x8, x9, rsp=x0
+    push    x6, x7, rsp=x0
+    push    x4, x5, rsp=x0
+    push    x2, x3, rsp=x0
 
     /*
      * Push entry values of x0 and x1 saved in sp_el1 scratch space. If we fault
@@ -82,15 +82,22 @@
      * spsr not the one from the original exception.
      */
     ldp     x2, x3, [sp]
-    push    x2, x3, rsp=x1
+    push    x2, x3, rsp=x0
 
     mrs     x2, sp_el0
     mrs     x3, spsr_el1
-    stp     x2, x3, [x1, #\regsave_offset]
-    stp     fp, x0, [x1, #\regsave_offset + 16]
+    stp     x2, x3, [x0, #\regsave_offset]
+    stp     fp, x1, [x0, #\regsave_offset + 16]
     msr     spsel, #0
-    mov     sp, x1
+    /* instructions following regsave may rely on x0 holding xp to save space */
+    mov     sp, x0
     add     fp, sp, #\regsave_offset + 16
+#if KERNEL_SCS_ENABLED
+.if \reset_stack
+    mrs     x18, tpidr_el1
+    ldr     x18, [x18, 24] /* thread_t.shadow_stack */
+.endif
+#endif
 .endm
 
 .macro regsave_long, reset_stack, double_fault=0
@@ -150,10 +157,12 @@
 
 .macro invalid_exception, which, reset_stack, double_fault=0
     regsave_long reset_stack=\reset_stack, double_fault=\double_fault
+    /* x0 holds sp after regsave */
     mov x1, #\which
-    mov x0, sp
     bl  arm64_invalid_exception
-    b   .
+.if \reset_stack == 0 /* do we have room for the following instruction? */
+    b . /* unreachable: arm64_invalid_exception calls _panic */
+.endif
 .endm
 
 .macro irq_exception, reset_stack
@@ -161,7 +170,7 @@
 #if !ARM_MERGE_FIQ_IRQ
     msr daifclr, #1 /* reenable fiqs once elr and spsr have been saved */
 #endif
-    mov x0, sp
+    /* x0 holds sp after regsave */
     bl  platform_irq
     cbz x0, .Lirq_exception_no_preempt\@
     bl  thread_preempt
@@ -177,7 +186,7 @@
     irq_exception reset_stack=\reset_stack
 #else
     regsave_short reset_stack=\reset_stack
-    mov x0, sp
+    /* x0 holds sp after regsave */
     bl  platform_fiq
     b  arm64_exc_shared_restore_short
 #endif
@@ -188,10 +197,9 @@ FUNCTION(arm64_exception_base)
 /* exceptions from current EL, using SP0 */
 LOCAL_FUNCTION(arm64_sync_exc_current_el_SP0)
     regsave_long reset_stack=0
-    mov x0, sp
+    /* x0 holds sp after regsave */
     mov x1, #0 /* from_lower = false */
-    bl  arm64_sync_exception
-    b  arm64_exc_shared_restore_long
+    b arm64_sync_exc_shared
 
 .org 0x080
 LOCAL_FUNCTION(arm64_irq_current_el_SP0)
@@ -239,10 +247,9 @@ LOCAL_FUNCTION(arm64_sync_exc_lower_el_64)
      * on entry and restored on return.
      */
     regsave_long reset_stack=1
-    mov x0, sp
+    /* x0 holds sp after regsave */
     mov x1, #1 /* from_lower = true */
-    bl  arm64_sync_exception
-    b  arm64_exc_shared_restore_long
+    b arm64_sync_exc_shared
 
 .org 0x480
 LOCAL_FUNCTION(arm64_irq_lower_el_64)
@@ -260,10 +267,9 @@ LOCAL_FUNCTION(arm64_err_exc_lower_el_64)
 .org 0x600
 LOCAL_FUNCTION(arm64_sync_exc_lower_el_32)
     regsave_long reset_stack=1
-    mov x0, sp
+    /* x0 holds sp after regsave */
     mov x1, #1 /* from_lower = true */
-    bl  arm64_sync_exception
-    b  arm64_exc_shared_restore_long
+    b arm64_sync_exc_shared
 
 .org 0x680
 LOCAL_FUNCTION(arm64_irq_lower_el_32)
@@ -277,7 +283,8 @@ LOCAL_FUNCTION(arm64_fiq_lower_el_32)
 LOCAL_FUNCTION(arm64_err_exc_lower_el_32)
     invalid_exception 0x33, reset_stack=1
 
-LOCAL_FUNCTION(arm64_exc_shared_restore_long)
+LOCAL_FUNCTION(arm64_sync_exc_shared)
+    bl arm64_sync_exception /* x0 and x1 must be set by caller */
     regrestore_long
     eret
 

@@ -7,6 +7,7 @@
  * Register use:
  *  x0-x3   Arguments
  *  x9-x15  Scratch
+ *  x18     Shadow stack pointer (if enabled)
  *  x19-x28 Globals
  */
 tmp                     .req x9
@@ -18,6 +19,7 @@ page_table              .req x13
 new_page_table          .req x14
 phys_offset             .req x15
 
+ssp                     .req x18
 cpuid                   .req x19
 page_table0             .req x20
 page_table1             .req x21
@@ -353,6 +355,10 @@ arm_reset:
     ldr tmp, =__stack_end
     mov sp, tmp
 
+#if KERNEL_SCS_ENABLED
+    ldr ssp, = __shadow_stack
+#endif
+
     /* clear bss */
 .L__do_bss:
     /* clear out the bss excluding the stack and kernel translation table  */
@@ -411,6 +417,14 @@ WEAK_FUNCTION(arm64_curr_cpu_num)
     mul     tmp2, tmp2, cpuid
     sub     sp, tmp, tmp2
 
+#if KERNEL_SCS_ENABLED
+    /* Set up the shadow stack pointer */
+    ldr     ssp, = __shadow_stack
+    mov     tmp, #ARCH_DEFAULT_SHADOW_STACK_SIZE
+    mul     tmp, tmp, cpuid
+    add     ssp, ssp, tmp
+#endif
+
     mov     x0, cpuid
     bl      arm64_secondary_entry
 
@@ -432,6 +446,19 @@ DATA(page_tables_not_ready)
 DATA(__stack)
     .skip ARCH_DEFAULT_STACK_SIZE * SMP_MAX_CPUS
 DATA(__stack_end)
+
+#if KERNEL_SCS_ENABLED
+.section .bss.prebss.shadow_stack
+    /*
+     * Request 2^3 = 8-byte alignment. For aarch64, the stack pointer
+     * alignment must be two times the pointer size (2^4) but the same is not
+     * required for the shadow stack. Protecting the shadow stack with Memory
+     * Tagging Extensions may require matching MTE's 16-byte tag granularity.
+     */
+    .align 3
+DATA(__shadow_stack)
+    .skip ARCH_DEFAULT_SHADOW_STACK_SIZE * SMP_MAX_CPUS
+#endif
 
 .section .bss.prebss.sp_el1_bufs
     .align 4

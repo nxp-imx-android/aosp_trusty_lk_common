@@ -213,6 +213,21 @@ thread_t *thread_create_etc(thread_t *t, const char *name, thread_start_routine 
     t->stack_high = t->stack + stack_size;
     t->stack_size = stack_size;
 
+#if KERNEL_SCS_ENABLED
+    t->shadow_stack_size = ARCH_DEFAULT_SHADOW_STACK_SIZE;
+    ret = vmm_alloc(vmm_get_kernel_aspace(), "kernel-shadow-stack",
+                    t->shadow_stack_size, &t->shadow_stack, PAGE_SIZE_SHIFT,
+                    0, ARCH_MMU_FLAG_PERM_NO_EXECUTE);
+    if (ret) {
+        if (flags & THREAD_FLAG_FREE_STACK)
+            free(t->stack);
+        if (flags & THREAD_FLAG_FREE_STRUCT)
+            free(t);
+        return NULL;
+    }
+    flags |= THREAD_FLAG_FREE_SHADOW_STACK;
+#endif
+
     /* save whether or not we need to free the thread struct and/or stack */
     t->flags = flags;
 
@@ -378,8 +393,17 @@ static void thread_free(thread_t *t)
     if (t->flags & THREAD_FLAG_FREE_STACK && t->stack)
         vmm_free_region(vmm_get_kernel_aspace(), (vaddr_t)t->stack);
 
-    if (t->flags & THREAD_FLAG_FREE_STRUCT)
+#if KERNEL_SCS_ENABLED
+    if (t->flags & THREAD_FLAG_FREE_SHADOW_STACK) {
+        /* each thread has a shadow stack when the mitigation is enabled */
+        DEBUG_ASSERT(t->shadow_stack);
+        vmm_free_region(vmm_get_kernel_aspace(), (vaddr_t)t->shadow_stack);
+    }
+#endif
+
+    if (t->flags & THREAD_FLAG_FREE_STRUCT) {
         free(t);
+    }
 }
 
 status_t thread_join(thread_t *t, int *retcode, lk_time_t timeout)
@@ -1183,6 +1207,11 @@ void dump_thread(thread_t *t)
             t->stack, t->stack_size, thread_stack_used(t));
 #else
     dprintf(INFO, "\tstack %p, stack_size %zd\n", t->stack, t->stack_size);
+#endif
+#if KERNEL_SCS_ENABLED
+    dprintf(INFO, "\tshadow stack %p, shadow stack_size %zd\n",
+            t->shadow_stack, t->shadow_stack_size);
+
 #endif
     dprintf(INFO, "\tentry %p, arg %p, flags 0x%x\n", t->entry, t->arg, t->flags);
     dprintf(INFO, "\twait queue %p, wait queue ret %d\n", t->blocking_wait_queue, t->wait_queue_block_ret);

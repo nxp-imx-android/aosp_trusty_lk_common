@@ -80,6 +80,7 @@ enum thread_tls_list {
 #define THREAD_FLAG_IDLE                      (1U<<4)
 #define THREAD_FLAG_DEBUG_STACK_BOUNDS_CHECK  (1U<<5)
 #define THREAD_FLAG_EXIT_ON_PANIC             (1U<<6)
+#define THREAD_FLAG_FREE_SHADOW_STACK         (1U<<7)
 
 #define THREAD_MAGIC (0x74687264) // 'thrd'
 
@@ -88,6 +89,10 @@ typedef struct thread {
     void *stack;
     void *stack_high;
     size_t stack_size;
+#if KERNEL_SCS_ENABLED
+    void *shadow_stack; /* accessed from assembly code */
+    size_t shadow_stack_size;
+#endif
 
     int magic;
     struct list_node thread_list_node;

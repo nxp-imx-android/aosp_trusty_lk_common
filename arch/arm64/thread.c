@@ -79,6 +79,13 @@ void arch_init_thread_initialize(struct thread *thread, uint cpu)
     thread->stack = cpu_stack_end - stack_size;
     thread->stack_high = cpu_stack_end;
     thread->stack_size = stack_size;
+#if KERNEL_SCS_ENABLED
+    extern uint8_t __shadow_stack[];
+    /* shadow stack grows up unlike the regular stack */
+    thread->shadow_stack = __shadow_stack + DEFAULT_SHADOW_STACK_SIZE * cpu;
+    thread->shadow_stack_size = DEFAULT_SHADOW_STACK_SIZE;
+#endif
+
 }
 
 void arch_thread_initialize(thread_t *t)
@@ -98,6 +105,11 @@ void arch_thread_initialize(thread_t *t)
 
     // set the stack pointer
     t->arch.sp = (vaddr_t)frame;
+
+    // set the shadow stack pointer
+#if KERNEL_SCS_ENABLED
+    frame->r18 = (vaddr_t)t->shadow_stack;
+#endif
 }
 
 void arch_context_switch(thread_t *oldthread, thread_t *newthread)
