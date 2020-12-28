@@ -140,6 +140,23 @@ MODULE_COMPILEFLAGS += \
 endif
 endif
 
+ifeq (true,$(call TOBOOL,$(USER_HWASAN_ENABLED)))
+MODULE_DEFINES += \
+	HWASAN_ENABLED=1 \
+	HWASAN_SHADOW_SCALE=4 \
+
+ifeq (true,$(call TOBOOL,$(USER_TASK_MODULE)))
+MODULES += trusty/user/base/lib/hwasan
+MODULE_COMPILEFLAGS += \
+	-fsanitize-blacklist=trusty/user/base/lib/hwasan/exemptlist \
+	-fsanitize=hwaddress \
+	-mllvm -hwasan-with-tls=0 \
+	-mllvm -hwasan-globals=0 \
+	-mllvm -hwasan-use-short-granules=0 \
+
+endif
+endif
+
 # generate a per-module config.h file
 MODULE_CONFIG := $(MODULE_BUILDDIR)/module_config.h
 
