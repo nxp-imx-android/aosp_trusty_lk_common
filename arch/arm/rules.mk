@@ -118,6 +118,9 @@ ifeq (true,$(call TOBOOL,$(ARM_MERGE_FIQ_IRQ)))
 GLOBAL_DEFINES += ARM_MERGE_FIQ_IRQ=1
 endif
 
+# Declare ARM architecture has FIQ
+GLOBAL_DEFINES += ARCH_HAS_FIQ=1
+
 # we have a mmu and want the vmm/pmm
 WITH_KERNEL_VM ?= 1
 
