@@ -74,11 +74,90 @@ __WEAK void arm64_syscall(struct arm64_iframe_long *iframe, bool is_64bit)
     panic("unhandled syscall vector\n");
 }
 
+static void print_fault_code(uint32_t fsc) {
+    printf("fault code 0x%x: ", fsc);
+    switch (fsc) {
+        case 0b000000:
+        case 0b000001:
+        case 0b000010:
+        case 0b000011:
+            printf("Address size fault, level %d", fsc & 0x3);
+            break;
+        case 0b000100:
+        case 0b000101:
+        case 0b000110:
+        case 0b000111:
+            printf("Translation fault, level %d", fsc & 0x3);
+            break;
+        case 0b001001:
+        case 0b001010:
+        case 0b001011:
+            printf("Access flag fault, level %d", fsc & 0x3);
+            break;
+        case 0b001101:
+        case 0b001110:
+        case 0b001111:
+            printf("Permission fault, level %d", fsc & 0x3);
+            break;
+
+        case 0b010000:
+            printf("External abort");
+            break;
+
+        case 0b010001:
+            printf("Tag check fault");
+            break;
+
+        case 0b010100:
+        case 0b010101:
+        case 0b010110:
+        case 0b010111:
+            printf("External abort on translation table, level %d", fsc & 0x3);
+            break;
+
+        case 0b011000:
+            printf("Parity or ECC error");
+            break;
+
+        case 0b011100:
+        case 0b011101:
+        case 0b011110:
+        case 0b011111:
+            printf("Parity or ECC error on translation table, level %d", fsc & 0x3);
+            break;
+
+        case 0b100001:
+            printf("Alignment fault");
+            break;
+
+        case 0b110000:
+            printf("TLB conflict abort");
+            break;
+
+        case 0b110001:
+            printf("Unsupported atomic hardware update fault");
+            break;
+
+        case 0b110100:
+            printf("Lockdown fault");
+            break;
+
+        case 0b110101:
+            printf("Unsupported exclusive or atomic access");
+            break;
+
+        default:
+            printf("Unknown fault");
+            break;
+    }
+    printf("\n");
+}
+
 void arm64_sync_exception(struct arm64_iframe_long *iframe, bool from_lower)
 {
     uint32_t esr = ARM64_READ_SYSREG(esr_el1);
     uint32_t ec = BITS_SHIFT(esr, 31, 26);
-    uint32_t il = BIT(esr, 25);
+    uint32_t il = BIT_SHIFT(esr, 25);
     uint32_t iss = BITS(esr, 24, 0);
     uintptr_t display_pc = iframe->elr;
 
@@ -114,6 +193,7 @@ void arm64_sync_exception(struct arm64_iframe_long *iframe, bool from_lower)
             }
             printf("instruction abort: PC at 0x%llx(0x%lx)\n", iframe->elr,
                    display_pc);
+            print_fault_code(BITS(iss, 5, 0));
             break;
         case 0b100100: /* data abort from lower level */
         case 0b100101: { /* data abort from same level */
@@ -125,14 +205,28 @@ void arm64_sync_exception(struct arm64_iframe_long *iframe, bool from_lower)
             uint64_t far = ARM64_READ_SYSREG(far_el1);
 
             /* decode the iss */
-            if (BIT(iss, 24)) { /* ISV bit */
-                printf("data fault: PC at 0x%llx(0x%lx), FAR 0x%llx, iss 0x%x (DFSC 0x%lx)\n",
-                       iframe->elr, display_pc, far, iss, BITS(iss, 5, 0));
+            uint32_t dfsc = BITS(iss, 5, 0);
+            printf("data fault ");
+            if (BIT(iss, 6)) {
+                printf("writing to ");
             } else {
-                printf("data fault: PC at 0x%llx(0x%lx), FAR 0x%llx, iss 0x%x\n",
-                       iframe->elr, display_pc, far, iss);
+                printf("reading from ");
             }
-
+            if (dfsc == 0b010000 && BIT(iss, 10)) {
+                printf("unknown address (FAR 0x%llx not valid)", far);
+            } else {
+                printf("0x%llx", far);
+            }
+            printf(", PC at 0x%llx(0x%lx)\n", iframe->elr, display_pc);
+            if (BIT(iss, 24)) { /* ISV bit */
+                printf("Access size: %d bits, sign extension: %s, register: %s%lu, %s acquire release semantics\n",
+                        8 << BITS_SHIFT(iss,23,22),
+                        BIT_SHIFT(iss,21) ? "yes" : "no",
+                        BIT_SHIFT(iss,15) ? "X" : "W",
+                        BITS_SHIFT(iss,20,16),
+                        BIT_SHIFT(iss,14) ? "" : "no");
+            }
+            print_fault_code(dfsc);
             break;
         }
         default:
