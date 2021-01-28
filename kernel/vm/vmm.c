@@ -764,6 +764,14 @@ void vmm_obj_del_ref(struct vmm_obj* obj, struct obj_ref* ref) {
     }
 }
 
+bool vmm_obj_has_only_ref(struct vmm_obj* obj, struct obj_ref* ref) {
+    bool has_only_ref;
+    mutex_acquire(&vmm_lock);
+    has_only_ref = obj_has_only_ref(&obj->obj, ref);
+    mutex_release(&vmm_lock);
+    return has_only_ref;
+}
+
 status_t vmm_alloc_obj(vmm_aspace_t* aspace, const char* name,
                        struct vmm_obj* vmm_obj, size_t offset, size_t size,
                        void** ptr, uint8_t align_log2, uint vmm_flags,

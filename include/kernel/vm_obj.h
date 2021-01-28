@@ -107,4 +107,15 @@ void vmm_obj_add_ref(struct vmm_obj *obj, struct obj_ref *ref);
  */
 void vmm_obj_del_ref(struct vmm_obj *obj, struct obj_ref *ref);
 
+/**
+ * vmm_obj_has_single_ref - Return whether a &struct vmm_obj has a single
+ *                          reference to it.
+ * @obj: Object to check for single reference.
+ * @ref: Reference to check. Must be a reference to @obj.
+ *
+ * The result from this function may become invalid if references are added or
+ * deleted after this function returns, either by the caller or other threads.
+ */
+bool vmm_obj_has_only_ref(struct vmm_obj *obj, struct obj_ref *ref);
+
 __END_CDECLS
