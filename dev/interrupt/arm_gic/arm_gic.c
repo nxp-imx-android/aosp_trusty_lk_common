@@ -677,6 +677,7 @@ void sm_intc_enable_interrupts(void)
 {
 #if ARM_GIC_USE_DOORBELL_NS_IRQ
     GICCREG_WRITE(0, icc_igrpen1_el1, 1); /* Enable secure Group 1 */
+    DSB;
 #endif
 }
 
@@ -700,6 +701,7 @@ status_t sm_intc_fiq_enter(void)
         uint64_t val = arm_gicv3_sgir_val(ARM_GIC_DOORBELL_IRQ, cpu);
 
         GICCREG_WRITE(0, icc_igrpen1_el1, 0); /* Disable secure Group 1 */
+        DSB;
 
         if (doorbell_enabled) {
             LTRACEF("GICD_SGIR: %llx\n", val);
