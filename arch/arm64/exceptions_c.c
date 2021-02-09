@@ -20,11 +20,17 @@
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-#include <stdio.h>
-#include <debug.h>
 #include <bits.h>
+#include <ctype.h>
+#include <debug.h>
+#include <err.h>
+#include <stdio.h>
+#include <string.h>
 #include <arch/arch_ops.h>
 #include <arch/arm64.h>
+#include <arch/mmu.h>
+#include <arch/safecopy.h>
+#include <kernel/vm.h>
 #include <lib/trusty/trusty_app.h>
 
 #define SHUTDOWN_ON_FATAL 1
@@ -50,6 +56,149 @@ static bool check_fault_handler_table(struct arm64_iframe_long *iframe)
     }
     return false;
 }
+
+#if TEST_BUILD
+static uint64_t wrap_add(uint64_t addr, int offset) {
+    uint64_t result;
+    __builtin_add_overflow(addr, offset, &result);
+    return result;
+}
+
+static bool getmeminfo(uint64_t addr, paddr_t *paddr, uint *flags) {
+    status_t ret = NO_ERROR;
+    vmm_aspace_t *aspace = vaddr_to_aspace((void*)addr);
+    if (aspace) {
+        ret = arch_mmu_query(&aspace->arch_aspace, addr, paddr, flags);
+    }
+
+    if (aspace && ret == NO_ERROR) {
+        return true;
+    }
+    return false;
+}
+
+static void printmemattrs(
+        const char *prefix, paddr_t start, size_t len, uint flags) {
+    printf("%s0x%lx/0x%zx, flags: 0x%02x [ read%s%s%s%s%s%s ]):\n",
+            prefix, start, len, flags,
+            !(flags & ARCH_MMU_FLAG_PERM_RO) ? " write" : "",
+            !(flags & ARCH_MMU_FLAG_PERM_NO_EXECUTE) ? " execute" : "",
+            (flags & ARCH_MMU_FLAG_PERM_USER) ? " user" : "",
+            (flags & ARCH_MMU_FLAG_NS) ? " nonsecure" : "",
+            (flags & ARCH_MMU_FLAG_UNCACHED_DEVICE) ? " device" : "",
+            (flags & ARCH_MMU_FLAG_UNCACHED) ? " uncached" : "");
+}
+
+static void dump_memory_around_register(const char *name, uint64_t regaddr) {
+    uint64_t addr = wrap_add(regaddr, -16);
+    uint64_t secondpageaddr;
+
+    uint8_t data[48];
+
+    int page_size = PAGE_SIZE;
+    if (is_user_address(addr)) {
+        page_size = USER_PAGE_SIZE;
+    }
+    uint64_t offsetinpage = addr & (page_size - 1);
+    uint64_t bytesonfirstpage = page_size - offsetinpage;
+    if (bytesonfirstpage > sizeof(data)) {
+        bytesonfirstpage = sizeof(data);
+    }
+
+    paddr_t paddr1, paddr2;
+    uint flags1, flags2;
+    bool info1valid =false;
+    bool info2valid = false;
+    bool read1ok = false;
+    bool read2ok = false;
+
+    info1valid = getmeminfo(addr, &paddr1, &flags1);
+
+    if (bytesonfirstpage < sizeof(data)) {
+        /* this block spans a page boundary */
+        secondpageaddr = wrap_add(addr, bytesonfirstpage);
+        info2valid = getmeminfo(secondpageaddr, &paddr2, &flags2);
+    }
+
+    if (!info1valid && !info2valid) {
+        return;
+    }
+
+    if (info1valid &&
+            ((flags1 & ARCH_MMU_FLAG_CACHE_MASK) == ARCH_MMU_FLAG_CACHED ||
+            (flags1 & ARCH_MMU_FLAG_CACHE_MASK) == ARCH_MMU_FLAG_UNCACHED)) {
+        /* this should only fail if the page was remapped after we queried it */
+        status_t ret = copy_from_anywhere(data, addr, bytesonfirstpage);
+        read1ok = (ret == NO_ERROR);
+    }
+
+    if (info2valid &&
+            ((flags2 & ARCH_MMU_FLAG_CACHE_MASK) == ARCH_MMU_FLAG_CACHED ||
+            (flags2 & ARCH_MMU_FLAG_CACHE_MASK) == ARCH_MMU_FLAG_UNCACHED)) {
+        status_t ret = copy_from_anywhere(data + bytesonfirstpage,
+                secondpageaddr, sizeof(data) - bytesonfirstpage);
+        read2ok = (ret == NO_ERROR);
+    }
+
+    printf("\nmemory around %3s (", name);
+    if (info1valid) {
+        printmemattrs("phys: ", paddr1, bytesonfirstpage, flags1);
+    } else {
+        printf("phys: <unmapped>/0x%llx):\n", bytesonfirstpage);
+    }
+    if (bytesonfirstpage < sizeof(data)) {
+        if (info2valid) {
+            printmemattrs("              and (phys: ",
+                   paddr2,
+                   sizeof(data) - bytesonfirstpage,
+                   flags2);
+        } else {
+            printf("              and (phys: <unmapped>/0x%llx):\n",
+                    sizeof(data) - bytesonfirstpage);
+        }
+    }
+
+    for (size_t offset = 0; offset < sizeof(data); offset += 16) {
+        printf("0x%016llx: ", wrap_add(addr, offset));
+
+        for (int i = 0; i < 16; i++) {
+            if (i == 8) {
+                printf(" ");
+            }
+            if ((offset + i < bytesonfirstpage && read1ok) ||
+                    (offset + i >= bytesonfirstpage && read2ok)) {
+                printf("%02hhx ", data[offset + i]);
+            } else {
+                printf("-- ");
+            }
+        }
+
+        printf("|");
+
+        for (int i = 0; i < 16; i++) {
+            unsigned char c = data[offset + i];
+            printf("%c", ((offset + i < bytesonfirstpage && read1ok) ||
+                    (offset + i >= bytesonfirstpage && read2ok)) &&
+                    isprint(c) ? c : '.');
+        }
+
+        printf("\n");
+    }
+}
+
+static void dump_memory_around_registers(
+        const struct arm64_iframe_long *iframe) {
+    char regname[4];
+    for (int i = 0; i < 28; i++) {
+        snprintf(regname, sizeof(regname), "x%d", i);
+        dump_memory_around_register(regname, iframe->r[i]);
+    }
+    dump_memory_around_register("fp", iframe->fp);
+    dump_memory_around_register("lr", iframe->lr);
+    dump_memory_around_register("sp", iframe->sp);
+    dump_memory_around_register("elr", iframe->elr);
+}
+#endif
 
 static void dump_iframe(const struct arm64_iframe_long *iframe)
 {
@@ -245,6 +394,9 @@ void arm64_sync_exception(struct arm64_iframe_long *iframe, bool from_lower)
     }
     printf("ESR 0x%x: ec 0x%x, il 0x%x, iss 0x%x\n", esr, ec, il, iss);
     dump_iframe(iframe);
+#if TEST_BUILD
+    dump_memory_around_registers(iframe);
+#endif
 
     if (from_lower) {
         arch_enable_fiqs();
@@ -258,6 +410,9 @@ void arm64_invalid_exception(struct arm64_iframe_long *iframe, unsigned int whic
 {
     printf("invalid exception, which 0x%x\n", which);
     dump_iframe(iframe);
+#if TEST_BUILD
+    dump_memory_around_registers(iframe);
+#endif
 
     panic("die\n");
 }
