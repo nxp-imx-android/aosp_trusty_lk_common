@@ -271,6 +271,12 @@ static status_t pmm_alloc_pages_locked(struct list_node *page_list,
     /* align_log2 is only supported when PMM_ALLOC_FLAG_CONTIGUOUS is set */
     ASSERT(!align_log2 || (flags & PMM_ALLOC_FLAG_CONTIGUOUS));
 
+    if ((flags & PMM_ALLOC_FLAG_CONTIGUOUS) && (count == 1) &&
+        (align_log2 <= PAGE_SIZE_SHIFT)) {
+        /* pmm_arena_find_free_run is slow. Skip it if any page will do */
+        flags &= ~PMM_ALLOC_FLAG_CONTIGUOUS;
+    }
+
     /* walk the arenas in order, allocating as many pages as we can from each */
     pmm_arena_t *a;
     list_for_every_entry(&arena_list, a, pmm_arena_t, node) {
