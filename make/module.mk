@@ -128,6 +128,7 @@ endif
 
 ifeq (true,$(call TOBOOL,$(USER_COVERAGE_ENABLED)))
 ifeq (true,$(call TOBOOL,$(USER_TASK_MODULE)))
+ifeq (false,$(call TOBOOL, $(APP_DISABLE_COVERAGE)))
 MODULES += trusty/user/base/lib/sancov
 
 # -fno-optimize-sibling-calls is necessary to get correct caller information in
@@ -137,6 +138,7 @@ MODULE_COMPILEFLAGS += \
 	-fsanitize-coverage=trace-pc-guard \
 	-fno-optimize-sibling-calls
 
+endif
 endif
 endif
 
