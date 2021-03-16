@@ -21,5 +21,6 @@
 #
 
 MODULES += \
+	$(GET_LOCAL_DIR)/scstest \
 	$(GET_LOCAL_DIR)/timertest \
 
