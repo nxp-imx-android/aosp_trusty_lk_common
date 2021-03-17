@@ -137,6 +137,34 @@ static void init_thread_struct(thread_t *t, const char *name)
 }
 
 /**
+ * adjust_shadow_stack_base() - make shadow stack hit guard page if too small
+ * @base: pointer to the shadow stack allocation
+ * @size: size of the shadow stack. Can be less than memory allocated.
+ *
+ * Shadow stacks grow up and are followed by guard pages. Adjust the base
+ * so we'll hit the guard page if a thread needs more than the number of
+ * bytes requested. Call revert_shadow_stack_base to undo the adjustment.
+ *
+ * Return: pointer into shadow stack allocation iff size % PAGE_SIZE != 0
+ */
+static void* adjust_shadow_stack_base(uint8_t *base, size_t size) {
+   size_t adjustment = round_up(size, PAGE_SIZE) - size;
+   return base + adjustment;
+}
+
+/**
+ * revert_shadow_stack_base() - inverse of adjust_shadow_stack_base
+ * @base: pointer returned by adjust_shadow_stack_base
+ * @size: size passed to adjust_shadow_stack_base
+ *
+ * Return: original pointer returned by vmm_alloc
+ */
+static void* revert_shadow_stack_base(uint8_t *base, size_t size) {
+   size_t adjustment = round_up(size, PAGE_SIZE) - size;
+   return base - adjustment;
+}
+
+/**
  * @brief  Create a new thread
  *
  * This function creates a new thread.  The thread is initially suspended, so you
@@ -148,6 +176,7 @@ static void init_thread_struct(thread_t *t, const char *name)
  * @param  arg         Arbitrary argument passed to entry()
  * @param  priority    Execution priority for the thread
  * @param  stack_size  Stack size for the thread
+ * @param  shadow_stack_size  Shadow stack size for the thread, if enabled
  *
  * Thread priority is an integer from 0 (lowest) to 31 (highest).  Some standard
  * priorities are defined in <kernel/thread.h>:
@@ -164,7 +193,7 @@ static void init_thread_struct(thread_t *t, const char *name)
  *
  * @return  Pointer to thread object, or NULL on failure.
  */
-thread_t *thread_create_etc(thread_t *t, const char *name, thread_start_routine entry, void *arg, int priority, void *stack, size_t stack_size)
+thread_t *thread_create_etc(thread_t *t, const char *name, thread_start_routine entry, void *arg, int priority, void *stack, size_t stack_size, size_t shadow_stack_size)
 {
     int ret;
     unsigned int flags = 0;
@@ -214,7 +243,8 @@ thread_t *thread_create_etc(thread_t *t, const char *name, thread_start_routine 
     t->stack_size = stack_size;
 
 #if KERNEL_SCS_ENABLED
-    t->shadow_stack_size = ARCH_DEFAULT_SHADOW_STACK_SIZE;
+    /* shadow stacks can only store an integral number of return addresses */
+    t->shadow_stack_size = round_up(shadow_stack_size, sizeof(vaddr_t));
     ret = vmm_alloc(vmm_get_kernel_aspace(), "kernel-shadow-stack",
                     t->shadow_stack_size, &t->shadow_stack, PAGE_SIZE_SHIFT,
                     0, ARCH_MMU_FLAG_PERM_NO_EXECUTE);
@@ -226,6 +256,9 @@ thread_t *thread_create_etc(thread_t *t, const char *name, thread_start_routine 
         return NULL;
     }
     flags |= THREAD_FLAG_FREE_SHADOW_STACK;
+
+    t->shadow_stack = adjust_shadow_stack_base(t->shadow_stack,
+                                               t->shadow_stack_size);
 #endif
 
     /* save whether or not we need to free the thread struct and/or stack */
@@ -250,7 +283,8 @@ thread_t *thread_create_etc(thread_t *t, const char *name, thread_start_routine 
 
 thread_t *thread_create(const char *name, thread_start_routine entry, void *arg, int priority, size_t stack_size)
 {
-    return thread_create_etc(NULL, name, entry, arg, priority, NULL, stack_size);
+    return thread_create_etc(NULL, name, entry, arg, priority, NULL,
+                             stack_size, DEFAULT_SHADOW_STACK_SIZE);
 }
 
 /**
@@ -397,6 +431,9 @@ static void thread_free(thread_t *t)
     if (t->flags & THREAD_FLAG_FREE_SHADOW_STACK) {
         /* each thread has a shadow stack when the mitigation is enabled */
         DEBUG_ASSERT(t->shadow_stack);
+        /* get back the pointer returned by vmm_alloc by undoing adjustment */
+        t->shadow_stack = revert_shadow_stack_base(t->shadow_stack,
+                                                   t->shadow_stack_size);
         vmm_free_region(vmm_get_kernel_aspace(), (vaddr_t)t->shadow_stack);
     }
 #endif

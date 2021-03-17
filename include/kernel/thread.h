@@ -164,6 +164,8 @@ typedef struct thread {
 /* shadow stack size */
 #ifdef CUSTOM_DEFAULT_SHADOW_STACK_SIZE
 #define DEFAULT_SHADOW_STACK_SIZE CUSTOM_DEFAULT_SHADOW_STACK_SIZE
+#elif defined(ARCH_DEFAULT_SHADOW_STACK_SIZE)
+#define DEFAULT_SHADOW_STACK_SIZE ARCH_DEFAULT_SHADOW_STACK_SIZE
 #else
 #define DEFAULT_SHADOW_STACK_SIZE PAGE_SIZE
 #endif
@@ -177,7 +179,7 @@ void thread_secondary_cpu_entry(void) __NO_RETURN;
 void thread_set_name(const char *name);
 void thread_set_priority(int priority);
 thread_t *thread_create(const char *name, thread_start_routine entry, void *arg, int priority, size_t stack_size);
-thread_t *thread_create_etc(thread_t *t, const char *name, thread_start_routine entry, void *arg, int priority, void *stack, size_t stack_size);
+thread_t *thread_create_etc(thread_t *t, const char *name, thread_start_routine entry, void *arg, int priority, void *stack, size_t stack_size, size_t shadow_stack_size);
 status_t thread_resume(thread_t *);
 void thread_exit(int retcode) __NO_RETURN;
 void thread_sleep_ns(lk_time_ns_t delay_ns);
