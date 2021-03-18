@@ -141,4 +141,23 @@ TEST(scstest, FEATURE_GATED_TEST_NAME(new_kernel_thread_has_scs)) {
 test_abort:;
 }
 
+TEST(scstest, FEATURE_GATED_TEST_NAME(new_kernel_thread_has_custom_size)) {
+    int test_thread_ret;
+    size_t expected_shadow_stack_size = 128;
+    thread_t* test_thread =
+            thread_create_etc(NULL, "scstest_thread", new_thread_func,
+                              &expected_shadow_stack_size, DEFAULT_PRIORITY,
+                              NULL, DEFAULT_STACK_SIZE,
+                              expected_shadow_stack_size);
+    ASSERT_NE(NULL, test_thread, "Failed to create test thread");
+
+    ASSERT_EQ(NO_ERROR, thread_resume(test_thread), "Failed to start thread");
+
+    ASSERT_EQ(NO_ERROR,
+              thread_join(test_thread, &test_thread_ret, INFINITE_TIME),
+              "Failed to wait on test thread");
+
+test_abort:;
+}
+
 PORT_TEST(scstest, "com.android.kernel.scstest");
