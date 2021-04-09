@@ -65,7 +65,7 @@ static inline void hexdump8(const void *ptr, size_t len)
     hexdump8_ex(ptr, len, (uint64_t)((addr_t)ptr));
 }
 
-#define dprintf(level, x...) do { if ((level) <= LK_DEBUGLEVEL) { printf(x); } } while (0)
+#define dprintf(level, x...) do { if ((level) <= LK_LOGLEVEL) { printf(x); } } while (0)
 
 /* spin the cpu for a period of (short) time */
 void spin(uint32_t usecs);

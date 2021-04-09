@@ -48,6 +48,7 @@ endif
 
 TEST_BUILD ?=
 DEBUG ?= 2
+LOGGING ?= $(DEBUG)
 
 BUILDDIR := $(BUILDROOT)/build-$(PROJECT)
 OUTBIN := $(BUILDDIR)/lk.bin
@@ -218,11 +219,9 @@ GLOBAL_DEFINES += \
 	ARCH=\"$(ARCH)\" \
 	$(addsuffix =1,$(addprefix WITH_,$(ALLMODULES)))
 
-# debug build?
-ifneq ($(DEBUG),)
 GLOBAL_DEFINES += \
-	LK_DEBUGLEVEL=$(DEBUG)
-endif
+	LK_DEBUGLEVEL=$(DEBUG) \
+	LK_LOGLEVEL=$(LOGGING) \
 
 # test build?
 ifneq ($(TEST_BUILD),)
