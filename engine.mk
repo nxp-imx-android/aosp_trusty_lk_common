@@ -47,8 +47,18 @@ endif
 endif
 
 TEST_BUILD ?=
+
 DEBUG ?= 2
-LOGGING ?= $(DEBUG)
+
+# LOG_LEVEL_KERNEL controls LK_LOGLEVEL
+# when LOG_LEVEL_KERNEL = 1, dprintf INFO level is enabled
+# when LOG_LEVEL_KERNEL = 2, dprintf SPEW level is enabled
+LOG_LEVEL_KERNEL ?= $(DEBUG)
+
+# LOG_LEVEL_USER controls TLOG_LVL_DEFAULT
+# when LOG_LEVEL_USER = 2 TLOG_LVL_DEFAULT = 4 (info)
+# when LOG_LEVEL_USER = 3 TLOG_LVL_DEFAULT = 5 (debug)
+LOG_LEVEL_USER ?= $(DEBUG)
 
 BUILDDIR := $(BUILDROOT)/build-$(PROJECT)
 OUTBIN := $(BUILDDIR)/lk.bin
@@ -221,7 +231,8 @@ GLOBAL_DEFINES += \
 
 GLOBAL_DEFINES += \
 	LK_DEBUGLEVEL=$(DEBUG) \
-	LK_LOGLEVEL=$(LOGGING) \
+	LK_LOGLEVEL=$(LOG_LEVEL_KERNEL) \
+	TLOG_LVL_DEFAULT=$$(($(LOG_LEVEL_USER)+2)) \
 
 # test build?
 ifneq ($(TEST_BUILD),)
