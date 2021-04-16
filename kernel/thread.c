@@ -142,14 +142,15 @@ static void init_thread_struct(thread_t *t, const char *name)
  * This function creates a new thread.  The thread is initially suspended, so you
  * need to call thread_resume() to execute it.
  *
+ * @param  t           Allocate thread if NULL; reuse existing thread t otherwise
  * @param  name        Name of thread
  * @param  entry       Entry point of thread
  * @param  arg         Arbitrary argument passed to entry()
- * @param  priority    Execution priority for the thread.
- * @param  stack_size  Stack size for the thread.
+ * @param  priority    Execution priority for the thread
+ * @param  stack_size  Stack size for the thread
  *
  * Thread priority is an integer from 0 (lowest) to 31 (highest).  Some standard
- * prioritys are defined in <kernel/thread.h>:
+ * priorities are defined in <kernel/thread.h>:
  *
  *  HIGHEST_PRIORITY
  *  DPC_PRIORITY
