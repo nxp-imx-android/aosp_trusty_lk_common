@@ -67,7 +67,7 @@ MODULE_DEFINES += MODULE_SRCDEPS=\"$(subst $(SPACE),_,$(MODULE_SRCDEPS))\"
 MODULE_DEFINES += MODULE_DEPS=\"$(subst $(SPACE),_,$(MODULE_DEPS))\"
 MODULE_DEFINES += MODULE_SRCS=\"$(subst $(SPACE),_,$(MODULE_SRCS))\"
 
-
+# LTO
 MODULE_LTO_ENABLED := false
 ifneq (true,$(call TOBOOL,$(MODULE_DISABLE_LTO)))
 ifeq (true,$(call TOBOOL,$(USER_TASK_MODULE)))
@@ -88,8 +88,29 @@ endif
 ifeq (true,$(call TOBOOL,$(MODULE_LTO_ENABLED)))
 MODULE_COMPILEFLAGS += -fvisibility=hidden -flto=thin
 
+# CFI
+MODULE_CFI_ENABLED := false
 ifneq (true,$(call TOBOOL,$(MODULE_DISABLE_CFI)))
 ifeq (true,$(call TOBOOL,$(CFI_ENABLED)))
+MODULE_CFI_ENABLED := true
+endif
+
+ifeq (true,$(call TOBOOL,$(USER_TASK_MODULE)))
+
+ifdef $(USER_CFI_ENABLED)
+MODULE_CFI_ENABLED := $(call TOBOOL,$(USER_CFI_ENABLED))
+endif
+
+else
+
+ifdef $(KERNEL_CFI_ENABLED)
+MODULE_CFI_ENABLED := $(call TOBOOL,$(KERNEL_CFI_ENABLED))
+endif
+
+endif
+endif
+
+ifeq (true,$(call TOBOOL,$(MODULE_CFI_ENABLED)))
 MODULE_COMPILEFLAGS += -fsanitize=cfi -DCFI_ENABLED
 MODULES += trusty/kernel/lib/ubsan
 
@@ -97,10 +118,10 @@ ifeq (true,$(call TOBOOL,$(CFI_DIAGNOSTICS)))
 MODULE_COMPILEFLAGS += -fno-sanitize-trap=cfi
 endif
 endif
-endif
 
 endif
 
+# Stack protector
 ifneq (true,$(call TOBOOL,$(MODULE_DISABLE_STACK_PROTECTOR)))
 ifeq (true,$(call TOBOOL,$(USER_TASK_MODULE)))
 ifeq (true,$(call TOBOOL,$(USER_STACK_PROTECTOR)))
@@ -111,6 +132,7 @@ else
 MODULE_COMPILEFLAGS += -fno-stack-protector
 endif
 
+# Shadow call stack
 ifeq (true,$(call TOBOOL,$(SCS_ENABLED)))
 # set in arch/$(ARCH)/toolchain.mk iff shadow call stack is supported
 ifeq (false,$(call TOBOOL,$(ARCH_$(ARCH)_SUPPORTS_SCS)))
@@ -126,6 +148,7 @@ MODULE_COMPILEFLAGS += \
 endif
 endif
 
+# Code coverage
 ifeq (true,$(call TOBOOL,$(USER_COVERAGE_ENABLED)))
 ifeq (true,$(call TOBOOL,$(USER_TASK_MODULE)))
 ifeq (false,$(call TOBOOL, $(APP_DISABLE_COVERAGE)))
@@ -142,6 +165,7 @@ endif
 endif
 endif
 
+# HWASan
 ifeq (true,$(call TOBOOL,$(USER_HWASAN_ENABLED)))
 MODULE_DEFINES += \
 	HWASAN_ENABLED=1 \
