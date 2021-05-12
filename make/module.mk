@@ -97,13 +97,13 @@ endif
 
 ifeq (true,$(call TOBOOL,$(USER_TASK_MODULE)))
 
-ifdef $(USER_CFI_ENABLED)
+ifdef USER_CFI_ENABLED
 MODULE_CFI_ENABLED := $(call TOBOOL,$(USER_CFI_ENABLED))
 endif
 
 else
 
-ifdef $(KERNEL_CFI_ENABLED)
+ifdef KERNEL_CFI_ENABLED
 MODULE_CFI_ENABLED := $(call TOBOOL,$(KERNEL_CFI_ENABLED))
 endif
 
