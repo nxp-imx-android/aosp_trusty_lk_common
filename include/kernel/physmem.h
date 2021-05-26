@@ -37,13 +37,35 @@ struct obj_ref;
  * @size:           Number of bytes in region.
  *                  Should be a multiple of PAGE_SIZE.
  * @arch_mmu_flags: Memory type and required permission flags.
+ * @destroy_fn:     Destructor function.
  */
 struct phys_mem_obj {
     struct vmm_obj vmm_obj;
     paddr_t paddr;
     size_t size;
     uint arch_mmu_flags;
+    void (*destroy_fn)(struct phys_mem_obj*);
 };
+
+/**
+ * phys_mem_obj_dynamic_initialize - Initialize dynamically-allocated
+ *                                   struct phys_mem_obj that is accompanied
+ *                                   by a destructor function.
+ * @obj:            Object to initialize.
+ * @ref:            Initial reference.
+ * @paddr:          Physical address where region starts.
+ *                  Should be a multiple of PAGE_SIZE.
+ * @size:           Number of bytes in region.
+ *                  Should be a multiple of PAGE_SIZE.
+ * @arch_mmu_flags: Memory type and required permission flags.
+ * @destroy_fn:     Destructor function. Must not be %NULL.
+ */
+void phys_mem_obj_dynamic_initialize(struct phys_mem_obj* obj,
+                                     struct obj_ref* ref,
+                                     paddr_t paddr,
+                                     size_t size,
+                                     uint arch_mmu_flags,
+                                     void (*destroy_fn)(struct phys_mem_obj*));
 
 /**
  * phys_mem_obj_initialize - Initialize struct phys_mem_obj.

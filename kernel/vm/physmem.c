@@ -45,11 +45,12 @@ static struct phys_mem_obj* phys_mem_obj_from_vmm_obj(struct vmm_obj* vmm_obj) {
     return containerof(vmm_obj, struct phys_mem_obj, vmm_obj);
 }
 
-void phys_mem_obj_initialize(struct phys_mem_obj* obj,
-                             struct obj_ref* ref,
-                             paddr_t paddr,
-                             size_t size,
-                             uint arch_mmu_flags) {
+void phys_mem_obj_dynamic_initialize(struct phys_mem_obj* obj,
+                                     struct obj_ref* ref,
+                                     paddr_t paddr,
+                                     size_t size,
+                                     uint arch_mmu_flags,
+                                     void (*destroy_fn)(struct phys_mem_obj*)) {
 
     DEBUG_ASSERT(IS_PAGE_ALIGNED(paddr));
     DEBUG_ASSERT(IS_PAGE_ALIGNED(size));
@@ -58,12 +59,27 @@ void phys_mem_obj_initialize(struct phys_mem_obj* obj,
                   ARCH_MMU_FLAG_PERM_RO |
                   ARCH_MMU_FLAG_PERM_NO_EXECUTE |
                   ARCH_MMU_FLAG_NS)) == 0);
+    DEBUG_ASSERT(destroy_fn);
 
     obj->vmm_obj.ops = &phys_mem_obj_ops;
     obj->paddr = paddr;
     obj->size = size;
     obj->arch_mmu_flags = arch_mmu_flags;
+    obj->destroy_fn = destroy_fn;
     obj_init(&obj->vmm_obj.obj, ref);
+}
+
+static void phys_mem_obj_default_destroy(struct phys_mem_obj* obj) {
+    TRACEF("Warning: illegally destroy phys_obj %p\n", obj);
+}
+
+void phys_mem_obj_initialize(struct phys_mem_obj* obj,
+                             struct obj_ref* ref,
+                             paddr_t paddr,
+                             size_t size,
+                             uint arch_mmu_flags) {
+    phys_mem_obj_dynamic_initialize(obj, ref, paddr, size, arch_mmu_flags,
+                                    phys_mem_obj_default_destroy);
 }
 
 static int phys_mem_obj_check_flags(struct vmm_obj* obj,
@@ -128,5 +144,7 @@ static void phys_mem_obj_destroy(struct vmm_obj* vmm_obj) {
     struct phys_mem_obj* obj = containerof(vmm_obj,
                                            struct phys_mem_obj,
                                            vmm_obj);
-    TRACEF("Warning: illegally destroy phys_obj %p\n", obj);
+
+    DEBUG_ASSERT(obj->destroy_fn);
+    obj->destroy_fn(obj);
 }
