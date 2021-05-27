@@ -111,7 +111,11 @@ endif
 endif
 
 ifeq (true,$(call TOBOOL,$(MODULE_CFI_ENABLED)))
-MODULE_COMPILEFLAGS += -fsanitize=cfi -DCFI_ENABLED
+MODULE_COMPILEFLAGS += \
+	-fsanitize-blacklist=trusty/kernel/lib/ubsan/exemptlist \
+	-fsanitize=cfi \
+	-DCFI_ENABLED
+
 MODULES += trusty/kernel/lib/ubsan
 
 ifeq (true,$(call TOBOOL,$(CFI_DIAGNOSTICS)))
