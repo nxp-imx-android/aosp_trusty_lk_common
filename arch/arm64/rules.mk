@@ -32,6 +32,12 @@ MODULE_DEPS += \
 GLOBAL_DEFINES += \
 	ARCH_DEFAULT_STACK_SIZE=4096
 
+ARCH_DEFAULT_SHADOW_STACK_SIZE := 4096
+ifeq (true,$(call TOBOOL,$(KERNEL_SCS_ENABLED)))
+GLOBAL_DEFINES += \
+	ARCH_DEFAULT_SHADOW_STACK_SIZE=$(ARCH_DEFAULT_SHADOW_STACK_SIZE)
+endif
+
 # if its requested we build with SMP, arm generically supports 4 cpus
 ifeq ($(WITH_SMP),1)
 SMP_MAX_CPUS ?= 4
