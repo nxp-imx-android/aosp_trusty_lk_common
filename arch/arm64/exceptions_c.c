@@ -392,6 +392,7 @@ void arm64_sync_exception(struct arm64_iframe_long *iframe, bool from_lower)
 
     /* unhandled exception, die here */
     if (from_lower) {
+        printf("app: %s\n", current_trusty_app()->props.app_name);
         printf("load bias: 0x%lx\n", current_trusty_app()->load_bias);
     }
     printf("ESR 0x%x: ec 0x%x, il 0x%x, iss 0x%x\n", esr, ec, il, iss);
