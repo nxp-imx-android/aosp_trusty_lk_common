@@ -11,6 +11,7 @@
 # MODULE_CFLAGS : CFLAGS local to this module
 # MODULE_CPPFLAGS : CPPFLAGS local to this module
 # MODULE_ASMFLAGS : ASMFLAGS local to this module
+# MODULE_RUSTFLAGS : RUSTFLAGS local to this module
 # MODULE_INCLUDES : include directories local to this module
 # MODULE_SRCDEPS : extra dependencies that all of this module's files depend on
 # MODULE_EXTRA_ARCHIVES : extra .a files that should be linked with the module
@@ -60,6 +61,7 @@ MODULE_DEFINES += MODULE_COMPILEFLAGS=\"$(subst $(SPACE),_,$(MODULE_COMPILEFLAGS
 MODULE_DEFINES += MODULE_CFLAGS=\"$(subst $(SPACE),_,$(MODULE_CFLAGS))\"
 MODULE_DEFINES += MODULE_CPPFLAGS=\"$(subst $(SPACE),_,$(MODULE_CPPFLAGS))\"
 MODULE_DEFINES += MODULE_ASMFLAGS=\"$(subst $(SPACE),_,$(MODULE_ASMFLAGS))\"
+MODULE_DEFINES += MODULE_RUSTFLAGS=\"$(subst $(SPACE),_,$(MODULE_RUSTFLAGS))\"
 MODULE_DEFINES += MODULE_LDFLAGS=\"$(subst $(SPACE),_,$(MODULE_LDFLAGS))\"
 MODULE_DEFINES += MODULE_OPTFLAGS=\"$(subst $(SPACE),_,$(MODULE_OPTFLAGS))\"
 MODULE_DEFINES += MODULE_INCLUDES=\"$(subst $(SPACE),_,$(MODULE_INCLUDES))\"
@@ -124,6 +126,7 @@ endif
 endif
 
 # generate a per-module config.h file
+ifeq ($(call TOBOOL,$(MODULE_IS_RUST)),false)
 MODULE_CONFIG := $(MODULE_BUILDDIR)/module_config.h
 
 $(MODULE_CONFIG): MODULE_DEFINES:=$(MODULE_DEFINES)
@@ -135,6 +138,7 @@ GENERATED += $(MODULE_CONFIG)
 MODULE_COMPILEFLAGS += --include $(MODULE_CONFIG)
 
 MODULE_SRCDEPS += $(MODULE_CONFIG)
+endif
 
 MODULE_INCLUDES := $(addprefix -I,$(MODULE_INCLUDES))
 
@@ -144,6 +148,17 @@ include make/compile.mk
 # MODULE_OBJS is passed back from compile.mk
 #$(info MODULE_OBJS = $(MODULE_OBJS))
 
+ifeq ($(call TOBOOL,$(MODULE_IS_RUST)),true)
+# Build Rust sources
+MODULE_RSSRC := $(filter %.rs,$(MODULE_SRCS))
+$(MODULE_RSOBJS): $(MODULE_RSSRC) $(MODULE_SRCDEPS) $(MODULE_EXTRA_OBJECTS) $(MODULE_LIBRARIES)
+	@$(MKDIR)
+	@echo compiling $<
+	$(NOECHO)$(RUSTC) $(GLOBAL_RUSTFLAGS) $(ARCH_RUSTFLAGS) $(MODULE_RUSTFLAGS) $< -o $@
+
+MODULE_OBJECT := $(MODULE_RSOBJS)
+
+else
 # Archive the module's object files into a static library.
 MODULE_OBJECT := $(call TOBUILDDIR,$(MODULE_SRCDIR).mod.a)
 $(MODULE_OBJECT): $(MODULE_OBJS) $(MODULE_EXTRA_OBJS)
@@ -151,6 +166,8 @@ $(MODULE_OBJECT): $(MODULE_OBJS) $(MODULE_EXTRA_OBJS)
 	@echo creating $@
 	$(NOECHO)rm -f $@
 	$(NOECHO)$(AR) rcs $@ $^
+
+endif
 
 # track the module object for make clean
 GENERATED += $(MODULE_OBJECT)
@@ -177,6 +194,7 @@ MODULE_COMPILEFLAGS :=
 MODULE_CFLAGS :=
 MODULE_CPPFLAGS :=
 MODULE_ASMFLAGS :=
+MODULE_RUSTFLAGS :=
 MODULE_SRCDEPS :=
 MODULE_INCLUDES :=
 MODULE_EXTRA_ARCHIVES :=
@@ -191,3 +209,4 @@ MODULE_LTO_ENABLED :=
 MODULE_DISABLE_CFI :=
 MODULE_DISABLE_STACK_PROTECTOR :=
 MODULE_DISABLE_SCS :=
+MODULE_RSOBJS :=
