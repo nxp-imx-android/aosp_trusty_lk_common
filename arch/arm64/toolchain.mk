@@ -31,3 +31,6 @@ ARCH_arm64_COMPILEFLAGS += -target aarch64-$(CLANG_ARM64_TARGET_SYS)-$(CLANG_ARM
 			   --gcc-toolchain=$(CLANG_ARM64_AS_DIR)/
 
 endif
+
+# Set Rust target to match clang target
+ARCH_arm64_RUSTFLAGS := --target=aarch64-unknown-linux-gnu

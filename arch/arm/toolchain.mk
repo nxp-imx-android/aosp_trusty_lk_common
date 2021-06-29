@@ -56,3 +56,8 @@ ARCH_arm_COMPILEFLAGS += -target arm-$(CLANG_ARM_TARGET_SYS)-$(CLANG_ARM_TARGET_
 			   --gcc-toolchain=$(CLANG_ARM_AS_DIR)/
 
 endif
+
+# Set Rust target to match clang target
+# Note: although the clang target is arm-linux-gnu, we only support armv7-a and
+# newer.
+ARCH_arm_RUSTFLAGS := --target=armv7a-none-eabi

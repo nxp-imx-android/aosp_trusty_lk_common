@@ -89,6 +89,11 @@ GLOBAL_KERNEL_LDFLAGS += $(addprefix -L,$(LKINC))
 
 GLOBAL_LTO_COMPILEFLAGS += -fvisibility=hidden -flto=thin
 
+# Rust flags, based on the flags used in AOSP
+GLOBAL_SHARED_RUSTFLAGS := -C codegen-units=1 -C debuginfo=2 -C opt-level=3 -C relocation-model=pic
+GLOBAL_SHARED_RUSTFLAGS += -C overflow-checks=on -Z symbol-mangling-version=v0
+GLOBAL_SHARED_RUSTFLAGS += -C panic=abort -Z link-native-libraries=no
+
 # Architecture specific compile flags
 ARCH_COMPILEFLAGS :=
 ARCH_CFLAGS :=
@@ -301,6 +306,8 @@ CPPFILT := $(TOOLCHAIN_PREFIX)c++filt
 SIZE := $(TOOLCHAIN_PREFIX)size
 NM := $(TOOLCHAIN_PREFIX)nm
 STRIP := $(TOOLCHAIN_PREFIX)strip
+
+GLOBAL_SHARED_RUSTFLAGS += -C linker="$(LD)"
 
 # TODO: we could find the runtime like this.
 # LIBGCC := $(shell $(CC) $(GLOBAL_COMPILEFLAGS) $(ARCH_COMPILEFLAGS) $(THUMBCFLAGS) --rtlib=compiler-rt -print-libgcc-file-name)
