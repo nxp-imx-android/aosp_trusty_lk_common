@@ -150,11 +150,15 @@ include make/compile.mk
 
 ifeq ($(call TOBOOL,$(MODULE_IS_RUST)),true)
 # Build Rust sources
+$(addsuffix .d,$(MODULE_RSOBJS)):
+
 MODULE_RSSRC := $(filter %.rs,$(MODULE_SRCS))
-$(MODULE_RSOBJS): $(MODULE_RSSRC) $(MODULE_SRCDEPS) $(MODULE_EXTRA_OBJECTS) $(MODULE_LIBRARIES)
+$(MODULE_RSOBJS): $(MODULE_RSSRC) $(MODULE_SRCDEPS) $(MODULE_EXTRA_OBJECTS) $(MODULE_LIBRARIES) $(addsuffix .d,$(MODULE_RSOBJS))
 	@$(MKDIR)
 	@echo compiling $<
-	$(NOECHO)$(RUSTC) $(GLOBAL_RUSTFLAGS) $(ARCH_RUSTFLAGS) $(MODULE_RUSTFLAGS) $< -o $@
+	$(NOECHO)$(RUSTC) $(GLOBAL_RUSTFLAGS) $(ARCH_RUSTFLAGS) $(MODULE_RUSTFLAGS) $< --emit "dep-info=$@.d" -o $@
+
+-include $(addsuffix .d,$(MODULE_RSOBJS))
 
 MODULE_OBJECT := $(MODULE_RSOBJS)
 
