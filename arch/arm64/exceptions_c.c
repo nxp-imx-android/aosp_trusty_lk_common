@@ -206,6 +206,7 @@ static void dump_iframe(const struct arm64_iframe_long *iframe)
     printf("thread: %p (%s)\n", thread, thread->name);
     printf("stack   %p-%p\n", thread->stack, thread->stack + thread->stack_size);
     printf("iframe  %p:\n", iframe);
+#if TEST_BUILD
     printf("x0  0x%16llx x1  0x%16llx x2  0x%16llx x3  0x%16llx\n", iframe->r[0], iframe->r[1], iframe->r[2], iframe->r[3]);
     printf("x4  0x%16llx x5  0x%16llx x6  0x%16llx x7  0x%16llx\n", iframe->r[4], iframe->r[5], iframe->r[6], iframe->r[7]);
     printf("x8  0x%16llx x9  0x%16llx x10 0x%16llx x11 0x%16llx\n", iframe->r[8], iframe->r[9], iframe->r[10], iframe->r[11]);
@@ -216,6 +217,7 @@ static void dump_iframe(const struct arm64_iframe_long *iframe)
     printf("x28 0x%16llx fp  0x%16llx lr  0x%16llx sp  0x%16llx\n", iframe->r[28], iframe->fp, iframe->lr, iframe->sp);
     printf("elr 0x%16llx\n", iframe->elr);
     printf("spsr 0x%16llx\n", iframe->spsr);
+#endif
 }
 
 __WEAK void arm64_syscall(struct arm64_iframe_long *iframe, bool is_64bit)
