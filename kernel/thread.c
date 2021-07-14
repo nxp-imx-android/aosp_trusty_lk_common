@@ -56,7 +56,8 @@ struct thread_stats thread_stats[SMP_MAX_CPUS];
 #define STACK_DEBUG_BYTE (0x99)
 #define STACK_DEBUG_WORD (0x99999999)
 
-#define DEBUG_THREAD_CONTEXT_SWITCH 0
+#define DEBUG_THREAD_CONTEXT_SWITCH (0)
+#define DEBUG_THREAD_CPU_WAKE (0)
 
 /* global thread list */
 static struct list_node thread_list;
@@ -348,14 +349,14 @@ static mp_cpu_mask_t thread_get_mp_reschedule_target(thread_t *current_thread, t
          * The thread is pinned to a cpu that is already running, or has already
          * been signalled to run, a higher priority thread. No ipi is needed.
          */
-#ifdef DEBUG_THREAD_CPU_WAKE
+#if DEBUG_THREAD_CPU_WAKE
         dprintf(ALWAYS, "%s: cpu %d, don't wake cpu %d, priority %d for priority %d thread (current priority %d)\n",
             __func__, cpu, target_cpu, cpu_priority[target_cpu], t->priority, current_thread->priority);
 #endif
         return 0;
     }
 
-#ifdef DEBUG_THREAD_CPU_WAKE
+#if DEBUG_THREAD_CPU_WAKE
     dprintf(ALWAYS, "%s: cpu %d, wake cpu %d, priority %d for priority %d thread (current priority %d)\n",
         __func__, cpu, target_cpu, cpu_priority[target_cpu], t->priority, current_thread->priority);
 #endif
@@ -644,7 +645,7 @@ static void thread_cond_mp_reschedule(thread_t *current_thread, const char *call
     if (!t || (t->priority <= best_cpu_priority))
         return;
 
-#ifdef DEBUG_THREAD_CPU_WAKE
+#if DEBUG_THREAD_CPU_WAKE
     dprintf(ALWAYS, "%s from %s: cpu %d, wake cpu %d, priority %d for priority %d thread (%s), current %d (%s)\n",
             __func__, caller, arch_curr_cpu_num(), best_cpu, best_cpu_priority,
             t->priority, t->name,
@@ -697,7 +698,7 @@ void thread_resched(void)
              * scheduler it will may to the early return path here. Reset this
              * priority value before returning.
              */
-#ifdef DEBUG_THREAD_CPU_WAKE
+#if DEBUG_THREAD_CPU_WAKE
             dprintf(ALWAYS, "%s: cpu %d, reset cpu priority %d -> %d\n",
                 __func__, cpu, cpu_priority[cpu], newthread->priority);
 #endif
