@@ -1488,8 +1488,21 @@ int wait_queue_wake_all(wait_queue_t *wait, bool reschedule, status_t wait_queue
     if (ret > 0) {
         mp_reschedule(mp_reschedule_target, 0);
         if (reschedule) {
+            DEBUG_ASSERT(current_thread->state == THREAD_READY);
             thread_resched();
+        } else {
+            /*
+             * Verify that thread_resched is not skipped when
+             * thread state changes to THREAD_READY
+             */
+            DEBUG_ASSERT(current_thread->state != THREAD_READY);
         }
+    } else {
+        /*
+         * Verify that thread_resched is not skipped when
+         * thread state changes to THREAD_READY
+         */
+        DEBUG_ASSERT(current_thread->state != THREAD_READY);
     }
 
     return ret;
