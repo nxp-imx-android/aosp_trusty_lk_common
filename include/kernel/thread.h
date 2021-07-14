@@ -136,12 +136,10 @@ typedef struct thread {
 #define thread_curr_cpu(t) ((t)->curr_cpu)
 #define thread_pinned_cpu(t) ((t)->pinned_cpu)
 #define thread_set_curr_cpu(t,c) ((t)->curr_cpu = (c))
-#define thread_set_pinned_cpu(t, c) ((t)->pinned_cpu = (c))
 #else
 #define thread_curr_cpu(t) (0)
 #define thread_pinned_cpu(t) (-1)
 #define thread_set_curr_cpu(t,c) do {} while(0)
-#define thread_set_pinned_cpu(t, c) do {} while(0)
 #endif
 
 /* thread priority */
@@ -177,7 +175,28 @@ void thread_become_idle(void) __NO_RETURN;
 void thread_secondary_cpu_init_early(void);
 void thread_secondary_cpu_entry(void) __NO_RETURN;
 void thread_set_name(const char *name);
+
+/**
+ * thread_set_priority() - set priority of current thread
+ * @priority:      Priority for the current thread,
+ *                 between %LOWEST_PRIORITY
+ *                 and %HIGHEST_PRIORITY
+ *
+ * Context:        This function shall be invoked without
+ *                 holding the thread lock.
+ */
 void thread_set_priority(int priority);
+
+/**
+ * thread_set_pinned_cpu() - Pin thread to a given CPU.
+ * @t:             Thread to pin
+ * @cpu:           cpu id on which to pin the thread
+ *
+ * Context:        This function shall be invoked without
+ *                 holding the thread lock.
+ */
+void thread_set_pinned_cpu(thread_t* t, int cpu);
+
 thread_t *thread_create(const char *name, thread_start_routine entry, void *arg, int priority, size_t stack_size);
 thread_t *thread_create_etc(thread_t *t, const char *name, thread_start_routine entry, void *arg, int priority, void *stack, size_t stack_size, size_t shadow_stack_size);
 status_t thread_resume(thread_t *);

@@ -58,6 +58,7 @@ struct thread_stats thread_stats[SMP_MAX_CPUS];
 
 #define DEBUG_THREAD_CONTEXT_SWITCH (0)
 #define DEBUG_THREAD_CPU_WAKE (0)
+#define DEBUG_THREAD_CPU_PIN (0)
 
 /* global thread list */
 static struct list_node thread_list;
@@ -91,6 +92,7 @@ static struct list_node dead_threads;
 static struct wait_queue reaper_wait_queue;
 
 /* local routines */
+static const char *thread_state_to_str(enum thread_state state);
 static void thread_resched(void);
 static void idle_thread_routine(void) __NO_RETURN;
 static enum handler_return thread_timer_callback(struct timer *t,
@@ -621,6 +623,52 @@ static thread_t *get_top_thread(int cpu, bool unlink)
     }
 }
 
+/**
+ * thread_pinned_cond_mp_reschedule() - handles a new pinned cpu
+ * when a thread is running or becomes ready.
+ * @current_thread:    Thread currently running on the cpu
+ * @thread:            Thread to be scheduled on a potentially
+ *                     updated pinned cpu
+ *
+ * When the pinned cpu of a thread is changed, the thread needs
+ * to be rescheduled on that new cpu.
+ *
+ * To achieve this, thread_resched() shall be invoked on the currently
+ * running cpu. Within thread_resched the pinned cpu can be checked against
+ * the current cpu and if different, an IPI shall be triggered on the
+ * new cpu. thread_pinned_cond_mp_reschedule() is the helper function
+ * invoked by thread_resched, checking above condition and conditionally
+ * invoking thread_mp_reschedule() to trigger the IPI.
+ *
+ * Notes:
+ * - If the thread is updating its own pinned cpu state,
+ * thread_set_pinned_cpu() invokes thread_preempt(), which invokes
+ * thread_resched() with current_thread set to the running thread.
+ * - If the thread is suspended/blocked/ready when its pinned cpu is updated,
+ * as soon as it transitions to ready,thread_resched() is invoked with
+ * current_thread set to the ready thread.
+ * - If the thread is sleeping when its pinned cpu is updated,
+ * thread_sleep_handler() is invoked on the cpu the thread went to sleep on.
+ * thread_sleep_handler() needs to invoke thread_pinned_cond_mp_reschedule()
+ * to trigger the IPI on the new pinned cpu.
+ */
+static void thread_pinned_cond_mp_reschedule(thread_t* current_thread,
+                                             thread_t* thread,
+                                             uint cpu) {
+#if WITH_SMP
+    if (unlikely((thread->pinned_cpu > -1) && (thread->pinned_cpu != (int)cpu))) {
+        DEBUG_ASSERT(thread->curr_cpu == (int)cpu || thread->curr_cpu == -1);
+#if DEBUG_THREAD_CPU_PIN
+        dprintf(ALWAYS,
+                "%s: arch_curr_cpu %d, thread %s: pinned_cpu %d, curr_cpu %d, state [%s]\n",
+                __func__, arch_curr_cpu_num(), thread->name, thread->pinned_cpu,
+                thread->curr_cpu, thread_state_to_str(thread->state));
+#endif
+        thread_mp_reschedule(current_thread, thread);
+    }
+#endif
+}
+
 static void thread_cond_mp_reschedule(thread_t *current_thread, const char *caller)
 {
 #if WITH_SMP
@@ -681,6 +729,13 @@ void thread_resched(void)
     THREAD_STATS_INC(reschedules);
 
     newthread = get_top_thread(cpu, true);
+
+    /*
+     * The current_thread is switched out from a given cpu,
+     * however its pinned cpu may have changed and if so,
+     * this current_thread should be scheduled on that new cpu.
+     */
+    thread_pinned_cond_mp_reschedule(newthread, current_thread, cpu);
 
     DEBUG_ASSERT(newthread);
 
@@ -839,7 +894,7 @@ void thread_yield(void)
  * This function will return at some later time. Possibly immediately if
  * no other threads are waiting to execute.
  */
-void thread_preempt(void)
+static void thread_preempt_inner(bool lock_held)
 {
     thread_t *current_thread = get_current_thread();
 
@@ -853,7 +908,12 @@ void thread_preempt(void)
 
     KEVLOG_THREAD_PREEMPT(current_thread);
 
-    THREAD_LOCK(state);
+    spin_lock_saved_state_t state;
+    if (!lock_held) {
+        /* thread lock */
+        spin_lock_irqsave(&thread_lock, state);
+        thread_lock_complete();
+    }
 
     /* we are being preempted, so we get to go back into the front of the run queue if we have quantum left */
     current_thread->state = THREAD_READY;
@@ -865,7 +925,28 @@ void thread_preempt(void)
     }
     thread_resched();
 
-    THREAD_UNLOCK(state);
+    if (!lock_held) {
+        THREAD_UNLOCK(state);
+    }
+}
+
+void thread_preempt(void)
+{
+    /*
+     * we refain from asserting the lock
+     * being held due to performance concern
+     * as this legacy function is heavily
+     * invoked and its usage context is not
+     * updated.
+     * DEBUG_ASSERT(!thread_lock_held());
+     */
+    thread_preempt_inner(false);
+}
+
+void thread_preempt_lock_held(void)
+{
+    DEBUG_ASSERT(thread_lock_held());
+    thread_preempt_inner(true);
 }
 
 /**
@@ -946,7 +1027,15 @@ static enum handler_return thread_sleep_handler(timer_t *timer,
 
     t->state = THREAD_READY;
     insert_in_run_queue_head(t);
-
+    /*
+     * The awakened thread's thread_sleep_handler() is invoked
+     * on the cpu the thread went to sleep on.
+     * However the thread's pinned cpu may have changed
+     * while the thread was asleep and if so,
+     * this thread should be scheduled on the new pinned cpu.
+     */
+    thread_pinned_cond_mp_reschedule(
+        get_current_thread(), t, arch_curr_cpu_num());
     THREAD_UNLOCK(state);
 
     return INT_RESCHEDULE;
@@ -1086,6 +1175,7 @@ void thread_set_name(const char *name)
  */
 void thread_set_priority(int priority)
 {
+    DEBUG_ASSERT(!thread_lock_held());
     thread_t *current_thread = get_current_thread();
 
     THREAD_LOCK(state);
@@ -1101,6 +1191,173 @@ void thread_set_priority(int priority)
     thread_resched();
 
     THREAD_UNLOCK(state);
+}
+
+/**
+ * thread_set_pinned_cpu() - Pin thread to a given CPU.
+ * @t:      Thread to pin
+ * @cpu:    cpu id on which to pin the thread
+ */
+void thread_set_pinned_cpu(thread_t* t, int cpu) {
+#if WITH_SMP
+    DEBUG_ASSERT(t);
+    DEBUG_ASSERT(t->magic == THREAD_MAGIC);
+    DEBUG_ASSERT(cpu >= -1 && cpu < SMP_MAX_CPUS);
+    DEBUG_ASSERT(!thread_lock_held());
+
+    THREAD_LOCK(state);
+    if (t->pinned_cpu == cpu) {
+        goto done;
+    }
+
+    t->pinned_cpu = cpu;
+    if ((t->pinned_cpu > -1) && (t->pinned_cpu == t->curr_cpu)) {
+        /*
+         * No need to reschedule the thread on a new cpu.
+         * This exit path is also used during the initial
+         * boot phase when processors are being brought up:
+         * see thread_init_early()
+         * and thread_secondary_cpu_init_early()
+         */
+        goto done;
+    }
+
+    switch(t->state){
+        case THREAD_SUSPENDED: {
+            /*
+             * Early init phase, thread not scheduled yet,
+             * the cpu pinning will apply at a later stage
+             * when thread is scheduled
+             */
+            goto done;
+        }
+        case THREAD_READY: {
+            DEBUG_ASSERT(!thread_is_idle(t));
+            DEBUG_ASSERT(t->curr_cpu == -1);
+            thread_t *current_thread = get_current_thread();
+            DEBUG_ASSERT(t != current_thread);
+            /*
+             * Thread `t` is ready and shall be rescheduled
+             * according to a new cpu target (either the
+             * pinned cpu if pinned cpu > -1, or any available
+             * cpu if pinned cpu == -1).
+             */
+            int curr_cpu = arch_curr_cpu_num();
+            if (t->pinned_cpu == -1 || t->pinned_cpu == curr_cpu) {
+                if (current_thread->priority < t->priority) {
+                    /*
+                     * if the thread is to be rescheduled on the current
+                     * cpu due to being higher priority, thread_preempt
+                     * shall be invoked.
+                     */
+                    thread_preempt_lock_held();
+                    goto done;
+                }
+                if (t->pinned_cpu == -1
+                    && thread_is_realtime(current_thread)) {
+                    /*
+                     * if the thread is unpinned, it may be rescheduled on
+                     * another cpu. There are two cases:
+                     * if the current thread is a standard thread, its time
+                     * quantum tick handler thread_timer_callback(),
+                     * will select the next best cpu for the top unpinned thread.
+                     * However if the current thread is a real-time thread,
+                     * its quantum slicing is disabled (by design),
+                     * thus the newly unpinned thread shall be rescheduled
+                     * manually on its best cpu
+                     */
+                    thread_cond_mp_reschedule(t, __func__);
+                }
+            } else {
+                /*
+                 * if the thread is pinned on another cpu than current
+                 * an ipi may be sent to the best cpu. This is achieved
+                 * by invoking thread_mp_reschedule().
+                 */
+                thread_mp_reschedule(current_thread, t);
+            }
+            goto done;
+        }
+        case THREAD_RUNNING: {
+            DEBUG_ASSERT(!thread_is_idle(t));
+            int thread_curr_cpu = t->curr_cpu;
+            DEBUG_ASSERT(thread_curr_cpu > -1);
+            thread_t *current_thread = get_current_thread();
+            if (t->pinned_cpu == -1){
+                /*
+                 * pinned cpu is reset,
+                 * current cpu still is a valid option,
+                 * nothing to do
+                 */
+                goto done;
+            }
+            /*
+             * Thread `t` is running and its pinned cpu is
+             * different from its current cpu, two cases to handle:
+             * - Running on current cpu
+             * - Running on another cpu than current
+             */
+            if (t == current_thread) {
+                /*
+                 * Thread `t` is the current thread running
+                 * on current cpu:
+                 * (thread_set_pinned_cpu called from within
+                 * current thread), the thread needs to be
+                 * rescheduled to the new pinned cpu,
+                 * this is handled within the thread_preempt
+                 * call
+                 */
+                DEBUG_ASSERT(thread_curr_cpu == (int)arch_curr_cpu_num());
+                thread_preempt_lock_held();
+                goto done;
+            }
+            /*
+             * Thread `t` is running on another cpu than
+             * the current one:
+             * thread_preempt needs to be invoked on this
+             * other cpu. We do this by invoking mp_reschedule
+             * on the thread's current cpu, which in turns
+             * invoke thread_resched to schedule out our thread
+             * and finally send an IPI to the newly pinned cpu
+             */
+            DEBUG_ASSERT(thread_curr_cpu != (int)arch_curr_cpu_num());
+            mp_reschedule(1UL << (uint)thread_curr_cpu, 0);
+            goto done;
+        }
+        case THREAD_BLOCKED:
+        case THREAD_SLEEPING: {
+            /*
+             * the new pinned cpu shall be taken into account
+             * when the thread state change (to THREAD_READY)
+             * happen - see thread_pinned_cond_mp_reschedule()
+             */
+            DEBUG_ASSERT(!thread_is_idle(t));
+            DEBUG_ASSERT(t != get_current_thread());
+            goto done;
+        }
+        case THREAD_DEATH: {
+            /*
+             * thread_set_pinned_cpu cannot be
+             * invoked on such a dead/exited thread
+             */
+            DEBUG_ASSERT(false);
+            goto done;
+        }
+        /*
+         * Compiler option -Wswitch will catch missing
+         * case statement if a new thread state
+         * value is added and not handled.
+         */
+    }
+done:
+    THREAD_UNLOCK(state);
+#if DEBUG_THREAD_CPU_PIN
+    dprintf(ALWAYS,
+            "%s(%d): thread %s, pinned_cpu %d, curr_cpu %d, state [%s]\n",
+            __func__, cpu, t->name, t->pinned_cpu, t->curr_cpu,
+            thread_state_to_str(t->state));
+#endif
+#endif
 }
 
 /**
