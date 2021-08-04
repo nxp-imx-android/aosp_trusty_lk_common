@@ -97,6 +97,7 @@ GLOBAL_SHARED_RUSTFLAGS += -C overflow-checks=on
 # Use v0 mangling to distinguish from C++ symbols
 GLOBAL_SHARED_RUSTFLAGS += -C symbol-mangling-version=v0
 GLOBAL_SHARED_RUSTFLAGS += -C panic=abort -Z link-native-libraries=no
+GLOBAL_SHARED_RUSTFLAGS += -Z panic_abort_tests
 GLOBAL_SHARED_RUSTFLAGS += --deny warnings
 
 # Architecture specific compile flags
