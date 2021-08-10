@@ -301,9 +301,9 @@ TEST(TimerTest, TimerCancel) {
     EXPECT_EQ(saved_pinned_cpu, -1);
     for (int i = 0; i < 1000; i++) {
         TimerTestTimerStart(&t, MS2NS(2), 1);
-        THREAD_LOCK(state);
         thread_set_pinned_cpu(get_current_thread(),
                               (arch_curr_cpu_num() + 1) % 2);
+        THREAD_LOCK(state);
         wait_queue_block(&wq, 1);
         THREAD_UNLOCK(state);
         triggered = TimerTestTimerPoll(&t, wait_time);
