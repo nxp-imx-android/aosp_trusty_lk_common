@@ -14,6 +14,13 @@ COMMA := ,
 EMPTY :=
 SPACE := $(EMPTY) $(EMPTY)
 
+define NEWLINE
+
+
+endef
+
+STRIP_TRAILING_COMMA = $(if $(1),$(subst $(COMMA)END_OF_LIST_MARKER_FOR_STRIP_TRAILING_COMMA,,$(strip $(1))END_OF_LIST_MARKER_FOR_STRIP_TRAILING_COMMA))
+
 # test if two files are different, replacing the first
 # with the second if so
 # args: $1 - temporary file to test
