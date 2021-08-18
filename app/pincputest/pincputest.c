@@ -197,12 +197,12 @@ static void pincputest_unittest_thread(pincputest_t* _state) {
          */
         ctx_main->actual_pinned_cpu = PINCPU_TEST_CPU_COUNT;
         cpu_peer = ctx_peer->cpu_actual == -1 ? 0 : ctx_peer->cpu_actual;
-        if (ctx_peer->thread->pinned_cpu == -1) {
+        if (thread_pinned_cpu(ctx_peer->thread) == -1) {
             /* this case can only happen at the beginning of the test */
             DEBUG_ASSERT(c == 0);
             thread_set_pinned_cpu(ctx_peer->thread, cpu_peer);
         }
-        DEBUG_ASSERT(ctx_peer->thread->pinned_cpu == cpu_peer);
+        DEBUG_ASSERT(thread_pinned_cpu(ctx_peer->thread)== cpu_peer);
 
         /*
          * define the new target pinned cpu
@@ -258,7 +258,7 @@ static void pincputest_unittest_thread(pincputest_t* _state) {
          * thread_set_pinned_cpu()
          */
         LTRACEF("ev_req sent to peer (pinned_cpu=%d curr_cpu=%d)\n",
-                get_current_thread()->pinned_cpu, arch_curr_cpu_num());
+                thread_pinned_cpu(get_current_thread()), arch_curr_cpu_num());
         event_signal(&ctx_peer->ev_req, true);
 
         /*
@@ -266,7 +266,7 @@ static void pincputest_unittest_thread(pincputest_t* _state) {
          * to invoke thread_set_pinned_cpu
          */
         LTRACEF("ev_req sent to main (pinned_cpu=%d curr_cpu=%d)\n",
-                get_current_thread()->pinned_cpu, arch_curr_cpu_num());
+                thread_pinned_cpu(get_current_thread()), arch_curr_cpu_num());
         event_signal(&ctx_main->ev_req, true);
 
         /* now wait for the main thread to invoke
@@ -382,10 +382,10 @@ static int pincputest_main_thread(void* _state) {
     spin_lock_saved_state_t lock_state_main;
     while (1) {
         LTRACEF("ev_req waiting in main (pinned_cpu=%d curr_cpu=%d)\n",
-                get_current_thread()->pinned_cpu, arch_curr_cpu_num());
+                thread_pinned_cpu(get_current_thread()), arch_curr_cpu_num());
         event_wait(&ctx->ev_req);
         LTRACEF("ev_req received in main (pinned_cpu=%d curr_cpu=%d)\n",
-                get_current_thread()->pinned_cpu, arch_curr_cpu_num());
+                thread_pinned_cpu(get_current_thread()), arch_curr_cpu_num());
         DEBUG_ASSERT(_state);
         if (state->expected_state_peer == THREAD_DEATH) {
             /* exiting */
@@ -406,14 +406,14 @@ static int pincputest_main_thread(void* _state) {
         }
         DEBUG_ASSERT(_state);
         if (ctx->cpu_expected > -1) {
-            ASSERT_EQ(get_current_thread()->curr_cpu, ctx->cpu_expected);
+            ASSERT_EQ(thread_curr_cpu(get_current_thread()), ctx->cpu_expected);
         }
         if (ctx_peer->cpu_expected == -1) {
             thread_set_pinned_cpu(get_current_thread(), -1);
         }
         thread_set_pinned_cpu(ctx_peer->thread, ctx_peer->cpu_expected);
         spin_lock_irqsave(&ctx->runningstate_lock, lock_state_main);
-        ctx->actual_pinned_cpu = ctx_peer->thread->pinned_cpu;
+        ctx->actual_pinned_cpu = thread_pinned_cpu(ctx_peer->thread);
         spin_unlock_irqrestore(&ctx->runningstate_lock, lock_state_main);
         event_signal(&ctx->ev_resp, true);
         LTRACEF("ev_resp sent...\n");
@@ -433,10 +433,10 @@ static int pincputest_peer_thread(void* _state) {
     bool done;
     while (1) {
         LTRACEF("ev_req waiting in peer (pinned_cpu=%d curr_cpu=%d)\n",
-                get_current_thread()->pinned_cpu, arch_curr_cpu_num());
+                thread_pinned_cpu(get_current_thread()), arch_curr_cpu_num());
         event_wait(&ctx->ev_req);
         LTRACEF("ev_req received in peer (pinned_cpu=%d curr_cpu=%d)\n",
-                get_current_thread()->pinned_cpu, arch_curr_cpu_num());
+                thread_pinned_cpu(get_current_thread()), arch_curr_cpu_num());
         DEBUG_ASSERT(_state);
         thread_set_priority(state->priority_peer);
         switch (state->expected_state_peer) {
@@ -446,8 +446,8 @@ static int pincputest_peer_thread(void* _state) {
             done = false;
             do {
                 spin_lock_irqsave(&ctx->runningstate_lock, lock_state_peer);
-                pinned_cpu = get_current_thread()->pinned_cpu;
-                curr_cpu = get_current_thread()->curr_cpu;
+                pinned_cpu = thread_pinned_cpu(get_current_thread());
+                curr_cpu = thread_curr_cpu(get_current_thread());
                 spin_unlock_irqrestore(&ctx->runningstate_lock,
                                        lock_state_peer);
 
@@ -487,7 +487,7 @@ static int pincputest_peer_thread(void* _state) {
             return -1;
         }
         spin_lock_irqsave(&ctx->runningstate_lock, lock_state_peer);
-        ctx->cpu_actual = get_current_thread()->curr_cpu;
+        ctx->cpu_actual = thread_curr_cpu(get_current_thread());
         spin_unlock_irqrestore(&ctx->runningstate_lock, lock_state_peer);
         if (ctx->cpu_expected > -1) {
             LTRACEF("PinCpuWhenThreadState%s [%s] cpu expected (%d) actual (%d)\n",
