@@ -1,3 +1,5 @@
+LOCAL_DIR := $(GET_LOCAL_DIR)
+
 ifndef ARCH_arm_TOOLCHAIN_PREFIX
 $(error Please run envsetup.sh to set ARCH_arm_TOOLCHAIN_PREFIX)
 endif
@@ -57,7 +59,5 @@ ARCH_arm_COMPILEFLAGS += -target arm-$(CLANG_ARM_TARGET_SYS)-$(CLANG_ARM_TARGET_
 
 endif
 
-# Set Rust target to match clang target
-# Note: although the clang target is arm-linux-gnu, we only support armv7-a and
-# newer.
-ARCH_arm_RUSTFLAGS := --target=armv7a-none-eabi
+# Set up custom Rust target to match clang target
+ARCH_arm_RUSTFLAGS := --target=$(LOCAL_DIR)/rust-target.json

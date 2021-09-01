@@ -1,3 +1,5 @@
+LOCAL_DIR := $(GET_LOCAL_DIR)
+
 ifndef ARCH_arm64_TOOLCHAIN_PREFIX
 $(error Please run envsetup.sh to set ARCH_arm64_TOOLCHAIN_PREFIX)
 endif
@@ -33,4 +35,4 @@ ARCH_arm64_COMPILEFLAGS += -target aarch64-$(CLANG_ARM64_TARGET_SYS)-$(CLANG_ARM
 endif
 
 # Set Rust target to match clang target
-ARCH_arm64_RUSTFLAGS := --target=aarch64-unknown-linux-gnu
+ARCH_arm64_RUSTFLAGS := --target=$(LOCAL_DIR)/rust-target.json
