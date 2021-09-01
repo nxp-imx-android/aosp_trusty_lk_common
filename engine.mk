@@ -95,6 +95,7 @@ GLOBAL_LTO_COMPILEFLAGS += -fvisibility=hidden -flto=thin
 GLOBAL_SHARED_RUSTFLAGS := -C codegen-units=1 -C debuginfo=2 -C opt-level=3 -C relocation-model=pic
 GLOBAL_SHARED_RUSTFLAGS += -C overflow-checks=on -Z symbol-mangling-version=v0
 GLOBAL_SHARED_RUSTFLAGS += -C panic=abort -Z link-native-libraries=no
+GLOBAL_SHARED_RUSTFLAGS += --deny warnings
 
 # Architecture specific compile flags
 ARCH_COMPILEFLAGS :=
