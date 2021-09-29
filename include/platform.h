@@ -90,6 +90,11 @@ void platform_quiesce(void);
  */
 void platform_idle(void);
 
+/* platform_early_halt is a simpler version of platform_halt() that can be
+ * called from any context, including early init and assembly with no stack.
+ */
+void platform_early_halt(void) __NO_RETURN;
+
 __END_CDECLS;
 
 #endif

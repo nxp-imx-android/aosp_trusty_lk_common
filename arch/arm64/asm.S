@@ -146,3 +146,11 @@ FUNCTION(arm64_elX_to_el1)
 
 .Ltarget:
     ret
+
+/* void platform_early_halt(void); */
+WEAK_FUNCTION(platform_early_halt)
+    /* Disable interrupts and FIQs */
+    msr daifset, #3
+
+    /* Infinite loop */
+    b   .
