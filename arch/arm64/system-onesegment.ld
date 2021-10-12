@@ -6,6 +6,19 @@ SECTIONS
 {
     . = %KERNEL_BASE% + %KERNEL_LOAD_OFFSET%;
 
+    /*
+     * LLVM introduced a static constructor, init_have_lse_atomics, to
+     * compiler-rt that we don't want and that breaks our build. Until we compile
+     * our own compiler-rt and either provide getauxval and enable CFI, or remove
+     * this function, we can remove it during linking here
+     */
+    /DISCARD/ : {
+        *libclang_rt.builtins-aarch64-android.a:cpu_model.c.o(
+            .text.init_have_lse_atomics
+            .init_array
+        )
+    }
+
     /* text/read-only data */
     /* set the load address to physical MEMBASE */
     .text : AT(%MEMBASE% + %KERNEL_LOAD_OFFSET%) {
