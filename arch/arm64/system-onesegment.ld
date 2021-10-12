@@ -72,6 +72,17 @@ SECTIONS
         *(.rodata .rodata.* .gnu.linkonce.r.*)
     }
 
+    .ctors : ALIGN(8) {
+        __ctor_list = .;
+        KEEP(*(.ctors .init_array))
+        __ctor_end = .;
+    }
+    .dtors : ALIGN(8) {
+        __dtor_list = .;
+        KEEP(*(.dtors .fini_array))
+        __dtor_end = .;
+    }
+
     /*
      * extra linker scripts tend to insert sections just after .rodata,
      * so we want to make sure this symbol comes after anything inserted above,
@@ -89,16 +100,6 @@ SECTIONS
         *(.data .data.* .gnu.linkonce.d.*)
     }
 
-    .ctors : ALIGN(8) {
-        __ctor_list = .;
-        KEEP(*(.ctors .init_array))
-        __ctor_end = .;
-    }
-    .dtors : ALIGN(8) {
-        __dtor_list = .;
-        KEEP(*(.dtors .fini_array))
-        __dtor_end = .;
-    }
     .got : { *(.got.plt) *(.got) }
     .dynamic : { *(.dynamic) }
 

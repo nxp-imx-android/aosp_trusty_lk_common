@@ -55,6 +55,17 @@ SECTIONS
         *(.rodata .rodata.* .gnu.linkonce.r.*)
     }
 
+    .ctors : ALIGN(4) {
+        __ctor_list = .;
+        KEEP(*(.ctors .init_array))
+        __ctor_end = .;
+    }
+    .dtors : ALIGN(4) {
+        __dtor_list = .;
+        KEEP(*(.dtors .fini_array))
+        __dtor_end = .;
+    }
+
     /* fake section for .data to anchor off of
      * needed because extra linker scripts tend to insert sections
      * just after .rodata
@@ -81,16 +92,7 @@ SECTIONS
     .sram.text : ALIGN(4) {
         KEEP (*(.sram.text*))
     }
-    .ctors : ALIGN(4) {
-        __ctor_list = .;
-        KEEP(*(.ctors .init_array))
-        __ctor_end = .;
-    }
-    .dtors : ALIGN(4) {
-        __dtor_list = .;
-        KEEP(*(.dtors .fini_array))
-        __dtor_end = .;
-    }
+
     .got : { *(.got.plt) *(.got) }
     .dynamic : { *(.dynamic) }
 
