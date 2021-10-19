@@ -65,6 +65,8 @@ OUTBIN := $(BUILDDIR)/lk.bin
 OUTELF := $(BUILDDIR)/lk.elf
 CONFIGHEADER := $(BUILDDIR)/config.h
 
+# Eliminate /usr/local/include and /usr/include to build kernel hermetically
+GLOBAL_KERNEL_COMPILEFLAGS += --sysroot=fake_sysroot
 GLOBAL_KERNEL_INCLUDES := $(addsuffix /include,$(LKINC))
 # For backwards compatibility.
 GLOBAL_KERNEL_INCLUDES += $(addsuffix /include/uapi/uapi,$(LKINC)) $(addsuffix /include/shared/lk,$(LKINC))
