@@ -78,11 +78,34 @@ static inline bool is_inside_aspace(const vmm_aspace_t* aspace, vaddr_t vaddr) {
     return range_contains_range(aspace->base, aspace->size, vaddr, 1);
 }
 
+/*
+ * returns true iff, after potentially adding a guard page at the end of the
+ * region, it fits inside the address space pointed to by the first argument.
+ */
 static bool is_region_inside_aspace(const vmm_aspace_t* aspace,
-                                    vaddr_t vaddr,
-                                    size_t size) {
+                                    const vmm_region_t* r) {
+    size_t aspace_size = aspace->size;
+
     DEBUG_ASSERT(aspace);
-    return range_contains_range(aspace->base, aspace->size, vaddr, size);
+    DEBUG_ASSERT(aspace->base >= PAGE_SIZE);
+    DEBUG_ASSERT(aspace->size > PAGE_SIZE);
+
+    if (!(r->flags & VMM_FLAG_NO_END_GUARD)) {
+        /*
+         * rather than adding to the region size, shrink the address space
+         * size; the former operation can overflow but the latter cannot.
+         */
+        aspace_size -= PAGE_SIZE;
+
+        /*
+         * We do not have to handle the symmetric case for start guards
+         * because {KERNEL,USER}_ASPACE_BASE >= PAGE_SIZE must hold.
+         * See also vmm_create_aspace.
+         */
+    }
+
+    return range_contains_range(aspace->base, aspace_size, r->base,
+                                r->obj_slice.size);
 }
 
 static bool is_inside_region(const vmm_region_t* r, vaddr_t vaddr) {
@@ -243,7 +266,7 @@ static status_t add_region_to_aspace(vmm_aspace_t* aspace, vmm_region_t* r) {
 
     /* only try if the region will at least fit in the address space */
     if (r->obj_slice.size == 0 ||
-        !is_region_inside_aspace(aspace, r->base, r->obj_slice.size)) {
+        !is_region_inside_aspace(aspace, r)) {
         LTRACEF("region was out of range\n");
         return ERR_OUT_OF_RANGE;
     }
@@ -342,7 +365,11 @@ static inline bool next_spot(arch_aspace_t* aspace,
  *
  * Finds the largest gap of open (unused) addresses inside an address space
  * @aspace that is separated from any adjacent virtual regions (@low, @high)
- * by a guard page.
+ * by a guard page. When there is no higher adjacent virtual region, the gap
+ * is still separated from the end of the address space by one guard page.
+ * Calculating a pointer to the element one past the end of a allocation can
+ * therefore only trigger a pointer overflow if the element size is greater
+ * than or equal to a guard page.
  *
  * Return: Whether a gap was found. If the return value is false, the output
  *         parameters may be invalid. If true, all addresses between
@@ -353,6 +380,8 @@ static inline bool extract_gap(vmm_aspace_t* aspace,
                                vmm_region_t* high,
                                vaddr_t* gap_low,
                                vaddr_t* gap_high) {
+    vaddr_t gap_high_val;
+
     DEBUG_ASSERT(aspace);
     DEBUG_ASSERT(gap_low);
     DEBUG_ASSERT(gap_high);
@@ -375,22 +404,35 @@ static inline bool extract_gap(vmm_aspace_t* aspace,
     }
 
     if (high) {
-        vaddr_t gap_high_val;
-        if (__builtin_sub_overflow(high->base,
-                                   PAGE_SIZE + 1,
-                                   &gap_high_val)) {
-            /* No valid address exists below the high region + guard page */
-            return false;
-        }
-        if ((*gap_low) > gap_high_val) {
-            /* No gap available */
-            return false;
-        }
-        *gap_high = gap_high_val;
+        DEBUG_ASSERT(high->base != 0);
+        gap_high_val = high->base - 1;
     } else {
-        *gap_high = aspace->base + (aspace->size - 1);
-        /* Assume no adjacent address space so no guard page needed */
+        gap_high_val = aspace->base + (aspace->size - 1);
     }
+
+    /*
+     * Add a guard page even when the area is above highest region. We do so
+     * because it is common and legal to calculate a pointer just beyond a
+     * memory allocation. If we place an allocation at the very end of a
+     * virtual address space, calculating a pointer just beyond the allocation
+     * causes the pointer to wrap which is undefined behavior.
+     */
+    if (__builtin_sub_overflow(gap_high_val,
+                               PAGE_SIZE,
+                               &gap_high_val)) {
+        /*
+         * No valid address exists below the high region + guard page (OR the
+         * virtual address space is unexpectedly smaller than one guard page)
+         */
+        return false;
+    }
+
+    if ((*gap_low) > gap_high_val) {
+        /* No gap available */
+        return false;
+    }
+
+    *gap_high = gap_high_val;
 
     return true;
 }
