@@ -19,8 +19,6 @@ ifndef ARCH_x86_64_TOOLCHAIN_PREFIX
 $(error Please run envsetup.sh to set ARCH_x86_64_TOOLCHAIN_PREFIX)
 endif
 
-ifeq ($(call TOBOOL,$(CLANGBUILD)),true)
-
 CLANG_X86_64_TARGET_SYS ?= linux
 CLANG_X86_64_TARGET_ABI ?= gnu
 
@@ -33,8 +31,6 @@ endif
 
 ARCH_x86_COMPILEFLAGS += -target x86_64-$(CLANG_X86_64_TARGET_SYS)-$(CLANG_X86_64_TARGET_ABI) \
 				--gcc-toolchain=$(CLANG_X86_64_AS_DIR)/
-
-endif
 
 endif
 endif

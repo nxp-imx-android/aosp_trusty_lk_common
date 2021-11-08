@@ -17,8 +17,6 @@ ifeq (true,$(call TOBOOL,$(SCS_ENABLED)))
 ARCH_arm64_COMPILEFLAGS += -ffixed-x18
 endif
 
-ifeq ($(call TOBOOL,$(CLANGBUILD)),true)
-
 CLANG_ARM64_TARGET_SYS ?= linux
 CLANG_ARM64_TARGET_ABI ?= gnu
 
@@ -31,8 +29,6 @@ endif
 
 ARCH_arm64_COMPILEFLAGS += -target aarch64-$(CLANG_ARM64_TARGET_SYS)-$(CLANG_ARM64_TARGET_ABI) \
 			   --gcc-toolchain=$(CLANG_ARM64_AS_DIR)/
-
-endif
 
 # Set Rust target to match clang target
 ARCH_arm64_RUSTFLAGS := --target=$(LOCAL_DIR)/rust-target.json

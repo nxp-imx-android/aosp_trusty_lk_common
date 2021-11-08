@@ -37,8 +37,6 @@ else # ARM_WITHOUT_VFP_NEON = true
 ARCH_arm_COMPILEFLAGS += -mfloat-abi=soft
 endif # ARM_WITHOUT_VFP_NEON
 
-ifeq ($(call TOBOOL,$(CLANGBUILD)),true)
-
 CLANG_ARM_TARGET_SYS ?= linux
 CLANG_ARM_TARGET_ABI ?= gnu
 
@@ -56,8 +54,6 @@ endif
 
 ARCH_arm_COMPILEFLAGS += -target arm-$(CLANG_ARM_TARGET_SYS)-$(CLANG_ARM_TARGET_ABI) \
 			   --gcc-toolchain=$(CLANG_ARM_AS_DIR)/
-
-endif
 
 # Set up custom Rust target to match clang target
 ARCH_arm_RUSTFLAGS := --target=$(LOCAL_DIR)/rust-target.json

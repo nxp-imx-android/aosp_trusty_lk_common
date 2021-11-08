@@ -157,13 +157,7 @@ BUILDID ?=
 # comment out or override if you want to see the full output of each command
 NOECHO ?= @
 
-# default to building with clang
-CLANGBUILD ?= true
-override CLANGBUILD := $(call TOBOOL,$(CLANGBUILD))
-
-ifeq ($(call TOBOOL,$(CLANGBUILD)), true)
 GLOBAL_SHARED_COMPILEFLAGS += -Wimplicit-fallthrough
-endif
 # VLAs can have subtle security bugs and assist exploits, so ban them.
 GLOBAL_SHARED_COMPILEFLAGS += -Wvla
 
@@ -291,16 +285,11 @@ endif
 
 # default to no ccache
 CCACHE ?=
-ifeq ($(call TOBOOL,$(CLANGBUILD)), true)
 ifeq ($(CLANG_BINDIR),)
 $(error clang directory not specified, please set CLANG_BINDIR)
 endif
 CC := $(CCACHE) $(CLANG_BINDIR)/clang
 AR := $(CLANG_BINDIR)/llvm-ar
-else
-CC := $(CCACHE) $(TOOLCHAIN_PREFIX)gcc
-AR := $(TOOLCHAIN_PREFIX)ar
-endif
 LD := $(CLANG_BINDIR)/ld.lld
 OBJDUMP := $(TOOLCHAIN_PREFIX)objdump
 OBJCOPY := $(TOOLCHAIN_PREFIX)objcopy
