@@ -26,14 +26,6 @@ $(OUTELF).sym.sorted: $(OUTELF)
 	@echo generating sorted symbols: $@
 	$(NOECHO)$(OBJDUMP) -t $< | $(CPPFILT) | sort > $@
 
-$(OUTELF).lst: $(OUTELF)
-	@echo generating listing: $@
-	$(NOECHO)$(OBJDUMP) -Mreg-names-raw -d $< | $(CPPFILT) > $@
-
-$(OUTELF).debug.lst: $(OUTELF)
-	@echo generating listing: $@
-	$(NOECHO)$(OBJDUMP) -Mreg-names-raw -S $< | $(CPPFILT) > $@
-
 $(OUTELF).dump: $(OUTELF)
 	@echo generating objdump: $@
 	$(NOECHO)$(OBJDUMP) -x $< > $@
