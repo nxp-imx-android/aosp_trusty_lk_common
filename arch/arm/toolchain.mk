@@ -40,20 +40,12 @@ endif # ARM_WITHOUT_VFP_NEON
 CLANG_ARM_TARGET_SYS ?= linux
 CLANG_ARM_TARGET_ABI ?= gnu
 
-CLANG_ARM_AS_DIR ?= $(shell dirname $(shell dirname $(ARCH_arm_TOOLCHAIN_PREFIX)))
-
-ARM_AS_PATH ?= $(wildcard $(CLANG_ARM_AS_DIR)/*/bin/as)
-ifeq ($(ARM_AS_PATH),)
-$(error Could not find $(CLANG_ARM_AS_DIR)/*/bin/as, did the directory structure change?)
-endif
-
 ARCH_arm_THUMBCFLAGS :=
 ifeq ($(ENABLE_THUMB),true)
 ARCH_arm_THUMBCFLAGS := -mthumb -D__thumb__
 endif
 
-ARCH_arm_COMPILEFLAGS += -target arm-$(CLANG_ARM_TARGET_SYS)-$(CLANG_ARM_TARGET_ABI) \
-			   --gcc-toolchain=$(CLANG_ARM_AS_DIR)/
+ARCH_arm_COMPILEFLAGS += -target arm-$(CLANG_ARM_TARGET_SYS)-$(CLANG_ARM_TARGET_ABI)
 
 # Set up custom Rust target to match clang target
 ARCH_arm_RUSTFLAGS := --target=$(LOCAL_DIR)/rust-target.json
