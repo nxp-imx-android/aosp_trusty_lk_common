@@ -14,7 +14,9 @@ tmp                     .req x9
 tmp2                    .req x10
 wtmp2                   .req w10
 index                   .req x11
+/* TODO: delete to avoid aliasing with canary */
 index_shift             .req x12
+canary                  .req x12
 page_table              .req x13
 new_page_table          .req x14
 phys_offset             .req x15
@@ -198,6 +200,25 @@ arm_reset:
     /* Set up the stack */
     adrl    tmp, __stack_end
     mov     sp, tmp
+
+    /* Add the stack canary region at the low end of the stack */
+    ldr     tmp2, =ARCH_DEFAULT_STACK_SIZE
+    sub     tmp, tmp, tmp2
+    ldr     index, =ARM64_PHYSICAL_STACK_CANARY_WORDS
+    ldr     canary, =ARM64_PHYSICAL_STACK_CANARY
+
+.Lphysical_stack_canary_setup_loop:
+    cbz     index, .Lphysical_stack_canary_setup_end
+
+    /* Store the canary at the current stack location */
+    str     canary, [tmp], #8
+
+    sub     index, index, #1
+    /* Rotate the canary so every value is different */
+    ror     canary, canary, #ARM64_PHYSICAL_STACK_CANARY_ROTATE
+    b       .Lphysical_stack_canary_setup_loop
+
+.Lphysical_stack_canary_setup_end:
 
 #if KERNEL_SCS_ENABLED
     adrl    ssp, __shadow_stack
@@ -386,6 +407,27 @@ arm_reset:
     b       .Lmap_range_one_table_loop
 
 .Linitial_mapping_done:
+
+    /* Check the stack canaries */
+    adrl    tmp, __stack_end
+    ldr     tmp2, =ARCH_DEFAULT_STACK_SIZE
+    sub     tmp, tmp, tmp2
+    ldr     index, =ARM64_PHYSICAL_STACK_CANARY_WORDS
+    ldr     canary, =ARM64_PHYSICAL_STACK_CANARY
+
+.Lphysical_stack_canary_check_loop:
+    cbz     index, .Lphysical_stack_canary_check_end
+
+    ldr     tmp2, [tmp], #8
+    cmp     tmp2, canary
+    b.ne    platform_early_halt /* Error: canary got overwritten, stack overflow */
+
+    sub     index, index, #1
+    /* Rotate the canary so every value is different */
+    ror     canary, canary, #ARM64_PHYSICAL_STACK_CANARY_ROTATE
+    b       .Lphysical_stack_canary_check_loop
+
+.Lphysical_stack_canary_check_end:
 
     /* Restore the arguments */
     pop     x0, x1
