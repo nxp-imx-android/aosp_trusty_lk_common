@@ -87,6 +87,7 @@ WITH_KERNEL_VM ?= 1
 ifeq ($(WITH_KERNEL_VM),1)
 
 MODULE_SRCS += \
+	$(LOCAL_DIR)/early_mmu.c \
 	$(LOCAL_DIR)/mmu.c
 
 KERNEL_ASPACE_BASE ?= 0xffff000000000000

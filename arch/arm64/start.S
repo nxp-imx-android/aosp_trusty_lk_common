@@ -178,6 +178,36 @@ arm_reset:
 #if WITH_SMP
     cbnz    cpuid, .Lpage_tables_check_secondary
 #endif
+#endif /* WITH_KERNEL_VM */
+
+    /* clear bss */
+.L__do_bss:
+    /* clear out the bss excluding the stack and kernel translation table  */
+    /* NOTE: relies on __post_prebss_bss_start and __bss_end being 8 byte aligned */
+    adrl    tmp, __post_prebss_bss_start
+    adrl    tmp2, __bss_end
+    sub     tmp2, tmp2, tmp
+    cbz     tmp2, .L__bss_loop_done
+.L__bss_loop:
+    sub     tmp2, tmp2, #8
+    str     xzr, [tmp], #8
+    cbnz    tmp2, .L__bss_loop
+.L__bss_loop_done:
+
+#if WITH_KERNEL_VM
+    /* Set up the stack */
+    adrl    tmp, __stack_end
+    mov     sp, tmp
+
+#if KERNEL_SCS_ENABLED
+    adrl    ssp, __shadow_stack
+#endif
+
+    /* Save the arguments */
+    push    x2, x3
+    push    x0, x1
+
+    bl      arm64_early_mmu_init
 
     /* load the address of the mmu_initial_mappings table and start processing */
     adrl    mmu_initial_mapping, mmu_initial_mappings
@@ -357,6 +387,16 @@ arm_reset:
 
 .Linitial_mapping_done:
 
+    /* Restore the arguments */
+    pop     x0, x1
+    pop     x2, x3
+
+    /* Check the stack offset */
+    adrl    tmp, __stack_end
+    mov     tmp2, sp
+    cmp     tmp, tmp2
+    b.ne    platform_early_halt /* Error: invalid SP on return from C */
+
 #if WITH_SMP
     /* Release the second lock on the secondary CPUs */
     adrl    tmp, page_tables_not_ready
@@ -404,20 +444,6 @@ arm_reset:
 #if KERNEL_SCS_ENABLED
     adrl    ssp, __shadow_stack
 #endif
-
-    /* clear bss */
-.L__do_bss:
-    /* clear out the bss excluding the stack and kernel translation table  */
-    /* NOTE: relies on __post_prebss_bss_start and __bss_end being 8 byte aligned */
-    adrl    tmp, __post_prebss_bss_start
-    adrl    tmp2, __bss_end
-    sub     tmp2, tmp2, tmp
-    cbz     tmp2, .L__bss_loop_done
-.L__bss_loop:
-    sub     tmp2, tmp2, #8
-    str     xzr, [tmp], #8
-    cbnz    tmp2, .L__bss_loop
-.L__bss_loop_done:
 
     bl  lk_main
     b   .
