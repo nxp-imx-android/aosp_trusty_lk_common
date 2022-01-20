@@ -105,6 +105,12 @@ static pte_t mmu_flags_to_pte_attr(uint flags)
 
     if (flags & ARCH_MMU_FLAG_PERM_NO_EXECUTE) {
         attr |= MMU_PTE_ATTR_UXN | MMU_PTE_ATTR_PXN;
+    } else if (flags & ARCH_MMU_FLAG_PERM_USER) {
+        /* User executable page, marked privileged execute never. */
+        attr |= MMU_PTE_ATTR_PXN;
+    } else {
+        /* Privileged executable page, marked user execute never. */
+        attr |= MMU_PTE_ATTR_UXN;
     }
 
     if (flags & ARCH_MMU_FLAG_NS) {
@@ -186,15 +192,15 @@ status_t arch_mmu_query(arch_aspace_t *aspace, vaddr_t vaddr, paddr_t *paddr, ui
     if (paddr)
         *paddr = pte_addr + vaddr_rem;
     if (flags) {
-        *flags = 0;
+        uint mmu_flags = 0;
         if (pte & MMU_PTE_ATTR_NON_SECURE)
-            *flags |= ARCH_MMU_FLAG_NS;
+            mmu_flags |= ARCH_MMU_FLAG_NS;
         switch (pte & MMU_PTE_ATTR_ATTR_INDEX_MASK) {
             case MMU_PTE_ATTR_STRONGLY_ORDERED:
-                *flags |= ARCH_MMU_FLAG_UNCACHED;
+                mmu_flags |= ARCH_MMU_FLAG_UNCACHED;
                 break;
             case MMU_PTE_ATTR_DEVICE:
-                *flags |= ARCH_MMU_FLAG_UNCACHED_DEVICE;
+                mmu_flags |= ARCH_MMU_FLAG_UNCACHED_DEVICE;
                 break;
             case MMU_PTE_ATTR_NORMAL_MEMORY:
                 break;
@@ -205,18 +211,32 @@ status_t arch_mmu_query(arch_aspace_t *aspace, vaddr_t vaddr, paddr_t *paddr, ui
             case MMU_PTE_ATTR_AP_P_RW_U_NA:
                 break;
             case MMU_PTE_ATTR_AP_P_RW_U_RW:
-                *flags |= ARCH_MMU_FLAG_PERM_USER;
+                mmu_flags |= ARCH_MMU_FLAG_PERM_USER;
                 break;
             case MMU_PTE_ATTR_AP_P_RO_U_NA:
-                *flags |= ARCH_MMU_FLAG_PERM_RO;
+                mmu_flags |= ARCH_MMU_FLAG_PERM_RO;
                 break;
             case MMU_PTE_ATTR_AP_P_RO_U_RO:
-                *flags |= ARCH_MMU_FLAG_PERM_USER | ARCH_MMU_FLAG_PERM_RO;
+                mmu_flags |= ARCH_MMU_FLAG_PERM_USER | ARCH_MMU_FLAG_PERM_RO;
                 break;
         }
-        if ((pte & MMU_PTE_ATTR_UXN) && (pte & MMU_PTE_ATTR_PXN)) {
-            *flags |= ARCH_MMU_FLAG_PERM_NO_EXECUTE;
+        /*
+         * Based on whether or not this is a user page, check UXN or PXN
+         * bit to determine if it's an executable page.
+         */
+        if (mmu_flags & ARCH_MMU_FLAG_PERM_USER) {
+            DEBUG_ASSERT(pte & MMU_PTE_ATTR_PXN);
+            if (pte & MMU_PTE_ATTR_UXN) {
+                mmu_flags |= ARCH_MMU_FLAG_PERM_NO_EXECUTE;
+            }
+        } else {
+            DEBUG_ASSERT(pte & MMU_PTE_ATTR_UXN);
+            if (pte & MMU_PTE_ATTR_PXN) {
+                /* Privileged page, check the PXN bit. */
+                mmu_flags |= ARCH_MMU_FLAG_PERM_NO_EXECUTE;
+            }
         }
+        *flags = mmu_flags;
     }
     LTRACEF("va 0x%lx, paddr 0x%lx, flags 0x%x\n",
             vaddr, paddr ? *paddr : ~0UL, flags ? *flags : ~0U);
