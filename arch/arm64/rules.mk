@@ -108,6 +108,9 @@ GLOBAL_DEFINES += \
     KERNEL_BASE=$(KERNEL_BASE) \
     KERNEL_LOAD_OFFSET=$(KERNEL_LOAD_OFFSET)
 
+# we need the kernel to be PIE since we're relocating it
+PIE_KERNEL ?= true
+
 else
 
 KERNEL_BASE ?= $(MEMBASE)

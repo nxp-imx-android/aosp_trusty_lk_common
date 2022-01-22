@@ -21,8 +21,21 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
+#include <assert.h>
+#include <kernel/vm.h>
 #include <lk/compiler.h>
 #include <sys/types.h>
 
-void arm64_early_mmu_init(void) {
+void arm64_early_mmu_init(ulong ram_size, uintptr_t* relr_start,
+                          uintptr_t* relr_end, paddr_t kernel_paddr) {
+    const uintptr_t kernel_initial_vaddr = KERNEL_BASE + KERNEL_LOAD_OFFSET;
+    uintptr_t virt_offset = kernel_initial_vaddr - kernel_paddr;
+    update_relocation_entries(relr_start, relr_end, virt_offset);
+
+    /* Relocate the kernel to its physical address */
+    relocate_kernel(relr_start, relr_end, kernel_initial_vaddr, kernel_paddr);
+
+    /* Relocate the kernel to its final virtual address */
+    vaddr_t kernel_final_vaddr = kernel_initial_vaddr;
+    relocate_kernel(relr_start, relr_end, kernel_paddr, kernel_final_vaddr);
 }

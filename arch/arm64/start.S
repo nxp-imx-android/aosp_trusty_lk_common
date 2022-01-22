@@ -228,6 +228,10 @@ arm_reset:
     push    x2, x3
     push    x0, x1
 
+    /* x0 already contains ram_size */
+    adrl    x1, __relr_start
+    adrl    x2, __relr_end
+    adrl    x3, _start
     bl      arm64_early_mmu_init
 
     /* load the address of the mmu_initial_mappings table and start processing */
@@ -555,12 +559,10 @@ DATA(mmu_on_vaddr_ptr)
 .hidden mmu_on_vaddr_ptr
     /*
      * Store a pointer to the virtual address of .Lmmu_on_vaddr inside a
-     * pointer quad that KASLR can relocate. We compute the address explicitly
-     * here because the linker script places the kernel at its physical
-     * address, and we want the virtual address instead.
+     * pointer quad that ASLR can relocate.
      */
     .align 3
-    .quad ((.Lmmu_on_vaddr - _start) + KERNEL_BASE + KERNEL_LOAD_OFFSET)
+    .quad .Lmmu_on_vaddr
 #endif
 
 #if WITH_SMP

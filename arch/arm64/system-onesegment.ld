@@ -32,28 +32,14 @@ SECTIONS
     .hash : { *(.hash) }
     .dynsym : { *(.dynsym) }
     .dynstr : { *(.dynstr) }
-    .rel.text : { *(.rel.text) *(.rel.gnu.linkonce.t*) }
-    .rela.text : { *(.rela.text) *(.rela.gnu.linkonce.t*) }
-    .rel.data : { *(.rel.data) *(.rel.gnu.linkonce.d*) }
-    .rela.data : { *(.rela.data) *(.rela.gnu.linkonce.d*) }
-    .rel.rodata : { *(.rel.rodata) *(.rel.gnu.linkonce.r*) }
-    .rela.rodata : { *(.rela.rodata) *(.rela.gnu.linkonce.r*) }
-    .rel.got : { *(.rel.got) }
-    .rela.got : { *(.rela.got) }
-    .rel.ctors : { *(.rel.ctors) }
-    .rela.ctors : { *(.rela.ctors) }
-    .rel.dtors : { *(.rel.dtors) }
-    .rela.dtors : { *(.rela.dtors) }
-    .rel.init : { *(.rel.init) }
-    .rela.init : { *(.rela.init) }
-    .rel.fini : { *(.rel.fini) }
-    .rela.fini : { *(.rela.fini) }
-    .rel.bss : { *(.rel.bss) }
-    .rela.bss : { *(.rela.bss) }
-    .rel.plt : { *(.rel.plt) }
-    .rela.plt : { *(.rela.plt) }
     .init : { *(.init) } =0x9090
     .plt : { *(.plt) }
+
+    /*
+     * .plt needs to be empty because its entries might call into the dynamic
+     * loader, which doesn't exist for Trusty (or any kernel).
+     */
+    ASSERT(SIZEOF(.plt) == 0, ".plt section should be empty")
 
     /* .ARM.exidx is sorted, so has to go in its own output section.  */
     __exidx_start = .;
@@ -70,6 +56,51 @@ SECTIONS
         KEEP(*(.rodata.fault_handler_table))
         __fault_handler_table_end = .;
         *(.rodata .rodata.* .gnu.linkonce.r.*)
+    }
+
+    .rel.dyn : {
+        *(.rel.text) *(.rel.gnu.linkonce.t*)
+        *(.rel.init)
+        *(.rel.plt)
+        *(.rel.rodata) *(.rel.gnu.linkonce.r*)
+        *(.rel.lk_init)
+        *(.rel.apps)
+        *(.rel.drivers)
+        *(.rel.data) *(.rel.gnu.linkonce.d*)
+        *(.rel.devices)
+        *(.rel.ctors)
+        *(.rel.dtors)
+        *(.rel.got)
+        *(.rel.bss) *(.rel.bss.*) *(.rel.gnu.linkonce.b*)
+    }
+
+    .rela.dyn : {
+        *(.rela.text) *(.rela.gnu.linkonce.t*)
+        *(.rela.init)
+        *(.rela.plt)
+        *(.rela.rodata) *(.rela.gnu.linkonce.r*)
+        *(.rela.lk_init)
+        *(.rela.apps)
+        *(.rela.drivers)
+        *(.rela.data) *(.rela.gnu.linkonce.d*)
+        *(.rela.devices)
+        *(.rela.ctors)
+        *(.rela.dtors)
+        *(.rela.got)
+        *(.rela.bss) *(.rela.bss.*) *(.rela.gnu.linkonce.b*)
+    }
+
+    /*
+     * Non-RELR dynamic relocations are not implemented yet.
+     * .rel.dyn should not ever appear on AArch64 anyway.
+     */
+    ASSERT(SIZEOF(.rel.dyn) == 0, "Found non-RELR relocations in .rel.dyn")
+    ASSERT(SIZEOF(.rela.dyn) == 0, "Found non-RELR relocations in .rel.dyn")
+
+    .relr.dyn : ALIGN(8) {
+        __relr_start = .;
+        *(.relr.dyn)
+        __relr_end = .;
     }
 
     .ctors : ALIGN(8) {
