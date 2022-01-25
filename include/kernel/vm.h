@@ -433,6 +433,35 @@ void vmm_context_switch(vmm_aspace_t *oldspace, vmm_aspace_t *newaspace);
    NULL is a valid argument, which unmaps the current user address space */
 void vmm_set_active_aspace(vmm_aspace_t *aspace);
 
+/**
+ * update_relocation_entries() - Update all entries in the relocation table
+ *                               by subtracting a given value from each one.
+ * @relr_start: start of the relocation list.
+ * @relr_end: end of the relocation list.
+ * @reloc_delta: Value to subtract from each relocation entry.
+ *
+ * Iterates through all entries in the relocation table starting at @relr_start
+ * and subtracts @reloc_delta from each entry that encodes an absolute pointer.
+ * This is currently called to update the table emitted by the linker with
+ * kernel virtual addresses into a table containing physical addresses, so the
+ * subtractions should never underflow if @reloc_delta is the positive
+ * difference between the kernel's virtual and physical addresses.
+ */
+void update_relocation_entries(uintptr_t* relr_start, uintptr_t* relr_end,
+                               uintptr_t reloc_delta);
+/**
+ * relocate_kernel() - Apply the given list of relocations to the kernel.
+ * @relr_start: start of the relocation list.
+ * @relr_end: end of the relocation list.
+ * @old_base: current base address of the kernel.
+ * @new_base: target base address to relocate the kernel to.
+ *
+ * This function applies the given list of relative relocations to the kernel,
+ * moving the base of the kernel from @old_base to @new_base.
+ */
+void relocate_kernel(uintptr_t* relr_start, uintptr_t* relr_end,
+                     uintptr_t old_base, uintptr_t new_base);
+
 __END_CDECLS
 
 #endif // !ASSEMBLY

@@ -7,6 +7,7 @@ MODULE_SRCS += \
 	$(LOCAL_DIR)/bootalloc.c \
 	$(LOCAL_DIR)/physmem.c \
 	$(LOCAL_DIR)/pmm.c \
+	$(LOCAL_DIR)/relocate.c \
 	$(LOCAL_DIR)/vm.c \
 	$(LOCAL_DIR)/vmm.c \
 
