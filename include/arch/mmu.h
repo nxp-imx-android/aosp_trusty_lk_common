@@ -68,5 +68,20 @@ void arch_mmu_context_switch(arch_aspace_t *aspace);
 
 void arch_disable_mmu(void);
 
+/**
+ * arch_mmu_map_early() - Map physical pages at virtual address during early
+ *                        boot.
+ * @vaddr: Virtual address to map the pages at.
+ * @paddr: Physical address of pages to map.
+ * @count: Number of pages to map.
+ * @flags: Mapping flags, a combination of %ARCH_MMU_FLAG_* flags.
+ *
+ * This maps @count consecutive pages that start at physical address @paddr
+ * in the kernel address space starting at @vaddr. This function is safe to call
+ * during early boot and internally uses boot_alloc_memalign() to allocate
+ * pages for the page tables.
+ */
+void arch_mmu_map_early(vaddr_t vaddr, paddr_t paddr, size_t count, uint flags);
+
 __END_CDECLS
 

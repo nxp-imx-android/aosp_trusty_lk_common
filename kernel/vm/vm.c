@@ -37,6 +37,9 @@
 
 extern int _start;
 extern int _end;
+extern char __code_start;
+extern char __rodata_start;
+extern char __data_start;
 
 /* mark the physical pages backing a range of virtual as in use.
  * allocate the physical pages and throw them away */
@@ -123,6 +126,77 @@ static void vm_init_postheap(uint level)
         }
 
         map++;
+    }
+}
+
+void vm_assign_initial_dynamic(paddr_t kernel_start, size_t ram_size)
+{
+    for (struct mmu_initial_mapping *m = mmu_initial_mappings; m->size; m++) {
+        if (m->flags & MMU_INITIAL_MAPPING_FLAG_DYNAMIC) {
+            m->phys = kernel_start;
+            m->size = ram_size;
+        }
+    }
+}
+
+void vm_map_initial_mappings(void)
+{
+    for (struct mmu_initial_mapping *m = mmu_initial_mappings; m->size; m++) {
+        paddr_t paddr = m->phys;
+        vaddr_t vaddr = m->virt;
+        size_t mapping_size = m->size;
+        for (;;) {
+            size_t size = mapping_size;
+            uint flags;
+            if (m->flags & MMU_INITIAL_MAPPING_FLAG_UNCACHED) {
+                flags = ARCH_MMU_FLAG_UNCACHED | ARCH_MMU_FLAG_PERM_NO_EXECUTE;
+            } else if (m->flags & MMU_INITIAL_MAPPING_FLAG_DEVICE) {
+                flags = ARCH_MMU_FLAG_UNCACHED_DEVICE | ARCH_MMU_FLAG_PERM_NO_EXECUTE;
+            } else {
+                /* Determine the segment in which the memory resides and set appropriate
+                 *  attributes.  In order to handle offset kernels, the following rules are
+                 *  implemented below:
+                 *      KERNEL_BASE    to __code_start             -read/write (see note below)
+                 *      __code_start   to __rodata_start (.text)   -read only
+                 *      __rodata_start to __data_start   (.rodata) -read only, execute never
+                 *      __data_start   to .....          (.data)   -read/write
+                 *
+                 *  The space below __code_start is presently left as read/write (same as .data)
+                 *   mainly as a workaround for the raspberry pi boot process.  Boot vectors for
+                 *   secondary CPUs are in this area and need to be updated by cpu0 once the system
+                 *   is ready to boot the secondary processors.
+                 *   TODO: handle this via mmu_initial_mapping entries, which may need to be
+                 *         extended with additional flag types
+                 */
+                flags = ARCH_MMU_FLAG_CACHED;
+                if (paddr < (paddr_t)&__code_start) {
+                    /* If page is below  the entry point (_start) mark as kernel data */
+                    size = (paddr_t)&__code_start - paddr;
+                    flags |= ARCH_MMU_FLAG_PERM_NO_EXECUTE;
+                } else if (paddr < (paddr_t)&__rodata_start) {
+                    size = (paddr_t)&__rodata_start - paddr;
+                    flags |= ARCH_MMU_FLAG_PERM_RO;
+                } else if (paddr < (paddr_t)&__data_start) {
+                    size = (paddr_t)&__data_start - paddr;
+                    flags |= ARCH_MMU_FLAG_PERM_RO;
+                    flags |= ARCH_MMU_FLAG_PERM_NO_EXECUTE;
+                } else {
+                    ASSERT(paddr < (paddr_t)&_end);
+                    ASSERT(((paddr_t)&_end - paddr) <= mapping_size);
+                    flags |= ARCH_MMU_FLAG_PERM_NO_EXECUTE;
+                }
+            }
+
+            ASSERT(size <= mapping_size);
+            arch_mmu_map_early(vaddr, paddr, size, flags);
+
+            mapping_size -= size;
+            if (!mapping_size) {
+                break;
+            }
+            paddr += size;
+            vaddr += size;
+        }
     }
 }
 

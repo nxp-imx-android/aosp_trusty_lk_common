@@ -200,6 +200,14 @@ static inline void *pmm_alloc_kpage(void) { return pmm_alloc_kpages(1, NULL); }
 
 size_t pmm_free_kpages(void *ptr, uint count);
 
+/* assign physical addresses and sizes to the dynamic entries in the initial
+ * mappings
+ */
+void vm_assign_initial_dynamic(paddr_t kernel_start, size_t ram_size);
+
+/* map the initial mappings */
+void vm_map_initial_mappings(void);
+
 /* physical to virtual */
 void *paddr_to_kvaddr(paddr_t pa);
 
