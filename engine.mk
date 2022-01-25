@@ -280,6 +280,21 @@ GLOBAL_LDFLAGS += --pack-dyn-relocs=relr
 GLOBAL_LDFLAGS += --use-android-relr-tags
 endif
 
+# KERNEL_BASE_ASLR controls run-time randomization for the
+# base virtual address of the kernel image, i.e., the dynamic
+# value of KERNEL_BASE. This is currently disabled by default
+# and should be enabled manually per project because it has
+# several requirements:
+# * The platform must provide a RNG by either linking in libsm
+#   or implementing the appropriate APIs.
+# * An ARM platform must use the new dynamic GIC initialization
+#   function arm_gic_init_map() to allocate dynamic addresses for the GIC
+#   registers instead of using fixed addresses.
+# * Platforms should not use any hard-coded virtual addresses.
+ifeq ($(call TOBOOL,$(KERNEL_BASE_ASLR)), true)
+GLOBAL_DEFINES += KERNEL_BASE_ASLR=1
+endif
+
 # allow additional defines from outside the build system
 ifneq ($(EXTERNAL_DEFINES),)
 GLOBAL_DEFINES += $(EXTERNAL_DEFINES)

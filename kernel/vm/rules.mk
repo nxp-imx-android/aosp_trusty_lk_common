@@ -11,6 +11,10 @@ MODULE_SRCS += \
 	$(LOCAL_DIR)/vm.c \
 	$(LOCAL_DIR)/vmm.c \
 
+ifeq ($(call TOBOOL,$(KERNEL_BASE_ASLR)), true)
+MODULE_SRCS += $(LOCAL_DIR)/aslr.c
+endif
+
 MODULE_DEPS += \
 	lib/binary_search_tree \
 

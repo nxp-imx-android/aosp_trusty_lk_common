@@ -478,6 +478,15 @@ void *boot_alloc_memalign(size_t len, size_t alignment) __MALLOC;
  */
 void *boot_alloc_mem(size_t len) __MALLOC;
 
+#ifdef KERNEL_BASE_ASLR
+/* select a random address for KERNEL_BASE_ASLR */
+vaddr_t aslr_randomize_kernel_base(vaddr_t kernel_base);
+#else
+static inline vaddr_t aslr_randomize_kernel_base(vaddr_t kernel_base) {
+    return kernel_base;
+}
+#endif
+
 __END_CDECLS
 
 #endif // !ASSEMBLY
