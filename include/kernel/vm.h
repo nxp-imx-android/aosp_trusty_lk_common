@@ -462,6 +462,14 @@ void update_relocation_entries(uintptr_t* relr_start, uintptr_t* relr_end,
 void relocate_kernel(uintptr_t* relr_start, uintptr_t* relr_end,
                      uintptr_t old_base, uintptr_t new_base);
 
+/* allocate a buffer in early boot memory of the given size and alignment */
+void *boot_alloc_memalign(size_t len, size_t alignment) __MALLOC;
+
+/* allocate a buffer in early boot memory of the given size and an 8 byte
+ * alignment
+ */
+void *boot_alloc_mem(size_t len) __MALLOC;
+
 __END_CDECLS
 
 #endif // !ASSEMBLY

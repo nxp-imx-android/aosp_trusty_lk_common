@@ -26,8 +26,7 @@
 #include <sys/types.h>
 #include <kernel/vm.h>
 
-/* simple boot time allocator */
-void *boot_alloc_mem(size_t len) __MALLOC;
+/* simple boot time allocator state */
 extern uintptr_t boot_alloc_start;
 extern uintptr_t boot_alloc_end;
 
