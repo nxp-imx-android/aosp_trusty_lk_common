@@ -314,18 +314,19 @@ static void arm_gic_init_hw(void)
 
 void arm_gic_init(void) {
 #ifdef GICBASE
-    arm_gics[0].gicc_vaddr = GICBASE(0) + GICC_OFFSET;
-    arm_gics[0].gicc_size = GICC_MIN_SIZE;
     arm_gics[0].gicd_vaddr = GICBASE(0) + GICD_OFFSET;
     arm_gics[0].gicd_size = GICD_MIN_SIZE;
 #if GIC_VERSION > 2
     arm_gics[0].gicr_vaddr = GICBASE(0) + GICR_OFFSET;
     arm_gics[0].gicr_size = GICR_CPU_OFFSET(SMP_MAX_CPUS - 1) + GICR_MIN_SIZE;
-#endif  // GIC_VERSION
+#else /* GIC_VERSION > 2 */
+    arm_gics[0].gicc_vaddr = GICBASE(0) + GICC_OFFSET;
+    arm_gics[0].gicc_size = GICC_MIN_SIZE;
+#endif /* GIC_VERSION > 2 */
 #else
     /* Platforms should define GICBASE if they want to call this */
     panic("%s: GICBASE not defined\n", __func__);
-#endif  // GICBASE
+#endif /* GICBASE */
 
     arm_gic_init_hw();
 }
@@ -352,14 +353,6 @@ static void arm_map_regs(const char* name,
 
 void arm_gic_init_map(struct arm_gic_init_info* init_info)
 {
-    if (init_info->gicc_size < GICC_MIN_SIZE) {
-        panic("%s: gicc mapping too small %zu\n", __func__,
-              init_info->gicc_size);
-    }
-    arm_map_regs("gicc", &arm_gics[0].gicc_vaddr, init_info->gicc_paddr,
-                 init_info->gicc_size);
-    arm_gics[0].gicc_size = init_info->gicc_size;
-
     if (init_info->gicd_size < GICD_MIN_SIZE) {
         panic("%s: gicd mapping too small %zu\n", __func__,
               init_info->gicd_size);
@@ -376,7 +369,15 @@ void arm_gic_init_map(struct arm_gic_init_info* init_info)
     arm_map_regs("gicr", &arm_gics[0].gicr_vaddr, init_info->gicr_paddr,
                  init_info->gicr_size);
     arm_gics[0].gicr_size = init_info->gicr_size;
-#endif
+#else /* GIC_VERSION > 2 */
+    if (init_info->gicc_size < GICC_MIN_SIZE) {
+        panic("%s: gicc mapping too small %zu\n", __func__,
+              init_info->gicc_size);
+    }
+    arm_map_regs("gicc", &arm_gics[0].gicc_vaddr, init_info->gicc_paddr,
+                 init_info->gicc_size);
+    arm_gics[0].gicc_size = init_info->gicc_size;
+#endif /* GIC_VERSION > 2 */
 
     arm_gic_init_hw();
 }

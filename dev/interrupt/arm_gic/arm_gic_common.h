@@ -124,7 +124,6 @@ GEN_CP15_REG64_FUNCS(icc_sgi0r_el1, 2, c12);
 #endif
 
 #define GICC_LIMIT (0x0000)
-#define GICC_MIN_SIZE (0x0000)
 
 #else /* GIC_VERSION > 2 */
 
