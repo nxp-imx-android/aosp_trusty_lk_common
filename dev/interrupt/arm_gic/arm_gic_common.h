@@ -210,8 +210,11 @@ GEN_CP15_REG64_FUNCS(icc_sgi0r_el1, 2, c12);
 #define GICD_SGIR               (GICD_OFFSET + 0xf00)
 #define GICD_CPENDSGIR(n)       (GICD_OFFSET + 0xf10 + (n) * 4)
 #define GICD_SPENDSGIR(n)       (GICD_OFFSET + 0xf20 + (n) * 4)
+#if GIC_VERSION <= 2
+/* for v3 and higher, these are defined later */
 #define GICD_LIMIT              (GICD_OFFSET + 0x1000)
 #define GICD_MIN_SIZE           (GICD_LIMIT - GICD_OFFSET)
+#endif /* GIC_VERSION <= 2 */
 
 #if GIC_VERSION > 2
 /* some registers of GICD are 64 bit */
@@ -229,13 +232,15 @@ GEN_CP15_REG64_FUNCS(icc_sgi0r_el1, 2, c12);
     })
 
 /* GICv3/v4 Distributor interface */
-#define GICD_STATUSR            (0x0010)
-#define GICD_SETSPI_NSR         (0x0040)
-#define GICD_CLRSPI_NSR         (0x0048)
-#define GICD_SETSPI_SR          (0x0050)
-#define GICD_CLRSPI_SR          (0x0058)
-#define GICD_IGRPMODR(n)        (0x0D00 + (n) * 4)
-#define GICD_IROUTER(n)         (0x6000 + (n) * 8)
+#define GICD_STATUSR            (GICD_OFFSET + 0x0010)
+#define GICD_SETSPI_NSR         (GICD_OFFSET + 0x0040)
+#define GICD_CLRSPI_NSR         (GICD_OFFSET + 0x0048)
+#define GICD_SETSPI_SR          (GICD_OFFSET + 0x0050)
+#define GICD_CLRSPI_SR          (GICD_OFFSET + 0x0058)
+#define GICD_IGRPMODR(n)        (GICD_OFFSET + 0x0D00 + (n) * 4)
+#define GICD_IROUTER(n)         (GICD_OFFSET + 0x6000 + (n) * 8)
+#define GICD_LIMIT              (GICD_OFFSET + 0x10000)
+#define GICD_MIN_SIZE           (GICD_LIMIT - GICD_OFFSET)
 
 /* GICv3/v4 Redistrubutor interface */
 #if GIC_VERSION == 3
