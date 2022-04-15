@@ -24,6 +24,7 @@ SECTIONS
     .text : AT(%MEMBASE% + %KERNEL_LOAD_OFFSET%) {
         __code_start = .;
         KEEP(*(.text.boot))
+        KEEP(*(.text.boot.early.vectab))
         KEEP(*(.text.boot.vectab))
         *(.text* .sram.text.glue_7* .gnu.linkonce.t.*)
     }

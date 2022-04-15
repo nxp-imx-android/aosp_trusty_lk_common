@@ -28,6 +28,11 @@ FUNCTION(_start)
 arm_reset:
     bl      arm64_elX_to_el1
 
+    /* Initialize VBAR to the temporary exception vector table */
+    adrl    tmp, .Learly_exception_base
+    msr     vbar_el1, tmp
+    isb
+
 #if WITH_KERNEL_VM
     /* enable caches so atomics and spinlocks work */
     mrs     tmp, sctlr_el1
@@ -277,6 +282,11 @@ arm_reset:
 
 .Lmmu_on_vaddr:
 
+    /* Update VBAR to its virtual address */
+    adrl    tmp, .Learly_exception_base
+    msr     vbar_el1, tmp
+    isb
+
     /* Disable trampoline page-table in ttbr0 */
     ldr     tmp, =MMU_TCR_FLAGS_KERNEL
     msr     tcr_el1, tmp
@@ -364,6 +374,42 @@ WEAK_FUNCTION(arm64_curr_cpu_num)
 #endif
 
 .ltorg
+
+.section .text.boot.early.vectab
+.balign 0x800 /* This is the required alignment for the table */
+.Learly_exception_base:
+.org 0x000
+    b platform_early_halt
+.org 0x080
+    b platform_early_halt
+.org 0x100
+    b platform_early_halt
+.org 0x180
+    b platform_early_halt
+.org 0x200
+    b platform_early_halt
+.org 0x280
+    b platform_early_halt
+.org 0x300
+    b platform_early_halt
+.org 0x380
+    b platform_early_halt
+.org 0x400
+    b platform_early_halt
+.org 0x480
+    b platform_early_halt
+.org 0x500
+    b platform_early_halt
+.org 0x580
+    b platform_early_halt
+.org 0x600
+    b platform_early_halt
+.org 0x680
+    b platform_early_halt
+.org 0x700
+    b platform_early_halt
+.org 0x780
+    b platform_early_halt
 
 #if WITH_KERNEL_VM
 .data
