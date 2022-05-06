@@ -27,6 +27,7 @@
 #include <err.h>
 #include <platform/interrupts.h>
 #include <arch/ops.h>
+#include <imx-regs.h>
 
 #if WITH_DEV_INTERRUPT_ARM_GIC
 #include <dev/interrupt/arm_gic.h>
@@ -41,6 +42,9 @@ extern void bcm28xx_send_ipi(uint irq, uint cpu_mask);
 
 #define GIC_IPI_BASE (14)
 
+#ifdef MACH_IMX8MQ
+void imx8mq_wake_core(uint32_t target);
+#endif
 status_t arch_mp_send_ipi(mp_cpu_mask_t target, mp_ipi_t ipi)
 {
     LTRACEF("target 0x%x, ipi %u\n", target, ipi);
@@ -53,6 +57,11 @@ status_t arch_mp_send_ipi(mp_cpu_mask_t target, mp_ipi_t ipi)
     if (target != 0) {
         LTRACEF("target 0x%x, gic_ipi %u\n", target, gic_ipi_num);
         arm_gic_sgi(gic_ipi_num, ARM_GIC_SGI_FLAG_NS, target);
+
+#ifdef MACH_IMX8MQ
+	/* wakeup the target cpu core */
+        imx8mq_wake_core(target);
+#endif
     }
 #elif PLATFORM_BCM28XX
     /* filter out targets outside of the range of cpus we care about */
