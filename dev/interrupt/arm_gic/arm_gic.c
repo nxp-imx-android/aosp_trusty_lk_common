@@ -771,8 +771,6 @@ status_t sm_intc_fiq_enter(void)
 #endif
     bool fiq_enabled;
 
-    ASSERT(cpu < 8);
-
     LTRACEF("cpu %d, irq %i\n", cpu, irq);
 
     if (irq >= 1020) {
@@ -788,10 +786,13 @@ status_t sm_intc_fiq_enter(void)
             GICCREG_WRITE(0, icc_asgi1r_el1, val);
         }
 #else
+        ASSERT(cpu < 8);
         LTRACEF("spurious fiq: cpu %d, old %d, new %d\n", cpu, current_fiq[cpu], irq);
 #endif
         return ERR_NO_MSG;
     }
+
+    ASSERT(cpu < 8);
 
     fiq_enabled = update_fiq_targets(cpu, false, irq, false);
 #if GIC_VERSION > 2
