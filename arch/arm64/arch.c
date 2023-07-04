@@ -33,7 +33,6 @@
 #include <lk/main.h>
 #include <platform.h>
 #include <trace.h>
-#include <imx-regs.h>
 
 #define LOCAL_TRACE 0
 
@@ -160,9 +159,7 @@ void arm64_secondary_entry(ulong asm_cpu_num)
 
     /* we're done, tell the main cpu we're up */
     atomic_add(&secondaries_to_init, -1);
-#ifndef MACH_IMX93
     __asm__ volatile("sev");
-#endif
 
     lk_secondary_cpu_entry();
 }
